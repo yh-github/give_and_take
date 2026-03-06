@@ -1,0 +1,933 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+// --- DATA & LOGIC ---
+const ITEM_DB = [
+  { id: 'apple', name: 'Apple', emoji: '🍎' },
+  { id: 'bread', name: 'Bread', emoji: '🥖' },
+  { id: 'gold', name: 'Gold', emoji: '💰' },
+  { id: 'gem', name: 'Gem', emoji: '💎' },
+  { id: 'sword', name: 'Sword', emoji: '🗡️' },
+  { id: 'bug_spray', name: 'Poison', emoji: '🧪' },
+  { id: 'key', name: 'Key', emoji: '🔑' },
+  { id: 'wand', name: 'Wand', emoji: '🪄' },
+  { id: 'hat', name: 'Hat', emoji: '🎩' },
+  { id: 'bone', name: 'Bone', emoji: '🦴' },
+  { id: 'shield', name: 'Shield', emoji: '🛡️' },
+  { id: 'map', name: 'Map', emoji: '🗺️' },
+  { id: 'fish', name: 'Fish', emoji: '🐟' },
+  { id: 'lantern', name: 'Lantern', emoji: '🏮' },
+  { id: 'flute', name: 'Flute', emoji: '🪈' },
+  { id: 'flower', name: 'Flower', emoji: '🌸' }
+];
+
+const ENTITY_DB = [
+  { id: 'troll', name: 'Troll', emoji: '🧌', allowedReqs: ['apple', 'bread', 'gold', 'gem', 'sword', 'wand', 'fish', 'shield'] },
+  { id: 'baker', name: 'Baker', emoji: '👨‍🍳', allowedReqs: ['gold', 'gem', 'hat', 'apple', 'flower'] },
+  { id: 'spider', name: 'Spider', emoji: '🕷️', allowedReqs: ['sword', 'bug_spray', 'wand', 'lantern'] },
+  { id: 'chest', name: 'Chest', emoji: '🧳', allowedReqs: ['key', 'sword', 'shield'] },
+  { id: 'wizard', name: 'Wizard', emoji: '🧙‍♂️', allowedReqs: ['wand', 'gold', 'gem', 'hat', 'apple', 'map', 'flute'] },
+  { id: 'dragon', name: 'Dragon', emoji: '🐉', allowedReqs: ['sword', 'wand', 'gold', 'gem', 'shield'] }, 
+  { id: 'dog', name: 'Hound', emoji: '🐕', allowedReqs: ['bone', 'apple', 'bread', 'fish'] },
+  { id: 'goblin', name: 'Goblin', emoji: '👺', allowedReqs: ['gold', 'gem', 'apple', 'bread', 'hat', 'map', 'lantern'] },
+  { id: 'mermaid', name: 'Mermaid', emoji: '🧜‍♀️', allowedReqs: ['fish', 'gem', 'flute', 'hat', 'flower'] },
+  { id: 'ghost', name: 'Ghost', emoji: '👻', allowedReqs: ['lantern', 'flute', 'bone', 'flower'] },
+  { id: 'knight', name: 'Knight', emoji: '🪖', allowedReqs: ['sword', 'shield', 'map', 'apple', 'bread'] },
+  { id: 'merchant', name: 'Merchant', emoji: '👳‍♂️', allowedReqs: ['gold', 'gem', 'map', 'sword', 'lantern'] },
+  { id: 'fairy', name: 'Fairy', emoji: '🧚‍♀️', allowedReqs: ['flower', 'apple', 'wand', 'hat', 'flute'] },
+  { id: 'bear', name: 'Bear', emoji: '🐻', allowedReqs: ['fish', 'apple', 'bread', 'bone'] }
+];
+
+const CAMP_POS = { x: 50, y: 92 };
+
+const MAP_NODES = [
+  { x: 12, y: 82, zone: 1 }, { x: 88, y: 82, zone: 1 }, 
+  { x: 25, y: 65, zone: 1 }, { x: 75, y: 65, zone: 1 }, 
+  { x: 50, y: 52, zone: 1, isGatekeeper: true },
+  { x: 15, y: 35, zone: 2 }, { x: 85, y: 32, zone: 2 }, 
+  { x: 50, y: 18, zone: 2 }
+];
+
+const SCENERY_NODES = [
+  { x: 8, y: 22, e: '🌲', s: 'text-3xl' }, { x: 85, y: 12, e: '⛰️', s: 'text-5xl' },
+  { x: 32, y: 28, e: '🌲', s: 'text-2xl' }, { x: 75, y: 35, e: '🌲', s: 'text-4xl' },
+  { x: 15, y: 68, e: '🪨', s: 'text-2xl' }, { x: 88, y: 75, e: '🌲', s: 'text-3xl' },
+  { x: 42, y: 85, e: '🌲', s: 'text-2xl' }, { x: 68, y: 82, e: '🪨', s: 'text-3xl' },
+  { x: 48, y: 38, e: '⛰️', s: 'text-4xl' }, { x: 20, y: 15, e: '⛰️', s: 'text-4xl' },
+  { x: 5, y: 30, e: '🌿', s: 'text-xl' }, { x: 95, y: 35, e: '🌿', s: 'text-xl' },
+  { x: 60, y: 20, e: '🌲', s: 'text-2xl' }, { x: 20, y: 90, e: '🌿', s: 'text-xl' },
+  { x: 80, y: 92, e: '🌲', s: 'text-2xl' }, { x: 35, y: 35, e: '🪨', s: 'text-xl' },
+  { x: 60, y: 75, e: '🌿', s: 'text-lg' }, { x: 55, y: 70, e: '🍄', s: 'text-xl' },
+  { x: 30, y: 78, e: '🍄', s: 'text-xl' }, { x: 90, y: 38, e: '🪨', s: 'text-2xl' },
+  { x: 10, y: 75, e: '🌲', s: 'text-3xl' }
+];
+
+const BridgeSVG = () => (
+  <svg className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-28 -z-10" viewBox="0 0 60 100">
+    <circle cx="10" cy="5" r="4" fill="#3e1c00"/>
+    <circle cx="50" cy="5" r="4" fill="#3e1c00"/>
+    <circle cx="10" cy="95" r="4" fill="#3e1c00"/>
+    <circle cx="50" cy="95" r="4" fill="#3e1c00"/>
+    <path d="M 10 5 Q 15 50 10 95" fill="none" stroke="#3e1c00" strokeWidth="2" />
+    <path d="M 50 5 Q 45 50 50 95" fill="none" stroke="#3e1c00" strokeWidth="2" />
+    {[15, 30, 45, 60, 75].map((y, i) => (
+      <rect key={y} x={12} y={y} width="36" height="8" fill="#8b5a2b" stroke="#4a2211" strokeWidth="1" rx="1" transform={`rotate(${i%2===0?-2:2} 30 ${y+4})`}/>
+    ))}
+  </svg>
+);
+
+function solve(startItems, puzzleEntities, goalEntityId, gatekeeperId) {
+  const queue = [{ inv: [...startItems].sort(), def: [], path: [] }];
+  const visited = new Set();
+  let iters = 0;
+
+  while (queue.length > 0) {
+    iters++;
+    if (iters > 35000) return null;
+
+    const curr = queue.shift();
+    if (curr.def.includes(goalEntityId)) return curr.path;
+
+    const stateKey = curr.inv.join(',') + '|' + curr.def.sort().join(',');
+    if (visited.has(stateKey)) continue;
+    visited.add(stateKey);
+
+    if (!curr.def.includes('fish_node') && curr.inv.length < 3) {
+      queue.push({ 
+        inv: [...curr.inv, 'fish'].sort(), 
+        def: [...curr.def, 'fish_node'], 
+        path: [...curr.path, { isCatchFish: true, itemId: 'fish' }] 
+      });
+    }
+
+    for (const entity of puzzleEntities) {
+      if (curr.def.includes(entity.id)) continue;
+      if (entity.zone === 2 && !curr.def.includes(gatekeeperId)) continue;
+      
+      if (entity.reqType === 'AND') {
+        if (entity.requires.every(req => curr.inv.includes(req))) {
+          let newInv = [...curr.inv];
+          entity.requires.forEach(req => {
+            const idx = newInv.indexOf(req);
+            if (idx > -1) newInv.splice(idx, 1);
+          });
+          if (entity.reward) newInv.push(entity.reward);
+          if (newInv.length <= 3) {
+            queue.push({ 
+              inv: newInv.sort(), 
+              def: [...curr.def, entity.id], 
+              path: [...curr.path, { entityId: entity.id, usedItems: entity.requires, reqType: 'AND' }] 
+            });
+          }
+        }
+      } else {
+        for (let i = 0; i < curr.inv.length; i++) {
+          const itemId = curr.inv[i];
+          if (entity.requires.includes(itemId)) {
+            const newInv = [...curr.inv];
+            newInv.splice(i, 1);
+            if (entity.reward) newInv.push(entity.reward);
+            if (newInv.length <= 3) {
+              queue.push({ 
+                inv: newInv.sort(), 
+                def: [...curr.def, entity.id], 
+                path: [...curr.path, { entityId: entity.id, itemId: itemId, reqType: 'OR' }] 
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function generatePuzzleData(targetSteps, numDiggers) {
+  let bestPuzzle = null;
+  let maxSteps = 0;
+
+  for (let attempt = 0; attempt < 5000; attempt++) {
+    const troll = ENTITY_DB.find(e => e.id === 'troll');
+    const dogTemplate = ENTITY_DB.find(e => e.id === 'dog');
+    const otherTemplates = ENTITY_DB.filter(e => e.id !== 'troll' && e.id !== 'dog');
+    
+    let selectedOthers = Array.from({length: numDiggers}).map((_, i) => ({...dogTemplate, id: `dog_${i}`}));
+    const shuffledOthers = [...otherTemplates].sort(() => Math.random() - 0.5);
+    
+    selectedOthers = [...selectedOthers, ...shuffledOthers.slice(0, 7 - numDiggers)].sort(() => Math.random() - 0.5);
+    const shuffledEnts = [...selectedOthers.slice(0, 4), troll, ...selectedOthers.slice(4, 7)];
+    const goalEntity = shuffledEnts[7];
+
+    const puzzleEntities = shuffledEnts.map((e, idx) => {
+      const pos = MAP_NODES[idx]; 
+      const isGatekeeper = pos.isGatekeeper;
+      const isGoal = e.id === goalEntity.id;
+
+      let reward = null;
+      if (!isGoal && !isGatekeeper) { 
+        reward = ITEM_DB[Math.floor(Math.random() * ITEM_DB.length)].id;
+      }
+      
+      const availableReqs = e.allowedReqs.filter(req => req !== reward);
+      let reqType = 'OR';
+      let numReqs = 1;
+
+      if (isGoal || isGatekeeper) {
+        reqType = 'AND';
+        numReqs = 2; 
+      } else {
+        reqType = 'OR';
+        numReqs = Math.random() > 0.4 && availableReqs.length >= 2 ? 2 : 1; 
+      }
+      
+      const reqs = [...availableReqs].sort(() => Math.random() - 0.5).slice(0, numReqs);
+      
+      return { ...e, requires: reqs, reqType, reward, x: pos.x, y: pos.y, zone: pos.zone, isGatekeeper };
+    });
+
+    const nonFishItems = ITEM_DB.filter(i => i.id !== 'fish');
+    const getRandomItem = () => nonFishItems[Math.floor(Math.random() * nonFishItems.length)].id;
+    const startItems = [getRandomItem(), getRandomItem(), getRandomItem()];
+
+    const solution = solve(startItems, puzzleEntities, goalEntity.id, 'troll');
+
+    if (solution) {
+      if (solution.length >= targetSteps) {
+        return { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: 'troll', solution };
+      }
+      if (solution.length > maxSteps) {
+        bestPuzzle = { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: 'troll', solution };
+        maxSteps = solution.length;
+      }
+    }
+  }
+  return bestPuzzle;
+}
+
+export default function App() {
+  const [targetSteps, setTargetSteps] = useState(6);
+  const [numDiggers, setNumDiggers] = useState(1);
+  const [puzzle, setPuzzle] = useState(null);
+  const [inventory, setInventory] = useState([]);
+  const [defeated, setDefeated] = useState([]);
+  const [selectedIndices, setSelectedIndices] = useState([]); 
+  const [pathHistory, setPathHistory] = useState([CAMP_POS]);
+  const [historyStack, setHistoryStack] = useState([]); 
+  
+  const [isVictorious, setIsVictorious] = useState(false);
+  const [showTrophy, setShowTrophy] = useState(false);
+  const [showVictoryMsg, setShowVictoryMsg] = useState(false);
+  const [isDemonstrating, setIsDemonstrating] = useState(false);
+  const [isAnimatingLoot, setIsAnimatingLoot] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [mapRefreshKey, setMapRefreshKey] = useState(0); 
+  
+  const [alertEntityId, setAlertEntityId] = useState(null); 
+  const [selectedEntityId, setSelectedEntityId] = useState(null);
+  const [flyingItem, setFlyingItem] = useState(null);
+  const [tempPlayerPos, setTempPlayerPos] = useState(null);
+  
+  const [fishState, setFishState] = useState('swimming'); 
+  const [fishCaughtPos, setFishCaughtPos] = useState({x: 50, y: 50});
+
+  const demoRef = useRef(false);
+
+  useEffect(() => { handleGenerate(); }, []);
+
+  const handleGenerate = () => {
+    if (demoRef.current || isAnimatingLoot) return; 
+    const newPuzzle = generatePuzzleData(targetSteps, numDiggers);
+    setPuzzle(newPuzzle);
+    resetGameState(newPuzzle.startItems);
+    setIsMenuOpen(false);
+    setMapRefreshKey(prev => prev + 1);
+  };
+
+  const handleReplay = () => {
+    if (!puzzle || isDemonstrating || isAnimatingLoot) return;
+    resetGameState(puzzle.startItems);
+    setIsMenuOpen(false);
+    setMapRefreshKey(prev => prev + 1);
+  };
+
+  const resetGameState = (startItems) => {
+    setInventory(startItems.filter(i => i !== 'fish'));
+    setDefeated([]);
+    setSelectedIndices([]);
+    setSelectedEntityId(null);
+    setPathHistory([CAMP_POS]);
+    setHistoryStack([]);
+    setIsVictorious(false);
+    setShowTrophy(false);
+    setShowVictoryMsg(false);
+    setIsDemonstrating(false);
+    setIsAnimatingLoot(false);
+    setAlertEntityId(null);
+    setFlyingItem(null);
+    setTempPlayerPos(null);
+    setFishState('swimming');
+  };
+
+  const handleUndo = () => {
+    if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot) return;
+    const prevState = historyStack[historyStack.length - 1];
+    
+    setInventory(prevState.inventory);
+    setDefeated(prevState.defeated);
+    setPathHistory(prevState.pathHistory);
+    setFishState(prevState.fishState);
+    setHistoryStack(prev => prev.slice(0, -1));
+    
+    setSelectedIndices([]);
+    setSelectedEntityId(null);
+    setFlyingItem(null);
+    setTempPlayerPos(null);
+    setIsVictorious(false);
+    setShowTrophy(false);
+    setShowVictoryMsg(false);
+  };
+
+  const handleShowSolution = async () => {
+    if (!puzzle || !puzzle.solution || demoRef.current || isAnimatingLoot) return;
+    
+    setIsDemonstrating(true);
+    demoRef.current = true;
+    resetGameState(puzzle.startItems);
+    setIsMenuOpen(false);
+
+    let currentInv = [...puzzle.startItems.filter(i => i !== 'fish')];
+    let currentDefeated = [];
+    let currentPath = [CAMP_POS];
+
+    for (const step of puzzle.solution) {
+      if (!demoRef.current) break; 
+      
+      if (step.isCatchFish) {
+        setFishState('caught');
+        setFishCaughtPos({x: 50, y: 53});
+        await new Promise(r => setTimeout(r, 800));
+        setFishState('hidden');
+        currentInv.push('fish');
+        setInventory([...currentInv]);
+        await new Promise(r => setTimeout(r, 400));
+        continue;
+      }
+
+      await new Promise(r => setTimeout(r, 600));
+
+      if (step.reqType === 'AND') {
+        let tempInvForSelect = [...currentInv];
+        let idxs = [];
+        step.usedItems.forEach(req => {
+            const idx = tempInvForSelect.indexOf(req);
+            if (idx > -1) {
+                idxs.push(idx);
+                tempInvForSelect[idx] = null; 
+            }
+        });
+        setSelectedIndices(idxs);
+      } else {
+        const itemIdx = currentInv.indexOf(step.itemId);
+        setSelectedIndices([itemIdx]);
+      }
+
+      await new Promise(r => setTimeout(r, 600));
+      
+      const entity = puzzle.puzzleEntities.find(e => e.id === step.entityId);
+      currentPath.push({x: entity.x, y: entity.y});
+      setPathHistory([...currentPath]);
+
+      await new Promise(r => setTimeout(r, 800)); 
+
+      if (step.reqType === 'AND') {
+        step.usedItems.forEach(req => {
+          const idx = currentInv.indexOf(req);
+          if (idx > -1) currentInv.splice(idx, 1);
+        });
+      } else {
+        const itemIdx = currentInv.indexOf(step.itemId);
+        currentInv.splice(itemIdx, 1);
+      }
+      setInventory([...currentInv]);
+      setSelectedIndices([]); 
+      
+      if (entity.reward) {
+        setFlyingItem({ emoji: ITEM_DB.find(i=>i.id===entity.reward).emoji, x: entity.x, y: entity.y });
+        await new Promise(r => setTimeout(r, 800)); 
+        setFlyingItem(null);
+        currentInv.push(entity.reward);
+        setInventory([...currentInv]);
+      }
+      
+      currentDefeated.push(entity.id);
+      setDefeated([...currentDefeated]);
+      setSelectedEntityId(null);
+
+      if (entity.id === puzzle.goalEntityId) triggerVictory();
+    }
+    setIsDemonstrating(false);
+    demoRef.current = false;
+  };
+
+  const triggerVictory = () => {
+    setIsVictorious(true);
+    setTimeout(() => setShowTrophy(true), 800);
+    setTimeout(() => setShowVictoryMsg(true), 1000);
+  };
+
+  const handleCatchFish = (e) => {
+    e.stopPropagation();
+    if (fishState !== 'swimming' || inventory.length >= 3 || isDemonstrating || isAnimatingLoot) return;
+    
+    setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], fishState }]);
+    
+    const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
+    const x = ((e.clientX - parentRect.left) / parentRect.width) * 100;
+    const y = ((e.clientY - parentRect.top) / parentRect.height) * 100;
+    
+    setFishCaughtPos({x, y});
+    setFishState('caught');
+    
+    setTimeout(() => {
+      setFishState('hidden');
+      setInventory(prev => [...prev, 'fish']);
+    }, 800);
+  };
+
+  const toggleInventorySlot = (slotIdx) => {
+    if (isDemonstrating || isAnimatingLoot) return;
+    if (selectedIndices.includes(slotIdx)) {
+      setSelectedIndices(prev => prev.filter(i => i !== slotIdx));
+    } else {
+      setSelectedIndices(prev => [...prev, slotIdx]);
+    }
+  };
+
+  const handleInteract = (entity, e) => {
+    e.stopPropagation();
+    if (defeated.includes(entity.id) || isVictorious || isDemonstrating || isAnimatingLoot) return;
+
+    if (selectedIndices.length === 0) {
+      setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
+      return;
+    }
+
+    if (entity.zone === 2 && !defeated.includes(puzzle.gatekeeperId)) {
+      setSelectedIndices([]);
+      setSelectedEntityId(null);
+      setIsAnimatingLoot(true); 
+      
+      const gatekeeper = puzzle.puzzleEntities.find(ent => ent.id === puzzle.gatekeeperId);
+      setTempPlayerPos({ x: gatekeeper.x, y: gatekeeper.y + 12 });
+      
+      setTimeout(() => {
+        setAlertEntityId(puzzle.gatekeeperId); 
+        setTimeout(() => {
+          setAlertEntityId(null);
+          setTempPlayerPos(null); 
+          setTimeout(() => setIsAnimatingLoot(false), 700); 
+        }, 600); 
+      }, 700); 
+      return;
+    }
+
+    const selectedItemIds = selectedIndices.map(idx => inventory[idx]);
+    let canDefeat = false;
+    let consumedIndices = [];
+
+    if (entity.reqType === 'AND') {
+      let tempSelected = [...selectedItemIds];
+      canDefeat = entity.requires.every(req => {
+        const i = tempSelected.indexOf(req);
+        if (i > -1) {
+          tempSelected.splice(i, 1);
+          return true;
+        }
+        return false;
+      });
+
+      if (canDefeat) {
+        let tempIdxs = [...selectedIndices];
+        entity.requires.forEach(req => {
+          const arrIdx = tempIdxs.findIndex(idx => inventory[idx] === req);
+          consumedIndices.push(tempIdxs[arrIdx]);
+          tempIdxs.splice(arrIdx, 1);
+        });
+      }
+    } else {
+      const matchedReq = entity.requires.find(req => selectedItemIds.includes(req));
+      if (matchedReq) {
+        canDefeat = true;
+        consumedIndices.push(selectedIndices.find(idx => inventory[idx] === matchedReq));
+      }
+    }
+
+    if (canDefeat) {
+      setIsAnimatingLoot(true); 
+      setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], fishState }]);
+
+      const rewardId = entity.reward;
+      setInventory(prev => prev.filter((_, idx) => !consumedIndices.includes(idx)));
+      setDefeated(prev => [...prev, entity.id]);
+      setPathHistory(prev => [...prev, { x: entity.x, y: entity.y }]);
+      setSelectedIndices([]);
+      setSelectedEntityId(null);
+
+      if (rewardId) {
+        setFlyingItem({ emoji: ITEM_DB.find(i => i.id === rewardId).emoji, x: entity.x, y: entity.y });
+        setTimeout(() => {
+          setInventory(prev => [...prev, rewardId]);
+          setFlyingItem(null);
+          setIsAnimatingLoot(false); 
+          if (entity.id === puzzle.goalEntityId) triggerVictory();
+        }, 800);
+      } else {
+        setIsAnimatingLoot(false); 
+        if (entity.id === puzzle.goalEntityId) triggerVictory();
+      }
+
+    } else {
+      setSelectedIndices([]); 
+    }
+  };
+
+  if (!puzzle) return <div className="min-h-screen bg-stone-900 flex items-center justify-center text-amber-500 text-2xl font-serif">Generating Realm...</div>;
+
+  const playerPos = pathHistory[pathHistory.length - 1];
+  const displayPlayerPos = tempPlayerPos || playerPos;
+
+  return (
+    <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-2 sm:p-4 font-serif select-none overflow-hidden relative">
+      
+      <div 
+        className="relative w-full max-w-4xl h-[70vh] sm:h-[75vh] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-8 border-amber-900/80 ring-4 ring-stone-950"
+        onClick={() => setSelectedEntityId(null)}
+      >
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+        
+        <button 
+          onClick={() => setIsMenuOpen(true)}
+          className="absolute top-4 right-4 z-50 bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"
+          title="Menu"
+        >
+          <span className="text-xl pt-0.5">⚙️</span>
+        </button>
+
+        <div key={mapRefreshKey} className="absolute inset-0 animate-map-appear">
+          
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#1e40af" strokeWidth="10" opacity="0.3" strokeLinecap="round"/>
+            <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#3b82f6" strokeWidth="5" opacity="0.5" strokeLinecap="round"/>
+            <path d="M -10 52 Q 25 42 50 52 T 110 52" fill="none" stroke="#93c5fd" strokeWidth="1.5" opacity="0.7" strokeLinecap="round" strokeDasharray="15 25" className="animate-river-flow"/>
+            <path d="M -10 54 Q 25 44 50 54 T 110 54" fill="none" stroke="#bfdbfe" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeDasharray="8 32" className="animate-river-flow-slow"/>
+          </svg>
+
+          <div className="absolute inset-0 bg-gradient-to-c from-transparent to-black/20 pointer-events-none" />
+
+          {SCENERY_NODES.map((sc, i) => (
+            <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} opacity-40 grayscale sepia z-0 pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%` }}>
+              {sc.e}
+            </div>
+          ))}
+
+          {/* Interactive Fish */}
+          {fishState === 'swimming' && (
+            <div 
+              className="absolute z-20 cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform"
+              onClick={handleCatchFish}
+              title={inventory.length >= 3 ? "Inventory Full!" : "Catch me!"}
+            >
+              🐟
+            </div>
+          )}
+          {fishState === 'caught' && (
+            <div 
+              className="absolute z-50 flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl"
+              style={{ left: `${fishCaughtPos.x}%`, top: `${fishCaughtPos.y}%` }}
+            >
+              <span className="text-3xl">🐟</span>
+              <span className="text-xs font-bold text-white bg-blue-500/80 px-2 py-0.5 rounded-full mt-1 border border-blue-300">CAUGHT!</span>
+            </div>
+          )}
+
+          <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-10">
+            {pathHistory.map((pos, i) => {
+              if (i === 0) return null;
+              const prev = pathHistory[i - 1];
+              return (
+                <line 
+                  key={i} 
+                  x1={`${prev.x}%`} y1={`${prev.y}%`} 
+                  x2={`${pos.x}%`} y2={`${pos.y}%`} 
+                  stroke="#4a2211" strokeWidth="5" 
+                  strokeDasharray="12 12" 
+                  className="animate-[dash_1s_linear_forwards]"
+                  style={{ strokeDashoffset: 100 }}
+                />
+              );
+            })}
+            {tempPlayerPos && (
+              <line 
+                x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} 
+                x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} 
+                stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" 
+              />
+            )}
+          </svg>
+
+          <div className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${CAMP_POS.x}%`, top: `${CAMP_POS.y}%` }}>
+            <div className="text-4xl drop-shadow-lg filter sepia">⛺</div>
+          </div>
+
+          <div 
+            className="absolute transform -translate-x-1/2 -translate-y-1/2 z-40 transition-all duration-700 ease-in-out pointer-events-none flex items-center justify-center"
+            style={{ left: `${displayPlayerPos.x}%`, top: `${displayPlayerPos.y}%` }}
+          >
+            <div className="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-xl text-2xl">
+              🤠
+            </div>
+            {showTrophy && (
+              <div className="absolute -right-8 top-0 text-4xl animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]" style={{animationDelay: '0.2s'}}>
+                🏆
+              </div>
+            )}
+          </div>
+
+          {flyingItem && (
+            <div 
+              className="absolute z-50 animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none"
+              style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%` }}
+            >
+              {flyingItem.emoji}
+            </div>
+          )}
+
+          {puzzle.puzzleEntities.map(ent => {
+            const isDefeated = defeated.includes(ent.id);
+            const isGoal = ent.id === puzzle.goalEntityId;
+            const rewardItem = ent.reward ? ITEM_DB.find(i => i.id === ent.reward) : null;
+            
+            const isAlerting = alertEntityId === ent.id;
+            const isSelected = selectedEntityId === ent.id;
+            
+            const slideDirection = ent.x > 50 ? '-translate-x-10' : 'translate-x-10';
+            const hideDirection = ent.x > 50 ? '-translate-x-4' : 'translate-x-4';
+            
+            const isDog = ent.id.startsWith('dog');
+            const isBuried = isDog && pathHistory.length > 1;
+
+            return (
+              <div 
+                key={ent.id}
+                onClick={(e) => !isDefeated && handleInteract(ent, e)}
+                className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-transform duration-300 ${
+                  isSelected ? 'z-50' : 'z-20'
+                } ${isDefeated ? 'opacity-50 grayscale cursor-default' : 'hover:scale-110 cursor-pointer'}`}
+                style={{ left: `${ent.x}%`, top: `${ent.y}%` }}
+              >
+                {!isDefeated && isSelected && (
+                  <div className="absolute -top-12 bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg z-40 font-bold whitespace-nowrap animate-bounce gap-1">
+                    {ent.requires.map((reqId, i) => (
+                      <React.Fragment key={reqId}>
+                        <span title={ITEM_DB.find(i => i.id === reqId).name}>
+                          {ITEM_DB.find(i => i.id === reqId).emoji}
+                        </span>
+                        {i < ent.requires.length - 1 && (
+                          <span className="text-sm mx-1 text-stone-500 font-black">
+                            {ent.reqType === 'AND' ? '&' : 'או'}
+                          </span>
+                        )}
+                      </React.Fragment>
+                    ))}
+                    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white border-b-2 border-r-2 border-stone-800 rotate-45"></div>
+                  </div>
+                )}
+
+                <div className="relative">
+                  {ent.isGatekeeper && <BridgeSVG />}
+
+                  <div className={`relative transition-all duration-700 ease-in-out ${(ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : ''}`}>
+                    
+                    {!isDefeated && rewardItem && !isGoal && (
+                      isBuried ? (
+                        <>
+                          <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${hideDirection} translate-y-2 scale-90 opacity-90 -z-20`}>
+                            🕳️
+                          </div>
+                          <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${
+                            isSelected ? `${slideDirection} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : 'translate-y-2 scale-0 opacity-0 -z-10'
+                          }`}>
+                            ❓
+                          </div>
+                        </>
+                      ) : (
+                        <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${
+                          isSelected 
+                            ? `${slideDirection} -translate-y-4 rotate-12 scale-110 z-0` 
+                            : `${hideDirection} translate-y-2 rotate-0 scale-90 opacity-90 -z-10` 
+                        }`}>
+                          {rewardItem.emoji}
+                        </div>
+                      )
+                    )}
+                    
+                    <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper ? 'text-6xl' : 'text-4xl'} ${isGoal ? 'text-purple-900' : ''} ${isAlerting ? 'animate-troll-mad scale-125' : ''} ${(isDog && pathHistory.length === 2 && !isDemonstrating) ? 'animate-dog-dig' : ''}`}>
+                      {isAlerting ? '😡' : ent.emoji}
+                    </div>
+                  </div>
+                </div>
+
+                {ent.isGatekeeper && isAlerting && (
+                  <div className="absolute -bottom-5 bg-red-700 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-900 shadow-md scale-110 z-30">
+                    BLOCKED!
+                  </div>
+                )}
+
+                {isGoal && !isDefeated && !isAlerting && (
+                  <div className="absolute -bottom-6 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">
+                    יציאה
+                  </div>
+                )}
+
+                {isDefeated && !ent.isGatekeeper && (
+                  <div className="absolute -bottom-2 text-green-500 font-bold text-xl drop-shadow-md z-30">✅</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Continuous Repeated Starbursts */}
+        {showVictoryMsg && (
+          <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden">
+            {[...Array(30)].map((_, i) => {
+              const delay = Math.random() * 3; 
+              const left = 10 + Math.random() * 80;
+              const top = 10 + Math.random() * 80;
+              const tx = (Math.random() - 0.5) * 200;
+              const ty = (Math.random() - 0.5) * 200;
+              
+              return (
+                <div key={i} className="absolute text-3xl animate-star-burst-infinite" style={{
+                  left: `${left}%`,
+                  top: `${top}%`,
+                  '--tx': `${tx}px`,
+                  '--ty': `${ty}px`,
+                  animationDelay: `${delay}s`
+                }}>
+                  {['⭐', '🌟', '✨'][Math.floor(Math.random() * 3)]}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {showVictoryMsg && (
+          <div className="absolute top-1/2 left-1/2 z-50 pointer-events-none animate-fade-out-up">
+            <div className="bg-amber-100 p-6 rounded-3xl border-8 border-amber-600 text-center shadow-[0_0_80px_rgba(251,191,36,0.6)] whitespace-nowrap">
+              <h2 className="text-3xl sm:text-4xl text-amber-900 font-black uppercase tracking-wider">Quest Complete!</h2>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="w-full max-w-4xl mt-4 bg-stone-800 p-4 rounded-2xl border-4 border-stone-700 shadow-2xl flex items-center justify-center gap-4 h-28 relative">
+        <button 
+          onClick={handleUndo} 
+          disabled={isDemonstrating || isAnimatingLoot || historyStack.length === 0}
+          className="bg-rose-700 p-3 sm:p-4 rounded-xl text-xl sm:text-2xl hover:bg-rose-600 border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50" 
+          title="Undo Last Move"
+        >
+          ↩️
+        </button>
+
+        <div className="flex gap-4 bg-stone-900/50 p-3 rounded-xl border-2 border-stone-900">
+          {[0, 1, 2].map((slotIdx) => {
+            const itemId = inventory[slotIdx];
+            const item = itemId ? ITEM_DB.find(x => x.id === itemId) : null;
+            const isSelected = selectedIndices.includes(slotIdx);
+            
+            return (
+              <button
+                key={`slot-${slotIdx}`}
+                onClick={() => item && toggleInventorySlot(slotIdx)}
+                disabled={!item}
+                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center transition-all ${
+                  isSelected 
+                    ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' 
+                    : item 
+                      ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' 
+                      : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'
+                } ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}
+              >
+                <span className="text-3xl sm:text-4xl drop-shadow-md">{item ? item.emoji : ''}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {isMenuOpen && (
+        <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-stone-800 border-4 border-stone-600 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 text-stone-200">
+            <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Give & Take Settings</h2>
+            
+            <div className="space-y-4">
+              
+              <label className="flex flex-col gap-2 font-bold text-lg pt-2">
+                <span className="flex justify-between">
+                  <span>Minimum Quest Chain:</span> 
+                  <span className="text-amber-400">{targetSteps}</span>
+                </span>
+                <input 
+                  type="range" 
+                  min="3" 
+                  max="8" 
+                  value={targetSteps} 
+                  onChange={(e) => setTargetSteps(parseInt(e.target.value))}
+                  className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2 font-bold text-lg">
+                <span className="flex justify-between">
+                  <span>Diggers (Memory Mode):</span> 
+                  <span className="text-amber-400">{numDiggers}</span>
+                </span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="3" 
+                  value={numDiggers} 
+                  onChange={(e) => setNumDiggers(parseInt(e.target.value))}
+                  className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-xs font-normal text-stone-400 block w-full text-center mt-1">Dogs bury their items after your first move!</span>
+              </label>
+
+              <button 
+                onClick={handleGenerate}
+                className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 transition-colors shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1"
+              >
+                🗺️ Generate New Map
+              </button>
+
+              <button 
+                onClick={handleReplay}
+                className="w-full bg-stone-600 py-4 rounded-xl font-bold text-xl hover:bg-stone-500 transition-colors shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1"
+              >
+                ↺ Restart Current Map
+              </button>
+
+              <button 
+                onClick={handleShowSolution}
+                disabled={isVictorious || isDemonstrating || isAnimatingLoot}
+                className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:bg-indigo-500 transition-colors shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                💡 Show Solution
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setIsMenuOpen(false)}
+              className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors"
+            >
+              Cancel / Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes dash {
+          to { stroke-dashoffset: 0; }
+        }
+        @keyframes fadeOutUp {
+          0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
+          15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+          25% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          75% { opacity: 1; transform: translate(-50%, -60%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -100%) scale(0.9); }
+        }
+        .animate-fade-out-up {
+          animation: fadeOutUp 3s ease-in-out forwards;
+        }
+        @keyframes madShake {
+          0% { transform: translate(1px, 1px) rotate(0deg); }
+          10% { transform: translate(-1px, -2px) rotate(-5deg); }
+          20% { transform: translate(-3px, 0px) rotate(5deg); }
+          30% { transform: translate(3px, 2px) rotate(0deg); }
+          40% { transform: translate(1px, -1px) rotate(5deg); }
+          50% { transform: translate(-1px, 2px) rotate(-5deg); }
+          60% { transform: translate(-3px, 1px) rotate(0deg); }
+          70% { transform: translate(3px, 1px) rotate(-5deg); }
+          80% { transform: translate(-1px, -1px) rotate(5deg); }
+          90% { transform: translate(1px, 2px) rotate(0deg); }
+          100% { transform: translate(1px, -2px) rotate(-5deg); }
+        }
+        .animate-troll-mad {
+          animation: madShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+          filter: drop-shadow(0 0 15px rgba(220, 38, 38, 0.8));
+        }
+        @keyframes dogDig {
+          0%, 100% { transform: rotate(0deg) translateY(0); }
+          10%, 30%, 50%, 70%, 90% { transform: rotate(-15deg) translateY(-3px); }
+          20%, 40%, 60%, 80% { transform: rotate(15deg) translateY(3px); }
+        }
+        .animate-dog-dig {
+          animation: dogDig 0.7s ease-in-out;
+        }
+        @keyframes lootFly {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          30% { transform: translate(-50%, -150%) scale(1.5); opacity: 1; }
+          100% { transform: translate(-50%, 75vh) scale(0.5); opacity: 0; }
+        }
+        .animate-loot-fly {
+          animation: lootFly 0.8s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+        }
+        @keyframes mapAppear {
+          0% { opacity: 0; filter: blur(4px); transform: scale(0.97); }
+          100% { opacity: 1; filter: blur(0); transform: scale(1); }
+        }
+        .animate-map-appear {
+          animation: mapAppear 0.5s ease-out forwards;
+        }
+        @keyframes riverFlow {
+          from { stroke-dashoffset: 40; }
+          to { stroke-dashoffset: 0; }
+        }
+        .animate-river-flow {
+          animation: riverFlow 2s linear infinite;
+        }
+        .animate-river-flow-slow {
+          animation: riverFlow 4s linear infinite;
+        }
+        @keyframes starBurstInfinite {
+          0% { transform: translate(0, 0) scale(0) rotate(0deg); opacity: 1; }
+          50% { opacity: 1; }
+          100% { transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(180deg); opacity: 0; }
+        }
+        .animate-star-burst-infinite {
+          animation: starBurstInfinite 2.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+        }
+        @keyframes fishSwim {
+          0%   { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
+          12%  { left: 25%;  top: 48%; transform: translate(-50%, -50%) scaleX(-1); }
+          22%  { left: 50%;  top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
+          34%  { left: 75%;  top: 58%; transform: translate(-50%, -50%) scaleX(-1); }
+          45%  { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
+          50%  { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(1); }
+          62%  { left: 75%;  top: 58%; transform: translate(-50%, -50%) scaleX(1); }
+          72%  { left: 50%;  top: 53%; transform: translate(-50%, -50%) scaleX(1); }
+          84%  { left: 25%;  top: 48%; transform: translate(-50%, -50%) scaleX(1); }
+          95%  { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(1); }
+          100% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
+        }
+        .animate-fish-swim {
+          animation: fishSwim 18s linear infinite;
+        }
+      `}} />
+    </div>
+  );
+}
+
+
