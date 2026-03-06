@@ -1,26 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// --- DATA & LOGIC ---
-const ITEM_DB = [
-  { id: 'apple', name: 'Apple', emoji: '🍎' },
-  { id: 'bread', name: 'Bread', emoji: '🥖' },
-  { id: 'gold', name: 'Gold', emoji: '💰' },
-  { id: 'gem', name: 'Gem', emoji: '💎' },
-  { id: 'sword', name: 'Sword', emoji: '🗡️' },
-  { id: 'bug_spray', name: 'Poison', emoji: '🧪' },
-  { id: 'key', name: 'Key', emoji: '🔑' },
-  { id: 'wand', name: 'Wand', emoji: '🪄' },
-  { id: 'hat', name: 'Hat', emoji: '🎩' },
-  { id: 'bone', name: 'Bone', emoji: '🦴' },
-  { id: 'shield', name: 'Shield', emoji: '🛡️' },
-  { id: 'map', name: 'Map', emoji: '🗺️' },
-  { id: 'fish', name: 'Fish', emoji: '🐟' },
-  { id: 'lantern', name: 'Lantern', emoji: '🏮' },
-  { id: 'flute', name: 'Flute', emoji: '🪈' },
-  { id: 'flower', name: 'Flower', emoji: '🌸' }
+// --- LEVEL CONFIGURATIONS ---
+
+const RIVER_CROSSING_ITEMS = [
+  { id: 'apple', name: 'Apple', emoji: '🍎' }, { id: 'bread', name: 'Bread', emoji: '🥖' },
+  { id: 'gold', name: 'Gold', emoji: '💰' }, { id: 'gem', name: 'Gem', emoji: '💎' },
+  { id: 'sword', name: 'Sword', emoji: '🗡️' }, { id: 'bug_spray', name: 'Poison', emoji: '🧪' },
+  { id: 'key', name: 'Key', emoji: '🔑' }, { id: 'wand', name: 'Wand', emoji: '🪄' },
+  { id: 'hat', name: 'Hat', emoji: '🎩' }, { id: 'bone', name: 'Bone', emoji: '🦴' },
+  { id: 'shield', name: 'Shield', emoji: '🛡️' }, { id: 'map', name: 'Map', emoji: '🗺️' },
+  { id: 'fish', name: 'Fish', emoji: '🐟' }, { id: 'lantern', name: 'Lantern', emoji: '🏮' },
+  { id: 'flute', name: 'Flute', emoji: '🪈' }, { id: 'flower', name: 'Flower', emoji: '🌸' }
 ];
 
-const ENTITY_DB = [
+const RIVER_CROSSING_ENTITIES = [
   { id: 'troll', name: 'Troll', emoji: '🧌', allowedReqs: ['apple', 'bread', 'gold', 'gem', 'sword', 'wand', 'fish', 'shield'] },
   { id: 'baker', name: 'Baker', emoji: '👨‍🍳', allowedReqs: ['gold', 'gem', 'hat', 'apple', 'flower'] },
   { id: 'spider', name: 'Spider', emoji: '🕷️', allowedReqs: ['sword', 'bug_spray', 'wand', 'lantern'] },
@@ -37,30 +30,6 @@ const ENTITY_DB = [
   { id: 'bear', name: 'Bear', emoji: '🐻', allowedReqs: ['fish', 'apple', 'bread', 'bone'] }
 ];
 
-const CAMP_POS = { x: 50, y: 92 };
-
-const MAP_NODES = [
-  { x: 12, y: 82, zone: 1 }, { x: 88, y: 82, zone: 1 }, 
-  { x: 25, y: 65, zone: 1 }, { x: 75, y: 65, zone: 1 }, 
-  { x: 50, y: 52, zone: 1, isGatekeeper: true },
-  { x: 15, y: 35, zone: 2 }, { x: 85, y: 32, zone: 2 }, 
-  { x: 50, y: 18, zone: 2 }
-];
-
-const SCENERY_NODES = [
-  { x: 8, y: 22, e: '🌲', s: 'text-3xl' }, { x: 85, y: 12, e: '⛰️', s: 'text-5xl' },
-  { x: 32, y: 28, e: '🌲', s: 'text-2xl' }, { x: 75, y: 35, e: '🌲', s: 'text-4xl' },
-  { x: 15, y: 68, e: '🪨', s: 'text-2xl' }, { x: 88, y: 75, e: '🌲', s: 'text-3xl' },
-  { x: 42, y: 85, e: '🌲', s: 'text-2xl' }, { x: 68, y: 82, e: '🪨', s: 'text-3xl' },
-  { x: 48, y: 38, e: '⛰️', s: 'text-4xl' }, { x: 20, y: 15, e: '⛰️', s: 'text-4xl' },
-  { x: 5, y: 30, e: '🌿', s: 'text-xl' }, { x: 95, y: 35, e: '🌿', s: 'text-xl' },
-  { x: 60, y: 20, e: '🌲', s: 'text-2xl' }, { x: 20, y: 90, e: '🌿', s: 'text-xl' },
-  { x: 80, y: 92, e: '🌲', s: 'text-2xl' }, { x: 35, y: 35, e: '🪨', s: 'text-xl' },
-  { x: 60, y: 75, e: '🌿', s: 'text-lg' }, { x: 55, y: 70, e: '🍄', s: 'text-xl' },
-  { x: 30, y: 78, e: '🍄', s: 'text-xl' }, { x: 90, y: 38, e: '🪨', s: 'text-2xl' },
-  { x: 10, y: 75, e: '🌲', s: 'text-3xl' }
-];
-
 const BridgeSVG = () => (
   <svg className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-28 -z-10" viewBox="0 0 60 100">
     <circle cx="10" cy="5" r="4" fill="#3e1c00"/>
@@ -75,7 +44,53 @@ const BridgeSVG = () => (
   </svg>
 );
 
-function solve(startItems, puzzleEntities, goalEntityId, gatekeeperId) {
+const RiverBackground = () => (
+  <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#1e40af" strokeWidth="10" opacity="0.3" strokeLinecap="round"/>
+    <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#3b82f6" strokeWidth="5" opacity="0.5" strokeLinecap="round"/>
+    <path d="M -10 52 Q 25 42 50 52 T 110 52" fill="none" stroke="#93c5fd" strokeWidth="1.5" opacity="0.7" strokeLinecap="round" strokeDasharray="15 25" className="animate-river-flow"/>
+    <path d="M -10 54 Q 25 44 50 54 T 110 54" fill="none" stroke="#bfdbfe" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeDasharray="8 32" className="animate-river-flow-slow"/>
+  </svg>
+);
+
+const LEVEL_DICTIONARY = {
+  river_crossing: {
+    id: 'river_crossing',
+    name: 'River Crossing',
+    items: RIVER_CROSSING_ITEMS,
+    entities: RIVER_CROSSING_ENTITIES,
+    campPos: { x: 50, y: 92 },
+    gatekeeperId: 'troll',
+    specialItemTemplate: 'fish',
+    specialEntityTemplate: 'dog',
+    mapNodes: [
+      { x: 12, y: 82, zone: 1 }, { x: 88, y: 82, zone: 1 }, 
+      { x: 25, y: 65, zone: 1 }, { x: 75, y: 65, zone: 1 }, 
+      { x: 50, y: 52, zone: 1, isGatekeeper: true },
+      { x: 15, y: 35, zone: 2 }, { x: 85, y: 32, zone: 2 }, 
+      { x: 50, y: 18, zone: 2 }
+    ],
+    sceneryNodes: [
+      { x: 8, y: 22, e: '🌲', s: 'text-3xl' }, { x: 85, y: 12, e: '⛰️', s: 'text-5xl' },
+      { x: 32, y: 28, e: '🌲', s: 'text-2xl' }, { x: 75, y: 35, e: '🌲', s: 'text-4xl' },
+      { x: 15, y: 68, e: '🪨', s: 'text-2xl' }, { x: 88, y: 75, e: '🌲', s: 'text-3xl' },
+      { x: 42, y: 85, e: '🌲', s: 'text-2xl' }, { x: 68, y: 82, e: '🪨', s: 'text-3xl' },
+      { x: 48, y: 38, e: '⛰️', s: 'text-4xl' }, { x: 20, y: 15, e: '⛰️', s: 'text-4xl' },
+      { x: 5, y: 30, e: '🌿', s: 'text-xl' }, { x: 95, y: 35, e: '🌿', s: 'text-xl' },
+      { x: 60, y: 20, e: '🌲', s: 'text-2xl' }, { x: 20, y: 90, e: '🌿', s: 'text-xl' },
+      { x: 80, y: 92, e: '🌲', s: 'text-2xl' }, { x: 35, y: 35, e: '🪨', s: 'text-xl' },
+      { x: 60, y: 75, e: '🌿', s: 'text-lg' }, { x: 55, y: 70, e: '🍄', s: 'text-xl' },
+      { x: 30, y: 78, e: '🍄', s: 'text-xl' }, { x: 90, y: 38, e: '🪨', s: 'text-2xl' },
+      { x: 10, y: 75, e: '🌲', s: 'text-3xl' }
+    ],
+    BackgroundComponent: RiverBackground,
+    GatekeeperPropComponent: BridgeSVG
+  }
+};
+
+// --- LOGIC ---
+
+function solvePuzzle(startItems, puzzleEntities, goalEntityId, gatekeeperId, specialItemId) {
   const queue = [{ inv: [...startItems].sort(), def: [], path: [] }];
   const visited = new Set();
   let iters = 0;
@@ -91,11 +106,12 @@ function solve(startItems, puzzleEntities, goalEntityId, gatekeeperId) {
     if (visited.has(stateKey)) continue;
     visited.add(stateKey);
 
-    if (!curr.def.includes('fish_node') && curr.inv.length < 3) {
+    // Environment specific actions (e.g. Catching a fish)
+    if (specialItemId && !curr.def.includes(`${specialItemId}_node`) && curr.inv.length < 3) {
       queue.push({ 
-        inv: [...curr.inv, 'fish'].sort(), 
-        def: [...curr.def, 'fish_node'], 
-        path: [...curr.path, { isCatchFish: true, itemId: 'fish' }] 
+        inv: [...curr.inv, specialItemId].sort(), 
+        def: [...curr.def, `${specialItemId}_node`], 
+        path: [...curr.path, { isEnvironmentAction: true, itemId: specialItemId }] 
       });
     }
 
@@ -141,30 +157,30 @@ function solve(startItems, puzzleEntities, goalEntityId, gatekeeperId) {
   return null;
 }
 
-function generatePuzzleData(targetSteps, numDiggers) {
+function generateLevelPuzzle(level, targetSteps, numDiggers) {
   let bestPuzzle = null;
   let maxSteps = 0;
 
   for (let attempt = 0; attempt < 5000; attempt++) {
-    const troll = ENTITY_DB.find(e => e.id === 'troll');
-    const dogTemplate = ENTITY_DB.find(e => e.id === 'dog');
-    const otherTemplates = ENTITY_DB.filter(e => e.id !== 'troll' && e.id !== 'dog');
+    const gatekeeper = level.entities.find(e => e.id === level.gatekeeperId);
+    const diggerTemplate = level.entities.find(e => e.id === level.specialEntityTemplate);
+    const otherTemplates = level.entities.filter(e => e.id !== level.gatekeeperId && e.id !== level.specialEntityTemplate);
     
-    let selectedOthers = Array.from({length: numDiggers}).map((_, i) => ({...dogTemplate, id: `dog_${i}`}));
+    let selectedOthers = Array.from({length: numDiggers}).map((_, i) => ({...diggerTemplate, id: `${level.specialEntityTemplate}_${i}`}));
     const shuffledOthers = [...otherTemplates].sort(() => Math.random() - 0.5);
     
     selectedOthers = [...selectedOthers, ...shuffledOthers.slice(0, 7 - numDiggers)].sort(() => Math.random() - 0.5);
-    const shuffledEnts = [...selectedOthers.slice(0, 4), troll, ...selectedOthers.slice(4, 7)];
+    const shuffledEnts = [...selectedOthers.slice(0, 4), gatekeeper, ...selectedOthers.slice(4, 7)];
     const goalEntity = shuffledEnts[7];
 
     const puzzleEntities = shuffledEnts.map((e, idx) => {
-      const pos = MAP_NODES[idx]; 
+      const pos = level.mapNodes[idx]; 
       const isGatekeeper = pos.isGatekeeper;
       const isGoal = e.id === goalEntity.id;
 
       let reward = null;
       if (!isGoal && !isGatekeeper) { 
-        reward = ITEM_DB[Math.floor(Math.random() * ITEM_DB.length)].id;
+        reward = level.items[Math.floor(Math.random() * level.items.length)].id;
       }
       
       const availableReqs = e.allowedReqs.filter(req => req !== reward);
@@ -184,18 +200,18 @@ function generatePuzzleData(targetSteps, numDiggers) {
       return { ...e, requires: reqs, reqType, reward, x: pos.x, y: pos.y, zone: pos.zone, isGatekeeper };
     });
 
-    const nonFishItems = ITEM_DB.filter(i => i.id !== 'fish');
-    const getRandomItem = () => nonFishItems[Math.floor(Math.random() * nonFishItems.length)].id;
+    const standardItems = level.items.filter(i => i.id !== level.specialItemTemplate);
+    const getRandomItem = () => standardItems[Math.floor(Math.random() * standardItems.length)].id;
     const startItems = [getRandomItem(), getRandomItem(), getRandomItem()];
 
-    const solution = solve(startItems, puzzleEntities, goalEntity.id, 'troll');
+    const solution = solvePuzzle(startItems, puzzleEntities, goalEntity.id, level.gatekeeperId, level.specialItemTemplate);
 
     if (solution) {
       if (solution.length >= targetSteps) {
-        return { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: 'troll', solution };
+        return { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: level.gatekeeperId, solution };
       }
       if (solution.length > maxSteps) {
-        bestPuzzle = { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: 'troll', solution };
+        bestPuzzle = { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: level.gatekeeperId, solution };
         maxSteps = solution.length;
       }
     }
@@ -203,14 +219,20 @@ function generatePuzzleData(targetSteps, numDiggers) {
   return bestPuzzle;
 }
 
+// --- MAIN APP COMPONENT ---
+
 export default function App() {
+  const [currentLevelId, setCurrentLevelId] = useState('river_crossing');
+  const level = LEVEL_DICTIONARY[currentLevelId];
+
   const [targetSteps, setTargetSteps] = useState(6);
   const [numDiggers, setNumDiggers] = useState(1);
   const [puzzle, setPuzzle] = useState(null);
+  
   const [inventory, setInventory] = useState([]);
   const [defeated, setDefeated] = useState([]);
   const [selectedIndices, setSelectedIndices] = useState([]); 
-  const [pathHistory, setPathHistory] = useState([CAMP_POS]);
+  const [pathHistory, setPathHistory] = useState([level.campPos]);
   const [historyStack, setHistoryStack] = useState([]); 
   
   const [isVictorious, setIsVictorious] = useState(false);
@@ -226,16 +248,17 @@ export default function App() {
   const [flyingItem, setFlyingItem] = useState(null);
   const [tempPlayerPos, setTempPlayerPos] = useState(null);
   
-  const [fishState, setFishState] = useState('swimming'); 
-  const [fishCaughtPos, setFishCaughtPos] = useState({x: 50, y: 50});
+  // Environment Special State
+  const [envItemState, setEnvItemState] = useState('active'); // active, caught, hidden
+  const [envItemCaughtPos, setEnvItemCaughtPos] = useState({x: 50, y: 50});
 
   const demoRef = useRef(false);
 
-  useEffect(() => { handleGenerate(); }, []);
+  useEffect(() => { handleGenerate(); }, [currentLevelId]);
 
   const handleGenerate = () => {
     if (demoRef.current || isAnimatingLoot) return; 
-    const newPuzzle = generatePuzzleData(targetSteps, numDiggers);
+    const newPuzzle = generateLevelPuzzle(level, targetSteps, numDiggers);
     setPuzzle(newPuzzle);
     resetGameState(newPuzzle.startItems);
     setIsMenuOpen(false);
@@ -250,11 +273,11 @@ export default function App() {
   };
 
   const resetGameState = (startItems) => {
-    setInventory(startItems.filter(i => i !== 'fish'));
+    setInventory(startItems.filter(i => i !== level.specialItemTemplate));
     setDefeated([]);
     setSelectedIndices([]);
     setSelectedEntityId(null);
-    setPathHistory([CAMP_POS]);
+    setPathHistory([level.campPos]);
     setHistoryStack([]);
     setIsVictorious(false);
     setShowTrophy(false);
@@ -264,7 +287,7 @@ export default function App() {
     setAlertEntityId(null);
     setFlyingItem(null);
     setTempPlayerPos(null);
-    setFishState('swimming');
+    setEnvItemState('active');
   };
 
   const handleUndo = () => {
@@ -274,7 +297,7 @@ export default function App() {
     setInventory(prevState.inventory);
     setDefeated(prevState.defeated);
     setPathHistory(prevState.pathHistory);
-    setFishState(prevState.fishState);
+    setEnvItemState(prevState.envItemState);
     setHistoryStack(prev => prev.slice(0, -1));
     
     setSelectedIndices([]);
@@ -294,19 +317,19 @@ export default function App() {
     resetGameState(puzzle.startItems);
     setIsMenuOpen(false);
 
-    let currentInv = [...puzzle.startItems.filter(i => i !== 'fish')];
+    let currentInv = [...puzzle.startItems.filter(i => i !== level.specialItemTemplate)];
     let currentDefeated = [];
-    let currentPath = [CAMP_POS];
+    let currentPath = [level.campPos];
 
     for (const step of puzzle.solution) {
       if (!demoRef.current) break; 
       
-      if (step.isCatchFish) {
-        setFishState('caught');
-        setFishCaughtPos({x: 50, y: 53});
+      if (step.isEnvironmentAction) {
+        setEnvItemState('caught');
+        setEnvItemCaughtPos({x: 50, y: 53});
         await new Promise(r => setTimeout(r, 800));
-        setFishState('hidden');
-        currentInv.push('fish');
+        setEnvItemState('hidden');
+        currentInv.push(step.itemId);
         setInventory([...currentInv]);
         await new Promise(r => setTimeout(r, 400));
         continue;
@@ -351,7 +374,7 @@ export default function App() {
       setSelectedIndices([]); 
       
       if (entity.reward) {
-        setFlyingItem({ emoji: ITEM_DB.find(i=>i.id===entity.reward).emoji, x: entity.x, y: entity.y });
+        setFlyingItem({ emoji: level.items.find(i=>i.id===entity.reward).emoji, x: entity.x, y: entity.y });
         await new Promise(r => setTimeout(r, 800)); 
         setFlyingItem(null);
         currentInv.push(entity.reward);
@@ -374,22 +397,22 @@ export default function App() {
     setTimeout(() => setShowVictoryMsg(true), 1000);
   };
 
-  const handleCatchFish = (e) => {
+  const handleCatchEnvItem = (e) => {
     e.stopPropagation();
-    if (fishState !== 'swimming' || inventory.length >= 3 || isDemonstrating || isAnimatingLoot) return;
+    if (envItemState !== 'active' || inventory.length >= 3 || isDemonstrating || isAnimatingLoot) return;
     
-    setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], fishState }]);
+    setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState }]);
     
     const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
     const x = ((e.clientX - parentRect.left) / parentRect.width) * 100;
     const y = ((e.clientY - parentRect.top) / parentRect.height) * 100;
     
-    setFishCaughtPos({x, y});
-    setFishState('caught');
+    setEnvItemCaughtPos({x, y});
+    setEnvItemState('caught');
     
     setTimeout(() => {
-      setFishState('hidden');
-      setInventory(prev => [...prev, 'fish']);
+      setEnvItemState('hidden');
+      setInventory(prev => [...prev, level.specialItemTemplate]);
     }, 800);
   };
 
@@ -463,7 +486,7 @@ export default function App() {
 
     if (canDefeat) {
       setIsAnimatingLoot(true); 
-      setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], fishState }]);
+      setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState }]);
 
       const rewardId = entity.reward;
       setInventory(prev => prev.filter((_, idx) => !consumedIndices.includes(idx)));
@@ -473,7 +496,7 @@ export default function App() {
       setSelectedEntityId(null);
 
       if (rewardId) {
-        setFlyingItem({ emoji: ITEM_DB.find(i => i.id === rewardId).emoji, x: entity.x, y: entity.y });
+        setFlyingItem({ emoji: level.items.find(i => i.id === rewardId).emoji, x: entity.x, y: entity.y });
         setTimeout(() => {
           setInventory(prev => [...prev, rewardId]);
           setFlyingItem(null);
@@ -494,6 +517,8 @@ export default function App() {
 
   const playerPos = pathHistory[pathHistory.length - 1];
   const displayPlayerPos = tempPlayerPos || playerPos;
+  
+  const envItemConfig = level.items.find(i => i.id === level.specialItemTemplate);
 
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-2 sm:p-4 font-serif select-none overflow-hidden relative">
@@ -511,40 +536,39 @@ export default function App() {
         >
           <span className="text-xl pt-0.5">⚙️</span>
         </button>
+        
+        <div className="absolute top-4 left-4 z-40 bg-stone-800/80 backdrop-blur text-stone-200 px-4 py-1 rounded-full border-2 border-stone-600 font-bold tracking-wider uppercase text-sm">
+          {level.name}
+        </div>
 
         <div key={mapRefreshKey} className="absolute inset-0 animate-map-appear">
           
-          <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-            <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#1e40af" strokeWidth="10" opacity="0.3" strokeLinecap="round"/>
-            <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#3b82f6" strokeWidth="5" opacity="0.5" strokeLinecap="round"/>
-            <path d="M -10 52 Q 25 42 50 52 T 110 52" fill="none" stroke="#93c5fd" strokeWidth="1.5" opacity="0.7" strokeLinecap="round" strokeDasharray="15 25" className="animate-river-flow"/>
-            <path d="M -10 54 Q 25 44 50 54 T 110 54" fill="none" stroke="#bfdbfe" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeDasharray="8 32" className="animate-river-flow-slow"/>
-          </svg>
+          <level.BackgroundComponent />
 
           <div className="absolute inset-0 bg-gradient-to-c from-transparent to-black/20 pointer-events-none" />
 
-          {SCENERY_NODES.map((sc, i) => (
+          {level.sceneryNodes.map((sc, i) => (
             <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} opacity-40 grayscale sepia z-0 pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%` }}>
               {sc.e}
             </div>
           ))}
 
-          {/* Interactive Fish */}
-          {fishState === 'swimming' && (
+          {/* Special Environment Item (e.g. Fish) */}
+          {envItemConfig && envItemState === 'active' && (
             <div 
               className="absolute z-20 cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform"
-              onClick={handleCatchFish}
-              title={inventory.length >= 3 ? "Inventory Full!" : "Catch me!"}
+              onClick={handleCatchEnvItem}
+              title={inventory.length >= 3 ? "Inventory Full!" : `Catch ${envItemConfig.name}!`}
             >
-              🐟
+              {envItemConfig.emoji}
             </div>
           )}
-          {fishState === 'caught' && (
+          {envItemConfig && envItemState === 'caught' && (
             <div 
               className="absolute z-50 flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl"
-              style={{ left: `${fishCaughtPos.x}%`, top: `${fishCaughtPos.y}%` }}
+              style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%` }}
             >
-              <span className="text-3xl">🐟</span>
+              <span className="text-3xl">{envItemConfig.emoji}</span>
               <span className="text-xs font-bold text-white bg-blue-500/80 px-2 py-0.5 rounded-full mt-1 border border-blue-300">CAUGHT!</span>
             </div>
           )}
@@ -574,7 +598,7 @@ export default function App() {
             )}
           </svg>
 
-          <div className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${CAMP_POS.x}%`, top: `${CAMP_POS.y}%` }}>
+          <div className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%` }}>
             <div className="text-4xl drop-shadow-lg filter sepia">⛺</div>
           </div>
 
@@ -604,7 +628,7 @@ export default function App() {
           {puzzle.puzzleEntities.map(ent => {
             const isDefeated = defeated.includes(ent.id);
             const isGoal = ent.id === puzzle.goalEntityId;
-            const rewardItem = ent.reward ? ITEM_DB.find(i => i.id === ent.reward) : null;
+            const rewardItem = ent.reward ? level.items.find(i => i.id === ent.reward) : null;
             
             const isAlerting = alertEntityId === ent.id;
             const isSelected = selectedEntityId === ent.id;
@@ -612,8 +636,8 @@ export default function App() {
             const slideDirection = ent.x > 50 ? '-translate-x-10' : 'translate-x-10';
             const hideDirection = ent.x > 50 ? '-translate-x-4' : 'translate-x-4';
             
-            const isDog = ent.id.startsWith('dog');
-            const isBuried = isDog && pathHistory.length > 1;
+            const isDigger = ent.id.startsWith(level.specialEntityTemplate);
+            const isBuried = isDigger && pathHistory.length > 1;
 
             return (
               <div 
@@ -628,8 +652,8 @@ export default function App() {
                   <div className="absolute -top-12 bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg z-40 font-bold whitespace-nowrap animate-bounce gap-1">
                     {ent.requires.map((reqId, i) => (
                       <React.Fragment key={reqId}>
-                        <span title={ITEM_DB.find(i => i.id === reqId).name}>
-                          {ITEM_DB.find(i => i.id === reqId).emoji}
+                        <span title={level.items.find(item => item.id === reqId).name}>
+                          {level.items.find(item => item.id === reqId).emoji}
                         </span>
                         {i < ent.requires.length - 1 && (
                           <span className="text-sm mx-1 text-stone-500 font-black">
@@ -643,7 +667,7 @@ export default function App() {
                 )}
 
                 <div className="relative">
-                  {ent.isGatekeeper && <BridgeSVG />}
+                  {ent.isGatekeeper && <level.GatekeeperPropComponent />}
 
                   <div className={`relative transition-all duration-700 ease-in-out ${(ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : ''}`}>
                     
@@ -670,7 +694,7 @@ export default function App() {
                       )
                     )}
                     
-                    <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper ? 'text-6xl' : 'text-4xl'} ${isGoal ? 'text-purple-900' : ''} ${isAlerting ? 'animate-troll-mad scale-125' : ''} ${(isDog && pathHistory.length === 2 && !isDemonstrating) ? 'animate-dog-dig' : ''}`}>
+                    <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper ? 'text-6xl' : 'text-4xl'} ${isGoal ? 'text-purple-900' : ''} ${isAlerting ? 'animate-troll-mad scale-125' : ''} ${(isDigger && pathHistory.length === 2 && !isDemonstrating) ? 'animate-dog-dig' : ''}`}>
                       {isAlerting ? '😡' : ent.emoji}
                     </div>
                   </div>
@@ -696,7 +720,6 @@ export default function App() {
           })}
         </div>
 
-        {/* Continuous Repeated Starbursts */}
         {showVictoryMsg && (
           <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden">
             {[...Array(30)].map((_, i) => {
@@ -743,7 +766,7 @@ export default function App() {
         <div className="flex gap-4 bg-stone-900/50 p-3 rounded-xl border-2 border-stone-900">
           {[0, 1, 2].map((slotIdx) => {
             const itemId = inventory[slotIdx];
-            const item = itemId ? ITEM_DB.find(x => x.id === itemId) : null;
+            const item = itemId ? level.items.find(x => x.id === itemId) : null;
             const isSelected = selectedIndices.includes(slotIdx);
             
             return (
@@ -769,10 +792,25 @@ export default function App() {
       {isMenuOpen && (
         <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-stone-800 border-4 border-stone-600 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 text-stone-200">
-            <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Give & Take Settings</h2>
+            <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Settings</h2>
             
             <div className="space-y-4">
               
+              <label className="flex flex-col gap-2 font-bold text-lg pt-2">
+                <span className="flex justify-between">
+                  <span>Level:</span> 
+                </span>
+                <select 
+                  className="w-full bg-stone-900 border-2 border-stone-600 rounded-lg p-3 outline-none focus:border-amber-500"
+                  value={currentLevelId}
+                  onChange={(e) => setCurrentLevelId(e.target.value)}
+                >
+                  {Object.values(LEVEL_DICTIONARY).map(lvl => (
+                    <option key={lvl.id} value={lvl.id}>{lvl.name}</option>
+                  ))}
+                </select>
+              </label>
+
               <label className="flex flex-col gap-2 font-bold text-lg pt-2">
                 <span className="flex justify-between">
                   <span>Minimum Quest Chain:</span> 
@@ -801,7 +839,6 @@ export default function App() {
                   onChange={(e) => setNumDiggers(parseInt(e.target.value))}
                   className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer"
                 />
-                <span className="text-xs font-normal text-stone-400 block w-full text-center mt-1">Dogs bury their items after your first move!</span>
               </label>
 
               <button 
@@ -929,5 +966,3 @@ export default function App() {
     </div>
   );
 }
-
-
