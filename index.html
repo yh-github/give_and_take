@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// --- LEVEL CONFIGURATIONS ---
-
+// --- SHARED DATA ---
 const RIVER_CROSSING_ITEMS = [
   { id: 'apple', name: 'Apple', emoji: '🍎' }, { id: 'bread', name: 'Bread', emoji: '🥖' },
   { id: 'gold', name: 'Gold', emoji: '💰' }, { id: 'gem', name: 'Gem', emoji: '💎' },
@@ -9,38 +8,63 @@ const RIVER_CROSSING_ITEMS = [
   { id: 'key', name: 'Key', emoji: '🔑' }, { id: 'wand', name: 'Wand', emoji: '🪄' },
   { id: 'hat', name: 'Hat', emoji: '🎩' }, { id: 'bone', name: 'Bone', emoji: '🦴' },
   { id: 'shield', name: 'Shield', emoji: '🛡️' }, { id: 'map', name: 'Map', emoji: '🗺️' },
-  { id: 'fish', name: 'Fish', emoji: '🐟' }, { id: 'lantern', name: 'Lantern', emoji: '🏮' },
-  { id: 'flute', name: 'Flute', emoji: '🪈' }, { id: 'flower', name: 'Flower', emoji: '🌸' }
+  { id: 'lantern', name: 'Lantern', emoji: '🏮' }, { id: 'flute', name: 'Flute', emoji: '🪈' },
+  { id: 'flower', name: 'Flower', emoji: '🌸' }, { id: 'fish', name: 'Fish', emoji: '🐟' }
+];
+
+const UNDERGROUND_ITEMS = [
+  { id: 'crystal', name: 'Crystal', emoji: '🔮' }, { id: 'gold_nugget', name: 'Gold Nugget', emoji: '🪙' },
+  { id: 'mushroom', name: 'Mushroom', emoji: '🍄' }, { id: 'emerald', name: 'Emerald', emoji: '🟩' },
+  { id: 'spider_silk', name: 'Silk', emoji: '🕸️' }, { id: 'rope', name: 'Rope', emoji: '🪢' },
+  { id: 'lantern', name: 'Lantern', emoji: '🏮' }, { id: 'bone', name: 'Bone', emoji: '🦴' },
+  { id: 'gem', name: 'Gem', emoji: '💎' }, { id: 'pickaxe', name: 'Pickaxe', emoji: '⛏️' }
+];
+
+const UNDERWATER_ITEMS = [
+  { id: 'pearl', name: 'Pearl', emoji: '⚪' }, { id: 'red_fish', name: 'Red Fish', emoji: '🐡' },
+  { id: 'blue_fish', name: 'Blue Fish', emoji: '🐟' }, { id: 'green_fish', name: 'Green Fish', emoji: '🐠' },
+  { id: 'shell', name: 'Shell', emoji: '🐚' }, { id: 'starfish', name: 'Starfish', emoji: '⭐' },
+  { id: 'trident', name: 'Trident', emoji: '🔱' }, { id: 'anchor', name: 'Anchor', emoji: '⚓' }
 ];
 
 const RIVER_CROSSING_ENTITIES = [
-  { id: 'troll', name: 'Troll', emoji: '🧌', allowedReqs: ['apple', 'bread', 'gold', 'gem', 'sword', 'wand', 'fish', 'shield'] },
-  { id: 'baker', name: 'Baker', emoji: '👨‍🍳', allowedReqs: ['gold', 'gem', 'hat', 'apple', 'flower'] },
-  { id: 'spider', name: 'Spider', emoji: '🕷️', allowedReqs: ['sword', 'bug_spray', 'wand', 'lantern'] },
-  { id: 'chest', name: 'Chest', emoji: '🧳', allowedReqs: ['key', 'sword', 'shield'] },
-  { id: 'wizard', name: 'Wizard', emoji: '🧙‍♂️', allowedReqs: ['wand', 'gold', 'gem', 'hat', 'apple', 'map', 'flute'] },
-  { id: 'dragon', name: 'Dragon', emoji: '🐉', allowedReqs: ['sword', 'wand', 'gold', 'gem', 'shield'] }, 
-  { id: 'dog', name: 'Hound', emoji: '🐕', allowedReqs: ['bone', 'apple', 'bread', 'fish'] },
-  { id: 'goblin', name: 'Goblin', emoji: '👺', allowedReqs: ['gold', 'gem', 'apple', 'bread', 'hat', 'map', 'lantern'] },
-  { id: 'mermaid', name: 'Mermaid', emoji: '🧜‍♀️', allowedReqs: ['fish', 'gem', 'flute', 'hat', 'flower'] },
-  { id: 'ghost', name: 'Ghost', emoji: '👻', allowedReqs: ['lantern', 'flute', 'bone', 'flower'] },
-  { id: 'knight', name: 'Knight', emoji: '🪖', allowedReqs: ['sword', 'shield', 'map', 'apple', 'bread'] },
-  { id: 'merchant', name: 'Merchant', emoji: '👳‍♂️', allowedReqs: ['gold', 'gem', 'map', 'sword', 'lantern'] },
-  { id: 'fairy', name: 'Fairy', emoji: '🧚‍♀️', allowedReqs: ['flower', 'apple', 'wand', 'hat', 'flute'] },
-  { id: 'bear', name: 'Bear', emoji: '🐻', allowedReqs: ['fish', 'apple', 'bread', 'bone'] }
+  { id: 'troll', name: 'Troll', emoji: '🧌', allowedReqs: ['apple', 'bread', 'gold', 'gem', 'sword', 'wand', 'shield', 'fish'] },
+  { id: 'baker', name: 'Baker', emoji: '👨‍🍳', allowedReqs: ['gold', 'gem', 'hat', 'apple', 'flower', 'bread'] },
+  { id: 'spider', name: 'Spider', emoji: '🕷️', allowedReqs: ['sword', 'bug_spray', 'wand', 'lantern', 'flute'] },
+  { id: 'chest', name: 'Chest', emoji: '🧳', allowedReqs: ['key', 'sword', 'shield', 'bone'] },
+  { id: 'wizard', name: 'Wizard', emoji: '🧙‍♂️', allowedReqs: ['wand', 'gold', 'gem', 'hat', 'apple', 'map', 'flute', 'bug_spray'] },
+  { id: 'dragon', name: 'Dragon', emoji: '🐉', allowedReqs: ['sword', 'wand', 'gold', 'gem', 'shield', 'key'] }, 
+  { id: 'dog', name: 'Hound', emoji: '🐕', allowedReqs: ['bone', 'apple', 'bread', 'fish', 'flower'] },
+  { id: 'goblin', name: 'Goblin', emoji: '👺', allowedReqs: ['gold', 'gem', 'apple', 'bread', 'hat', 'map', 'lantern', 'sword'] },
+  { id: 'mermaid', name: 'Mermaid', emoji: '🧜‍♀️', allowedReqs: ['gem', 'flute', 'hat', 'flower', 'fish', 'gold'] },
+  { id: 'ghost', name: 'Ghost', emoji: '👻', allowedReqs: ['lantern', 'flute', 'bone', 'flower', 'map'] },
+  { id: 'knight', name: 'Knight', emoji: '🪖', allowedReqs: ['sword', 'shield', 'map', 'apple', 'bread', 'key'] },
+  { id: 'merchant', name: 'Merchant', emoji: '👳‍♂️', allowedReqs: ['gold', 'gem', 'map', 'sword', 'lantern', 'hat'] },
+  { id: 'fairy', name: 'Fairy', emoji: '🧚‍♀️', allowedReqs: ['flower', 'apple', 'wand', 'hat', 'flute', 'gem'] },
+  { id: 'bear', name: 'Bear', emoji: '🐻', allowedReqs: ['fish', 'apple', 'bread', 'bone', 'flower'] }
 ];
 
+const UNDERGROUND_ENTITIES = [
+  { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['lantern', 'rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
+  { id: 'cave_troll', name: 'Cave Troll', emoji: '🧌', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'lantern', 'rope'] },
+  { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['lantern', 'rope', 'bone', 'emerald', 'spider_silk', 'mushroom'] },
+  { id: 'bat', name: 'Vampire Bat', emoji: '🦇', allowedReqs: ['spider_silk', 'mushroom', 'bone', 'crystal', 'rope', 'gold_nugget'] },
+  { id: 'slime', name: 'Acid Slime', emoji: '🦠', allowedReqs: ['crystal', 'bone', 'lantern', 'mushroom', 'gem', 'spider_silk'] },
+  { id: 'ghost', name: 'Miner Ghost', emoji: '👻', allowedReqs: ['lantern', 'gold_nugget', 'bone', 'emerald', 'rope', 'crystal'] },
+  { id: 'mole', name: 'Giant Mole', emoji: '🐭', allowedReqs: ['mushroom', 'spider_silk', 'crystal', 'gold_nugget', 'bone', 'emerald'] },
+  { id: 'goblin', name: 'Cave Goblin', emoji: '👺', allowedReqs: ['gold_nugget', 'gem', 'mushroom', 'emerald', 'lantern', 'rope'] },
+];
+
+const UNDERWATER_ENTITIES = []; 
+
+// --- BACKGROUND COMPONENTS ---
 const BridgeSVG = () => (
   <svg className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-28 -z-10" viewBox="0 0 60 100">
-    <circle cx="10" cy="5" r="4" fill="#3e1c00"/>
-    <circle cx="50" cy="5" r="4" fill="#3e1c00"/>
-    <circle cx="10" cy="95" r="4" fill="#3e1c00"/>
-    <circle cx="50" cy="95" r="4" fill="#3e1c00"/>
+    <circle cx="10" cy="5" r="4" fill="#3e1c00"/><circle cx="50" cy="5" r="4" fill="#3e1c00"/>
+    <circle cx="10" cy="95" r="4" fill="#3e1c00"/><circle cx="50" cy="95" r="4" fill="#3e1c00"/>
     <path d="M 10 5 Q 15 50 10 95" fill="none" stroke="#3e1c00" strokeWidth="2" />
     <path d="M 50 5 Q 45 50 50 95" fill="none" stroke="#3e1c00" strokeWidth="2" />
-    {[15, 30, 45, 60, 75].map((y, i) => (
-      <rect key={y} x={12} y={y} width="36" height="8" fill="#8b5a2b" stroke="#4a2211" strokeWidth="1" rx="1" transform={`rotate(${i%2===0?-2:2} 30 ${y+4})`}/>
-    ))}
+    {[15, 30, 45, 60, 75].map((y, i) => ( <rect key={y} x={12} y={y} width="36" height="8" fill="#8b5a2b" stroke="#4a2211" strokeWidth="1" rx="1" transform={`rotate(${i%2===0?-2:2} 30 ${y+4})`}/> ))}
   </svg>
 );
 
@@ -49,920 +73,848 @@ const RiverBackground = () => (
     <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#1e40af" strokeWidth="10" opacity="0.3" strokeLinecap="round"/>
     <path d="M -10 53 Q 25 43 50 53 T 110 53" fill="none" stroke="#3b82f6" strokeWidth="5" opacity="0.5" strokeLinecap="round"/>
     <path d="M -10 52 Q 25 42 50 52 T 110 52" fill="none" stroke="#93c5fd" strokeWidth="1.5" opacity="0.7" strokeLinecap="round" strokeDasharray="15 25" className="animate-river-flow"/>
-    <path d="M -10 54 Q 25 44 50 54 T 110 54" fill="none" stroke="#bfdbfe" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeDasharray="8 32" className="animate-river-flow-slow"/>
   </svg>
+);
+
+const CaveBackground = () => ( 
+  <div className="absolute inset-0 bg-[#3a2f28] pointer-events-none z-0 overflow-hidden">
+    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#1a1512 2px, transparent 2px)', backgroundSize: '40px 40px' }} />
+    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 drop-shadow-2xl" viewBox="0 0 100 100" preserveAspectRatio="none">
+      {[16.66, 33.33, 50, 66.66, 83.33].map((y, i) => (
+        <React.Fragment key={i}>
+          <path d={`M 0 ${y} L 43 ${y} L 46 ${y-1} L 54 ${y-1} L 57 ${y} L 100 ${y}`} fill="none" stroke="#1c1612" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <path d={`M 0 ${y} L 43 ${y} L 46 ${y-1} L 54 ${y-1} L 57 ${y} L 100 ${y}`} fill="none" stroke="#2b201a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+        </React.Fragment>
+      ))}
+    </svg>
+  </div> 
+);
+
+const UnderwaterBackground = () => (
+  <>
+    <div className="absolute inset-0 bg-gradient-to-b from-cyan-500 via-blue-700 to-blue-950 pointer-events-none z-0 overflow-hidden">
+      <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+        <polygon points="10,-10 30,110 0,110" fill="white" opacity="0.05" />
+        <polygon points="50,-10 80,110 40,110" fill="white" opacity="0.05" />
+        <polygon points="90,-10 110,110 90,110" fill="white" opacity="0.05" />
+        {[...Array(15)].map((_, i) => ( <circle key={i} cx={10 + (i * 7) % 90} cy={100} r={0.5 + Math.random()} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${Math.random() * 5}s`, animationDuration: `${3 + Math.random() * 4}s` }} /> ))}
+      </svg>
+    </div>
+    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 10, filter: 'blur(2px) brightness(0.6)' }} preserveAspectRatio="none" viewBox="0 0 100 100">
+      <path d="M 0 65 Q 50 55 100 65 L 100 100 L 0 100 Z" fill="#2c425e" />
+      <path d="M 10 100 Q 5 80 15 65 T 10 40" fill="none" stroke="#1c3041" strokeWidth="2" strokeLinecap="round" className="animate-sway-slow" />
+      <path d="M 85 100 Q 80 80 90 65 T 85 40" fill="none" stroke="#1c3041" strokeWidth="2.5" strokeLinecap="round" className="animate-sway" />
+      <path d="M 40 80 Q 45 70 40 65 M 40 80 Q 35 70 40 65 M 40 80 L 40 65" fill="none" stroke="#36294a" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 20, filter: 'blur(1px) brightness(0.85)' }} preserveAspectRatio="none" viewBox="0 0 100 100">
+      <path d="M 0 78 Q 50 70 100 78 L 100 100 L 0 100 Z" fill="#3a5168" />
+      <path d="M 25 100 Q 30 85 25 75 T 30 50" fill="none" stroke="#1e4638" strokeWidth="3" strokeLinecap="round" className="animate-sway" />
+      <path d="M 75 100 Q 70 85 75 75 T 70 50" fill="none" stroke="#1e4638" strokeWidth="3" strokeLinecap="round" className="animate-sway-slow" />
+      <path d="M 60 85 Q 65 75 60 70 M 60 85 Q 55 75 60 70 M 60 85 L 60 70" fill="none" stroke="#68346e" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 30 }} preserveAspectRatio="none" viewBox="0 0 100 100">
+      <path d="M 0 90 Q 50 85 100 90 L 100 100 L 0 100 Z" fill="#b49365" />
+      <path d="M 0 95 Q 50 90 100 95 L 100 100 L 0 100 Z" fill="#8f724b" />
+      <path d="M 15 100 Q 20 85 15 75 T 20 50" fill="none" stroke="#15803d" strokeWidth="4" strokeLinecap="round" className="animate-sway" />
+      <path d="M 20 100 Q 15 90 17 80 T 13 60" fill="none" stroke="#166534" strokeWidth="3" strokeLinecap="round" className="animate-sway-slow" />
+      <path d="M 90 100 Q 85 90 88 80 T 82 60" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" className="animate-sway-slow" />
+      <path d="M 35 95 Q 35 85 30 80 M 35 95 Q 35 85 40 80 M 35 95 L 35 75" fill="none" stroke="#db2777" strokeWidth="4" strokeLinecap="round" />
+      <path d="M 80 95 Q 80 85 75 80 M 80 95 Q 80 85 85 80 M 80 95 L 80 75" fill="none" stroke="#a855f7" strokeWidth="5" strokeLinecap="round" />
+    </svg>
+  </>
 );
 
 const LEVEL_DICTIONARY = {
   river_crossing: {
-    id: 'river_crossing',
-    name: 'River Crossing',
-    items: RIVER_CROSSING_ITEMS,
-    entities: RIVER_CROSSING_ENTITIES,
-    campPos: { x: 50, y: 92 },
-    gatekeeperId: 'troll',
-    specialItemTemplate: 'fish',
+    id: 'river_crossing', name: 'River Crossing',
+    items: RIVER_CROSSING_ITEMS, entities: RIVER_CROSSING_ENTITIES,
+    campPos: { x: 50, y: 92 }, 
+    mechanics: { hasFish: true, gatekeeperId: 'troll', darknessType: 'horizontal' }, 
     specialEntityTemplate: 'dog',
     mapNodes: [
-      { x: 12, y: 82, zone: 1 }, { x: 88, y: 82, zone: 1 }, 
-      { x: 25, y: 65, zone: 1 }, { x: 75, y: 65, zone: 1 }, 
-      { x: 50, y: 52, zone: 1, isGatekeeper: true },
-      { x: 15, y: 35, zone: 2 }, { x: 85, y: 32, zone: 2 }, 
-      { x: 50, y: 18, zone: 2 }
+      { x: 12, y: 82, zone: 1 }, { x: 88, y: 82, zone: 1 }, { x: 25, y: 65, zone: 1 }, { x: 75, y: 65, zone: 1 }, 
+      { x: 50, y: 52, zone: 1, isGatekeeper: true, gkIdx: 0, unlocksZone: 2 },
+      { x: 15, y: 35, zone: 2 }, { x: 85, y: 32, zone: 2 }, { x: 50, y: 15, zone: 2, isGoal: true }
     ],
     sceneryNodes: [
       { x: 8, y: 22, e: '🌲', s: 'text-3xl' }, { x: 85, y: 12, e: '⛰️', s: 'text-5xl' },
       { x: 32, y: 28, e: '🌲', s: 'text-2xl' }, { x: 75, y: 35, e: '🌲', s: 'text-4xl' },
-      { x: 15, y: 68, e: '🪨', s: 'text-2xl' }, { x: 88, y: 75, e: '🌲', s: 'text-3xl' },
-      { x: 42, y: 85, e: '🌲', s: 'text-2xl' }, { x: 68, y: 82, e: '🪨', s: 'text-3xl' },
-      { x: 48, y: 38, e: '⛰️', s: 'text-4xl' }, { x: 20, y: 15, e: '⛰️', s: 'text-4xl' },
-      { x: 5, y: 30, e: '🌿', s: 'text-xl' }, { x: 95, y: 35, e: '🌿', s: 'text-xl' },
-      { x: 60, y: 20, e: '🌲', s: 'text-2xl' }, { x: 20, y: 90, e: '🌿', s: 'text-xl' },
-      { x: 80, y: 92, e: '🌲', s: 'text-2xl' }, { x: 35, y: 35, e: '🪨', s: 'text-xl' },
-      { x: 60, y: 75, e: '🌿', s: 'text-lg' }, { x: 55, y: 70, e: '🍄', s: 'text-xl' },
-      { x: 30, y: 78, e: '🍄', s: 'text-xl' }, { x: 90, y: 38, e: '🪨', s: 'text-2xl' },
-      { x: 10, y: 75, e: '🌲', s: 'text-3xl' }
+      { x: 15, y: 68, e: '🪨', s: 'text-2xl' }, { x: 48, y: 38, e: '⛰️', s: 'text-4xl' },
     ],
-    BackgroundComponent: RiverBackground,
-    GatekeeperPropComponent: BridgeSVG
+    BackgroundComponent: RiverBackground, GatekeeperPropComponent: BridgeSVG
+  },
+  underground: {
+    id: 'underground', name: 'The Deep Chasm',
+    items: UNDERGROUND_ITEMS, entities: UNDERGROUND_ENTITIES,
+    campPos: { x: 50, y: 5 }, 
+    mechanics: { hasPickaxe: true, hasDarkness: true, darknessType: 'vertical', isVertical: true, screens: 3 }, 
+    specialEntityTemplate: 'mole',
+    passages: [
+      { id: 'p_down_1', zone: 1, targetZone: 2, x: 60, y: 16.6, type: 'down', reqGk: 'dig_rock_0' },
+      { id: 'p_up_2',   zone: 2, targetZone: 1, x: 40, y: 16.6, type: 'up' },
+      { id: 'p_down_2', zone: 2, targetZone: 3, x: 60, y: 33.3, type: 'down', reqGk: 'dig_rock_1' },
+      { id: 'p_up_3',   zone: 3, targetZone: 2, x: 40, y: 33.3, type: 'up' },
+      { id: 'p_down_3', zone: 3, targetZone: 4, x: 60, y: 50.0, type: 'down', reqGk: 'dig_rock_2' },
+      { id: 'p_up_4',   zone: 4, targetZone: 3, x: 40, y: 50.0, type: 'up' },
+      { id: 'p_down_4', zone: 4, targetZone: 5, x: 60, y: 66.6, type: 'down', reqGk: 'dig_rock_3' },
+      { id: 'p_up_5',   zone: 5, targetZone: 4, x: 40, y: 66.6, type: 'up' },
+      { id: 'p_down_5', zone: 5, targetZone: 6, x: 60, y: 83.3, type: 'down', reqGk: 'dig_rock_4' },
+      { id: 'p_up_6',   zone: 6, targetZone: 5, x: 40, y: 83.3, type: 'up' },
+    ],
+    mapNodes: [
+      { x: 20, y: 10, zone: 1 }, { x: 80, y: 10, zone: 1 }, { x: 50, y: 12, zone: 1 },
+      { x: 50, y: 16.6, zone: 1, isGatekeeper: true, gkIdx: 0, id: 'dig_rock_0', emoji: '🪨', unlocksZone: 2 },
+      { x: 30, y: 22, zone: 2 }, { x: 70, y: 22, zone: 2 }, { x: 50, y: 27, zone: 2 },
+      { x: 50, y: 33.3, zone: 2, isGatekeeper: true, gkIdx: 1, id: 'dig_rock_1', emoji: '🪨', unlocksZone: 3 },
+      { x: 20, y: 39, zone: 3 }, { x: 80, y: 39, zone: 3 }, { x: 50, y: 44, zone: 3 },
+      { x: 50, y: 50.0, zone: 3, isGatekeeper: true, gkIdx: 2, id: 'dig_rock_2', emoji: '🪨', unlocksZone: 4 },
+      { x: 35, y: 56, zone: 4 }, { x: 65, y: 56, zone: 4 }, { x: 50, y: 61, zone: 4 },
+      { x: 50, y: 66.6, zone: 4, isGatekeeper: true, gkIdx: 3, id: 'dig_rock_3', emoji: '🪨', unlocksZone: 5 },
+      { x: 25, y: 72, zone: 5 }, { x: 75, y: 72, zone: 5 }, { x: 50, y: 77, zone: 5 },
+      { x: 50, y: 83.3, zone: 5, isGatekeeper: true, gkIdx: 4, id: 'dig_rock_4', emoji: '🪨', unlocksZone: 6 },
+      { x: 30, y: 89, zone: 6 }, { x: 70, y: 89, zone: 6 },
+      { x: 50, y: 95, zone: 6, isGoal: true }
+    ],
+    sceneryNodes: [
+      { x: 25, y: 3, e: '🕸️', s: 'text-3xl' }, { x: 85, y: 8, e: '🪨', s: 'text-2xl opacity-50' },
+      { x: 15, y: 25, e: '🪨', s: 'text-4xl' }, { x: 80, y: 30, e: '🕸️', s: 'text-3xl' },
+      { x: 20, y: 45, e: '🍄', s: 'text-3xl' }, { x: 90, y: 48, e: '🪨', s: 'text-2xl opacity-50' },
+      { x: 15, y: 60, e: '🪨', s: 'text-4xl' }, { x: 85, y: 65, e: '🕸️', s: 'text-3xl' },
+      { x: 20, y: 80, e: '🍄', s: 'text-4xl' }, { x: 80, y: 92, e: '🪨', s: 'text-3xl' },
+    ],
+    BackgroundComponent: CaveBackground, GatekeeperPropComponent: () => null
+  },
+  underwater: {
+    id: 'underwater', name: 'Deep Blue',
+    items: UNDERWATER_ITEMS, entities: [], 
+    campPos: { x: 50, y: 15, depth: 3 }, 
+    mechanics: { noPath: true, isFarming: true, hasSchoolsOfFish: true, heroBobs: true },
+    mapNodes: [], sceneryNodes: [], passages: [],
+    BackgroundComponent: UnderwaterBackground, GatekeeperPropComponent: () => null
   }
 };
 
 // --- LOGIC ---
-
-function solvePuzzle(startItems, puzzleEntities, goalEntityId, gatekeeperId, specialItemId) {
-  const queue = [{ inv: [...startItems].sort(), def: [], path: [] }];
+function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
+  const queue = [{ inv: [...startItems].sort(), def: [], path: [], pickaxeCharges: level.mechanics.hasPickaxe ? 0 : null }];
   const visited = new Set();
   let iters = 0;
 
   while (queue.length > 0) {
     iters++;
-    if (iters > 35000) return null;
+    if (iters > 25000) return null;
 
     const curr = queue.shift();
     if (curr.def.includes(goalEntityId)) return curr.path;
 
-    const stateKey = curr.inv.join(',') + '|' + curr.def.sort().join(',');
+    const stateKey = curr.inv.join(',') + '|' + curr.def.sort().join(',') + '|' + (curr.pickaxeCharges || 0);
     if (visited.has(stateKey)) continue;
     visited.add(stateKey);
 
-    // Environment specific actions (e.g. Catching a fish)
-    if (specialItemId && !curr.def.includes(`${specialItemId}_node`) && curr.inv.length < 3) {
-      queue.push({ 
-        inv: [...curr.inv, specialItemId].sort(), 
-        def: [...curr.def, `${specialItemId}_node`], 
-        path: [...curr.path, { isEnvironmentAction: true, itemId: specialItemId }] 
-      });
+    const canHoldMore = level.mechanics.isFarming ? Array.from(new Set(curr.inv)).length < 4 : curr.inv.length < 3;
+
+    if (level.mechanics.hasFish && !curr.def.includes(`fish_node`) && canHoldMore) {
+      queue.push({ inv: [...curr.inv, 'fish'].sort(), def: [...curr.def, 'fish_node'], path: [...curr.path, { isEnvironmentAction: true, itemId: 'fish' }], pickaxeCharges: curr.pickaxeCharges });
     }
+
+    let maxUnlockedZone = 1;
+    puzzleEntities.forEach(e => {
+        if (e.isGatekeeper && curr.def.includes(e.id) && e.unlocksZone > maxUnlockedZone) maxUnlockedZone = e.unlocksZone;
+    });
 
     for (const entity of puzzleEntities) {
       if (curr.def.includes(entity.id)) continue;
-      if (entity.zone === 2 && !curr.def.includes(gatekeeperId)) continue;
+      if (entity.zone > maxUnlockedZone) continue;
       
+      if (entity.isGatekeeper && level.mechanics.hasPickaxe) {
+        const prevRock = puzzleEntities.find(e => e.isGatekeeper && e.gkIdx === entity.gkIdx - 1);
+        if (prevRock && !curr.def.includes(prevRock.id)) continue;
+        if (curr.inv.includes('pickaxe') && curr.pickaxeCharges > 0) {
+          let newInv = [...curr.inv]; let newCharges = curr.pickaxeCharges - 1;
+          if (newCharges === 0) newInv.splice(newInv.indexOf('pickaxe'), 1);
+          queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: ['pickaxe'], reqType: 'SPECIAL' }], pickaxeCharges: newCharges });
+        } continue;
+      }
+
       if (entity.reqType === 'AND') {
-        if (entity.requires.every(req => curr.inv.includes(req))) {
-          let newInv = [...curr.inv];
-          entity.requires.forEach(req => {
-            const idx = newInv.indexOf(req);
-            if (idx > -1) newInv.splice(idx, 1);
-          });
-          if (entity.reward) newInv.push(entity.reward);
-          if (newInv.length <= 3) {
-            queue.push({ 
-              inv: newInv.sort(), 
-              def: [...curr.def, entity.id], 
-              path: [...curr.path, { entityId: entity.id, usedItems: entity.requires, reqType: 'AND' }] 
-            });
-          }
+        let hasAll = true; let tempInv = [...curr.inv];
+        for (const req of (entity.requires || [])) {
+           const idx = tempInv.indexOf(req);
+           if (idx > -1) tempInv.splice(idx, 1); else { hasAll = false; break; }
         }
-      } else {
+        if (hasAll) {
+          let newInv = tempInv;
+          if (entity.reward && entity.reward !== 'pickaxe') newInv.push(entity.reward);
+          let newCharges = curr.pickaxeCharges;
+          if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = 5; }
+          
+          const isValid = level.mechanics.isFarming ? Array.from(new Set(newInv)).length <= 4 : newInv.length <= 3;
+          if (isValid) queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: entity.requires, reqType: 'AND' }], pickaxeCharges: newCharges });
+        }
+      } else { 
         for (let i = 0; i < curr.inv.length; i++) {
           const itemId = curr.inv[i];
-          if (entity.requires.includes(itemId)) {
-            const newInv = [...curr.inv];
-            newInv.splice(i, 1);
-            if (entity.reward) newInv.push(entity.reward);
-            if (newInv.length <= 3) {
-              queue.push({ 
-                inv: newInv.sort(), 
-                def: [...curr.def, entity.id], 
-                path: [...curr.path, { entityId: entity.id, itemId: itemId, reqType: 'OR' }] 
-              });
-            }
+          if ((entity.requires || []).includes(itemId)) {
+            const newInv = [...curr.inv]; newInv.splice(i, 1);
+            if (entity.reward && entity.reward !== 'pickaxe') newInv.push(entity.reward);
+            let newCharges = curr.pickaxeCharges;
+            if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = 5; }
+            
+            const isValid = level.mechanics.isFarming ? Array.from(new Set(newInv)).length <= 4 : newInv.length <= 3;
+            if (isValid) queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, itemId: itemId, reqType: 'OR' }], pickaxeCharges: newCharges });
           }
         }
       }
     }
-  }
-  return null;
+  } return null;
 }
 
 function generateLevelPuzzle(level, targetSteps, numDiggers) {
-  let bestPuzzle = null;
-  let maxSteps = 0;
+  if (level.mechanics.isFarming) {
+      const specialItems = ['shell', 'starfish', 'trident', 'anchor'];
+      const mermaids = specialItems.map((item, idx) => ({ id: `mermaid_${idx}`, emoji: '🧜‍♀️', requires: [item], reqType: 'AND', reward: 'pearl', isGatekeeper: false, y: 25 + idx * 15, depth: (idx % 3) + 1, isRepeatable: true, roamClass: idx % 2 === 0 ? 'animate-[swimRight_20s_linear_infinite]' : 'animate-[swimLeft_24s_linear_infinite]', filterClass: `hue-rotate-[${idx * 120}deg] saturate-200`, isRight: idx % 2 === 0 }));
+      const crabs = [
+          { id: 'crab_0', emoji: '🦀', requires: ['red_fish'], reqType: 'AND', reward: 'shell', isGatekeeper: false, x: 25, y: 64, depth: 1, isRepeatable: true },
+          { id: 'crab_1', emoji: '🦀', requires: ['green_fish'], reqType: 'AND', reward: 'starfish', isGatekeeper: false, x: 75, y: 76, depth: 2, isRepeatable: true },
+          { id: 'crab_2', emoji: '🦀', requires: ['red_fish', 'green_fish'], reqType: 'AND', reward: 'trident', isGatekeeper: false, x: 20, y: 88, depth: 3, isRepeatable: true },
+          { id: 'crab_3', emoji: '🦀', requires: ['blue_fish'], reqType: 'AND', reward: 'anchor', isGatekeeper: false, x: 80, y: 90, depth: 3, isRepeatable: true }
+      ];
+      return { startItems: [], goalEntityId: 'octopus', gatekeepers: [], solution: null, puzzleEntities: [ { id: 'octopus', emoji: '🐙', requires: Array(8).fill('pearl'), reqType: 'AND', isGatekeeper: false, x: 50, y: 92, depth: 3, isGoal: true }, ...mermaids, ...crabs ] };
+  }
+
+  let bestPuzzle = null; let maxSteps = 0; const startTime = Date.now(); 
 
   for (let attempt = 0; attempt < 5000; attempt++) {
-    const gatekeeper = level.entities.find(e => e.id === level.gatekeeperId);
+    if (Date.now() - startTime > 1200) break; // Hard bail
+
+    let activeGatekeepers = [];
+    if (level.mechanics.gatekeeperId) {
+      const gkEnt = level.entities.find(e => e.id === level.mechanics.gatekeeperId);
+      const gkNode = level.mapNodes.find(n => n.isGatekeeper);
+      const reqs = [...gkEnt.allowedReqs].sort(() => Math.random() - 0.5).slice(0, 2);
+      activeGatekeepers = [{ ...gkEnt, ...gkNode, requires: reqs, reqType: 'AND', reward: null, id: gkEnt.id }];
+    } else if (level.mechanics.hasPickaxe) {
+      const rockNodes = level.mapNodes.filter(n => n.isGatekeeper);
+      activeGatekeepers = rockNodes.map(n => ({ id: n.id, name: 'Rock', emoji: n.emoji, isGatekeeper: true, x: n.x, y: n.y, zone: n.zone, gkIdx: n.gkIdx, unlocksZone: n.unlocksZone, requires: [], reqType: 'SPECIAL' }));
+    }
+
+    const availableNodes = level.mapNodes.filter(n => !n.isGatekeeper && !n.isGoal);
+    const goalNode = level.mapNodes.find(n => n.isGoal);
+    
     const diggerTemplate = level.entities.find(e => e.id === level.specialEntityTemplate);
-    const otherTemplates = level.entities.filter(e => e.id !== level.gatekeeperId && e.id !== level.specialEntityTemplate);
+    const otherTemplates = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate);
     
     let selectedOthers = Array.from({length: numDiggers}).map((_, i) => ({...diggerTemplate, id: `${level.specialEntityTemplate}_${i}`}));
-    const shuffledOthers = [...otherTemplates].sort(() => Math.random() - 0.5);
     
-    selectedOthers = [...selectedOthers, ...shuffledOthers.slice(0, 7 - numDiggers)].sort(() => Math.random() - 0.5);
-    const shuffledEnts = [...selectedOthers.slice(0, 4), gatekeeper, ...selectedOthers.slice(4, 7)];
-    const goalEntity = shuffledEnts[7];
-
-    const puzzleEntities = shuffledEnts.map((e, idx) => {
-      const pos = level.mapNodes[idx]; 
-      const isGatekeeper = pos.isGatekeeper;
-      const isGoal = e.id === goalEntity.id;
-
-      let reward = null;
-      if (!isGoal && !isGatekeeper) { 
-        reward = level.items[Math.floor(Math.random() * level.items.length)].id;
-      }
-      
-      const availableReqs = e.allowedReqs.filter(req => req !== reward);
-      let reqType = 'OR';
-      let numReqs = 1;
-
-      if (isGoal || isGatekeeper) {
-        reqType = 'AND';
-        numReqs = 2; 
-      } else {
-        reqType = 'OR';
-        numReqs = Math.random() > 0.4 && availableReqs.length >= 2 ? 2 : 1; 
-      }
-      
+    let pool = [...otherTemplates].sort(() => Math.random() - 0.5);
+    while (pool.length < availableNodes.length + 1) { pool = [...pool, ...otherTemplates].sort(() => Math.random() - 0.5); }
+    selectedOthers = [...selectedOthers, ...pool].slice(0, availableNodes.length + 1).map((e, idx) => ({...e, id: `${e.id}_${idx}`})).sort(() => Math.random() - 0.5);
+    
+    const goalTemplate = selectedOthers.pop();
+    let puzzleEntities = [...activeGatekeepers];
+    
+    selectedOthers.forEach((e, idx) => {
+      const pos = availableNodes[idx]; 
+      let reward = level.items[Math.floor(Math.random() * level.items.length)].id;
+      if (reward === 'pickaxe') reward = null;
+      const availableReqs = e.allowedReqs.filter(req => req !== reward && req !== 'pickaxe');
+      const numReqs = Math.random() > 0.4 && availableReqs.length >= 2 ? 2 : 1; 
       const reqs = [...availableReqs].sort(() => Math.random() - 0.5).slice(0, numReqs);
-      
-      return { ...e, requires: reqs, reqType, reward, x: pos.x, y: pos.y, zone: pos.zone, isGatekeeper };
+      puzzleEntities.push({ ...e, requires: reqs, reqType: 'OR', reward, x: pos.x, y: pos.y, zone: pos.zone, isGatekeeper: false });
     });
 
-    const standardItems = level.items.filter(i => i.id !== level.specialItemTemplate);
-    const getRandomItem = () => standardItems[Math.floor(Math.random() * standardItems.length)].id;
-    const startItems = [getRandomItem(), getRandomItem(), getRandomItem()];
-
-    const solution = solvePuzzle(startItems, puzzleEntities, goalEntity.id, level.gatekeeperId, level.specialItemTemplate);
-
-    if (solution) {
-      if (solution.length >= targetSteps) {
-        return { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: level.gatekeeperId, solution };
-      }
-      if (solution.length > maxSteps) {
-        bestPuzzle = { startItems, puzzleEntities, goalEntityId: goalEntity.id, gatekeeperId: level.gatekeeperId, solution };
-        maxSteps = solution.length;
-      }
+    if (goalNode) {
+      const availableReqs = goalTemplate.allowedReqs.filter(req => req !== 'pickaxe');
+      const reqs = [...availableReqs].sort(() => Math.random() - 0.5).slice(0, 2);
+      puzzleEntities.push({ ...goalTemplate, requires: reqs, reqType: 'AND', reward: null, x: goalNode.x, y: goalNode.y, zone: goalNode.zone, isGatekeeper: false, id: goalTemplate.id });
     }
-  }
-  return bestPuzzle;
+
+    if (level.mechanics.hasPickaxe) {
+      const z1NonGoal = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && e.id !== goalTemplate.id);
+      if (z1NonGoal) z1NonGoal.reward = 'pickaxe';
+    }
+
+    const standardItems = level.items.filter(i => i.id !== 'fish' && i.id !== 'pickaxe');
+    const startItems = [ standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id ];
+
+    const firstStepEnt = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && e.id !== goalTemplate.id);
+    if (firstStepEnt) {
+       firstStepEnt.requires = [startItems[0]];
+       firstStepEnt.reqType = 'OR';
+       if (level.mechanics.hasPickaxe) firstStepEnt.reward = 'pickaxe'; 
+    }
+
+    const solution = solvePuzzle(startItems, puzzleEntities, goalTemplate.id, level);
+    if (solution) {
+      if (solution.length >= targetSteps) return { startItems, puzzleEntities, goalEntityId: goalTemplate.id, gatekeepers: activeGatekeepers.map(g=>g.id), solution };
+      if (solution.length > maxSteps) { bestPuzzle = { startItems, puzzleEntities, goalEntityId: goalTemplate.id, gatekeepers: activeGatekeepers.map(g=>g.id), solution }; maxSteps = solution.length; }
+    }
+  } return bestPuzzle;
 }
 
-// --- MAIN APP COMPONENT ---
-
-export default function App() {
-  const [currentLevelId, setCurrentLevelId] = useState('river_crossing');
-  const level = LEVEL_DICTIONARY[currentLevelId];
-
-  const [targetSteps, setTargetSteps] = useState(6);
-  const [numDiggers, setNumDiggers] = useState(1);
+// --- SUB-COMPONENT: ISOLATED GAME INSTANCE ---
+function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   const [puzzle, setPuzzle] = useState(null);
-  
-  const [inventory, setInventory] = useState([]);
+  const [generationFailed, setGenerationFailed] = useState(false);
+  const [inventory, setInventory] = useState([]); 
+  const [pickaxeCharges, setPickaxeCharges] = useState(0);
+  const [currentZone, setCurrentZone] = useState(1);
+  const [unlockedZones, setUnlockedZones] = useState([1]);
   const [defeated, setDefeated] = useState([]);
-  const [selectedIndices, setSelectedIndices] = useState([]); 
+  const [selectedItemTypes, setSelectedItemTypes] = useState([]); 
   const [pathHistory, setPathHistory] = useState([level.campPos]);
   const [historyStack, setHistoryStack] = useState([]); 
-  
   const [isVictorious, setIsVictorious] = useState(false);
   const [showTrophy, setShowTrophy] = useState(false);
   const [showVictoryMsg, setShowVictoryMsg] = useState(false);
   const [isDemonstrating, setIsDemonstrating] = useState(false);
   const [isAnimatingLoot, setIsAnimatingLoot] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [mapRefreshKey, setMapRefreshKey] = useState(0); 
-  
   const [alertEntityId, setAlertEntityId] = useState(null); 
   const [selectedEntityId, setSelectedEntityId] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
   const [tempPlayerPos, setTempPlayerPos] = useState(null);
-  
-  // Environment Special State
-  const [envItemState, setEnvItemState] = useState('active'); // active, caught, hidden
+  const [envItemState, setEnvItemState] = useState('active'); 
   const [envItemCaughtPos, setEnvItemCaughtPos] = useState({x: 50, y: 50});
+  const [schoolsOfFish, setSchoolsOfFish] = useState([]);
+  
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuView, setMenuView] = useState('main'); 
+  const [menuSettings, setMenuSettings] = useState({ levelId: level.id, steps: targetSteps, diggers: numDiggers });
 
   const demoRef = useRef(false);
+  const mapRef = useRef(null);
 
-  useEffect(() => { handleGenerate(); }, [currentLevelId]);
+  useEffect(() => { 
+    setPuzzle(null); setGenerationFailed(false);
+    const timer = setTimeout(() => {
+      let newPuzzle = generateLevelPuzzle(level, targetSteps, numDiggers);
+      if (!newPuzzle && !level.mechanics.isFarming) newPuzzle = generateLevelPuzzle(level, 3, numDiggers); 
+      if (!newPuzzle) { setGenerationFailed(true); return; }
+      setPuzzle(newPuzzle); setInventory(newPuzzle.startItems || []);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const handleGenerate = () => {
-    if (demoRef.current || isAnimatingLoot) return; 
-    const newPuzzle = generateLevelPuzzle(level, targetSteps, numDiggers);
-    setPuzzle(newPuzzle);
-    resetGameState(newPuzzle.startItems);
-    setIsMenuOpen(false);
-    setMapRefreshKey(prev => prev + 1);
-  };
+  useEffect(() => {
+    if (!level.mechanics.hasSchoolsOfFish || isDemonstrating || isVictorious) return;
+    const fishTypes = ['red_fish', 'blue_fish', 'green_fish'];
+    const spawnFish = () => {
+      const id = Date.now() + Math.random(); const type = fishTypes[Math.floor(Math.random() * fishTypes.length)];
+      const depth = Math.floor(Math.random() * 3) + 1; const yPos = 10 + depth * 10 + Math.random() * 40; 
+      const isRight = Math.random() > 0.5;
+      setSchoolsOfFish(prev => [...prev, { id, type, y: yPos, depth, isRight }]);
+      setTimeout(() => { setSchoolsOfFish(prev => prev.filter(f => f.id !== id)); }, 10000); 
+    };
+    const intervalId = setInterval(spawnFish, 2500);
+    return () => clearInterval(intervalId);
+  }, [level.mechanics.hasSchoolsOfFish, isDemonstrating, isVictorious]);
 
-  const handleReplay = () => {
-    if (!puzzle || isDemonstrating || isAnimatingLoot) return;
-    resetGameState(puzzle.startItems);
-    setIsMenuOpen(false);
-    setMapRefreshKey(prev => prev + 1);
-  };
-
-  const resetGameState = (startItems) => {
-    setInventory(startItems.filter(i => i !== level.specialItemTemplate));
-    setDefeated([]);
-    setSelectedIndices([]);
-    setSelectedEntityId(null);
-    setPathHistory([level.campPos]);
-    setHistoryStack([]);
-    setIsVictorious(false);
-    setShowTrophy(false);
-    setShowVictoryMsg(false);
-    setIsDemonstrating(false);
-    setIsAnimatingLoot(false);
-    setAlertEntityId(null);
-    setFlyingItem(null);
-    setTempPlayerPos(null);
-    setEnvItemState('active');
-  };
+  const saveHistory = () => { setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState, pickaxeCharges, currentZone, unlockedZones: [...unlockedZones] }]); };
 
   const handleUndo = () => {
     if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot) return;
     const prevState = historyStack[historyStack.length - 1];
-    
-    setInventory(prevState.inventory);
-    setDefeated(prevState.defeated);
-    setPathHistory(prevState.pathHistory);
-    setEnvItemState(prevState.envItemState);
-    setHistoryStack(prev => prev.slice(0, -1));
-    
-    setSelectedIndices([]);
-    setSelectedEntityId(null);
-    setFlyingItem(null);
-    setTempPlayerPos(null);
-    setIsVictorious(false);
-    setShowTrophy(false);
-    setShowVictoryMsg(false);
+    setInventory(prevState.inventory); setDefeated(prevState.defeated); setPathHistory(prevState.pathHistory);
+    setEnvItemState(prevState.envItemState); setPickaxeCharges(prevState.pickaxeCharges);
+    setCurrentZone(prevState.currentZone); setUnlockedZones(prevState.unlockedZones);
+    setHistoryStack(prev => prev.slice(0, -1)); setSelectedItemTypes([]); setSelectedEntityId(null);
+    setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false);
   };
+
+  const resetGameState = () => {
+    if (!puzzle) return;
+    setInventory(puzzle.startItems || []); setPickaxeCharges(0); setCurrentZone(1); setUnlockedZones([1]);
+    setDefeated([]); setSelectedItemTypes([]); setSelectedEntityId(null); setPathHistory([level.campPos]);
+    setHistoryStack([]); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false);
+    setIsDemonstrating(false); setIsAnimatingLoot(false); setAlertEntityId(null); setFlyingItem(null);
+    setTempPlayerPos(null); setEnvItemState('active'); setSchoolsOfFish([]);
+  };
+
+  const handleReplay = () => { demoRef.current = false; resetGameState(); setIsMenuOpen(false); };
 
   const handleShowSolution = async () => {
     if (!puzzle || !puzzle.solution || demoRef.current || isAnimatingLoot) return;
-    
-    setIsDemonstrating(true);
-    demoRef.current = true;
-    resetGameState(puzzle.startItems);
-    setIsMenuOpen(false);
+    setIsDemonstrating(true); demoRef.current = true; resetGameState(); setIsMenuOpen(false);
 
-    let currentInv = [...puzzle.startItems.filter(i => i !== level.specialItemTemplate)];
-    let currentDefeated = [];
-    let currentPath = [level.campPos];
+    let currentInv = [...(puzzle.startItems || [])]; let currentDefeated = []; let currentPath = [level.campPos];
+    let currentZoneSim = 1; let unlockedZonesSim = [1]; let pCharges = 0;
 
     for (const step of puzzle.solution) {
       if (!demoRef.current) break; 
-      
       if (step.isEnvironmentAction) {
-        setEnvItemState('caught');
-        setEnvItemCaughtPos({x: 50, y: 53});
+        setEnvItemState('caught'); setEnvItemCaughtPos({x: 50, y: 53});
         await new Promise(r => setTimeout(r, 800));
-        setEnvItemState('hidden');
-        currentInv.push(step.itemId);
-        setInventory([...currentInv]);
+        setEnvItemState('hidden'); currentInv.push(step.itemId); setInventory([...currentInv]);
         await new Promise(r => setTimeout(r, 400));
         continue;
       }
 
-      await new Promise(r => setTimeout(r, 600));
-
-      if (step.reqType === 'AND') {
-        let tempInvForSelect = [...currentInv];
-        let idxs = [];
-        step.usedItems.forEach(req => {
-            const idx = tempInvForSelect.indexOf(req);
-            if (idx > -1) {
-                idxs.push(idx);
-                tempInvForSelect[idx] = null; 
-            }
-        });
-        setSelectedIndices(idxs);
-      } else {
-        const itemIdx = currentInv.indexOf(step.itemId);
-        setSelectedIndices([itemIdx]);
+      const entity = puzzle.puzzleEntities.find(e => e.id === step.entityId);
+      if (level.mechanics.hasDarkness && entity.zone !== currentZoneSim && !entity.isGatekeeper) {
+          const cp = level.checkpoints?.find(c => c.zone === entity.zone);
+          if (cp) {
+             currentPath.push({x: cp.x, y: cp.y, depth: 3}); setPathHistory([...currentPath]);
+             currentZoneSim = entity.zone; setCurrentZone(currentZoneSim);
+             await new Promise(r => setTimeout(r, 800));
+          } else if (level.passages) {
+             const pDown = level.passages.find(p => p.zone === currentZoneSim && p.targetZone === entity.zone);
+             const pUp = level.passages.find(p => p.zone === entity.zone && p.targetZone === currentZoneSim);
+             if (pDown && pUp) {
+                 currentPath.push({x: pDown.x, y: pDown.y, depth: 3}); setPathHistory([...currentPath]);
+                 await new Promise(r => setTimeout(r, 400));
+                 currentZoneSim = entity.zone; setCurrentZone(currentZoneSim);
+                 currentPath.push({x: pUp.x, y: pUp.y, depth: 3}); setPathHistory([...currentPath]);
+                 await new Promise(r => setTimeout(r, 400));
+             }
+          }
       }
 
       await new Promise(r => setTimeout(r, 600));
-      
-      const entity = puzzle.puzzleEntities.find(e => e.id === step.entityId);
-      currentPath.push({x: entity.x, y: entity.y});
-      setPathHistory([...currentPath]);
+      if (step.reqType === 'SPECIAL') { setSelectedItemTypes(['pickaxe']);
+      } else if (step.reqType === 'AND') { setSelectedItemTypes(Array.from(new Set(step.usedItems)));
+      } else { setSelectedItemTypes([step.itemId]); }
 
+      await new Promise(r => setTimeout(r, 600));
+      currentPath.push({x: entity.x, y: entity.y, depth: entity.depth || 3}); setPathHistory([...currentPath]);
       await new Promise(r => setTimeout(r, 800)); 
 
-      if (step.reqType === 'AND') {
-        step.usedItems.forEach(req => {
-          const idx = currentInv.indexOf(req);
-          if (idx > -1) currentInv.splice(idx, 1);
-        });
-      } else {
-        const itemIdx = currentInv.indexOf(step.itemId);
-        currentInv.splice(itemIdx, 1);
-      }
-      setInventory([...currentInv]);
-      setSelectedIndices([]); 
+      if (step.reqType === 'SPECIAL') { pCharges -= 1; setPickaxeCharges(pCharges); if (pCharges === 0) currentInv.splice(currentInv.indexOf('pickaxe'), 1);
+      } else if (step.reqType === 'AND') { step.usedItems.forEach(req => { const idx = currentInv.indexOf(req); if (idx > -1) currentInv.splice(idx, 1); });
+      } else { currentInv.splice(currentInv.indexOf(step.itemId), 1); }
+      
+      setInventory([...currentInv]); setSelectedItemTypes([]); 
       
       if (entity.reward) {
         setFlyingItem({ emoji: level.items.find(i=>i.id===entity.reward).emoji, x: entity.x, y: entity.y });
         await new Promise(r => setTimeout(r, 800)); 
-        setFlyingItem(null);
-        currentInv.push(entity.reward);
+        setFlyingItem(null); currentInv.push(entity.reward);
+        if (entity.reward === 'pickaxe') { pCharges = 5; setPickaxeCharges(5); }
         setInventory([...currentInv]);
       }
       
-      currentDefeated.push(entity.id);
-      setDefeated([...currentDefeated]);
-      setSelectedEntityId(null);
+      currentDefeated.push(entity.id); setDefeated([...currentDefeated]); setSelectedEntityId(null);
 
+      if (entity.isGatekeeper) {
+         if (entity.unlocksZone && !unlockedZonesSim.includes(entity.unlocksZone)) {
+             unlockedZonesSim.push(entity.unlocksZone); setUnlockedZones([...unlockedZonesSim]);
+             currentZoneSim = entity.unlocksZone; setCurrentZone(currentZoneSim);
+         } else if (puzzle.gatekeepers && puzzle.gatekeepers.every(id => currentDefeated.includes(id))) {
+             if (!unlockedZonesSim.includes(2)) { unlockedZonesSim.push(2); setUnlockedZones([...unlockedZonesSim]); }
+         }
+      }
       if (entity.id === puzzle.goalEntityId) triggerVictory();
     }
-    setIsDemonstrating(false);
-    demoRef.current = false;
+    setIsDemonstrating(false); demoRef.current = false;
   };
 
-  const triggerVictory = () => {
-    setIsVictorious(true);
-    setTimeout(() => setShowTrophy(true), 800);
-    setTimeout(() => setShowVictoryMsg(true), 1000);
-  };
+  const triggerVictory = () => { setIsVictorious(true); setTimeout(() => setShowTrophy(true), 800); setTimeout(() => setShowVictoryMsg(true), 1000); };
 
-  const handleCatchEnvItem = (e) => {
+  const handleCatchRiverFish = (e) => {
     e.stopPropagation();
-    if (envItemState !== 'active' || inventory.length >= 3 || isDemonstrating || isAnimatingLoot) return;
-    
-    setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState }]);
-    
+    const uniqueInvCount = Array.from(new Set(inventory)).length;
+    if (envItemState !== 'active' || (uniqueInvCount >= 4 && !inventory.includes('fish')) || isDemonstrating || isAnimatingLoot) return;
+    saveHistory();
     const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
-    const x = ((e.clientX - parentRect.left) / parentRect.width) * 100;
-    const y = ((e.clientY - parentRect.top) / parentRect.height) * 100;
-    
-    setEnvItemCaughtPos({x, y});
-    setEnvItemState('caught');
-    
-    setTimeout(() => {
-      setEnvItemState('hidden');
-      setInventory(prev => [...prev, level.specialItemTemplate]);
-    }, 800);
+    setEnvItemCaughtPos({ x: ((e.clientX - parentRect.left) / parentRect.width) * 100, y: ((e.clientY - parentRect.top) / parentRect.height) * 100 });
+    setEnvItemState('caught'); setTimeout(() => { setEnvItemState('hidden'); setInventory(prev => [...prev, 'fish']); }, 800);
   };
 
-  const toggleInventorySlot = (slotIdx) => {
+  const handleCatchSchoolFish = (e, fishObj) => {
+    e.stopPropagation();
+    const uniqueInvCount = Array.from(new Set(inventory)).length;
+    if ((uniqueInvCount >= 4 && !inventory.includes(fishObj.type)) || isDemonstrating || isAnimatingLoot) return;
+    if (!mapRef.current) return;
+    const rect = mapRef.current.getBoundingClientRect();
+    saveHistory(); setIsAnimatingLoot(true);
+    setPathHistory(prev => [...prev, { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100, depth: fishObj.depth }]);
+    setTimeout(() => {
+      setSchoolsOfFish(currentFish => {
+        if (currentFish.some(f => f.id === fishObj.id)) { setInventory(prev => [...prev, fishObj.type]); return currentFish.filter(f => f.id !== fishObj.id); }
+        return currentFish;
+      }); setIsAnimatingLoot(false);
+    }, 700);
+  };
+
+  const handlePassageClick = (passage) => {
     if (isDemonstrating || isAnimatingLoot) return;
-    if (selectedIndices.includes(slotIdx)) {
-      setSelectedIndices(prev => prev.filter(i => i !== slotIdx));
-    } else {
-      setSelectedIndices(prev => [...prev, slotIdx]);
-    }
+    setCurrentZone(passage.targetZone);
+    setUnlockedZones(prev => [...new Set([...prev, passage.targetZone])]);
+    const arrival = level.passages.find(p => p.zone === passage.targetZone && p.targetZone === passage.zone);
+    if (arrival) setPathHistory(prev => [...prev, { x: arrival.x, y: arrival.y, depth: 3 }]);
+  };
+
+  const toggleInventoryType = (itemId) => {
+    if (isDemonstrating || isAnimatingLoot) return;
+    if (selectedItemTypes.includes(itemId)) setSelectedItemTypes(prev => prev.filter(i => i !== itemId));
+    else setSelectedItemTypes(prev => [...prev, itemId]);
   };
 
   const handleInteract = (entity, e) => {
     e.stopPropagation();
-    if (defeated.includes(entity.id) || isVictorious || isDemonstrating || isAnimatingLoot) return;
+    if (defeated.includes(entity.id)) {
+        setCurrentZone(entity.zone);
+        const targetX = entity.roamClass ? 50 : entity.x;
+        setPathHistory(prev => [...prev, { x: targetX, y: entity.y, depth: entity.depth || 3 }]);
+        return;
+    }
+    if (isVictorious || isDemonstrating || isAnimatingLoot) return;
+    if (level.mechanics.hasDarkness && !entity.isGatekeeper && !unlockedZones.includes(entity.zone)) return;
+    if (selectedItemTypes.length === 0) { setSelectedEntityId(prev => prev === entity.id ? null : entity.id); return; }
 
-    if (selectedIndices.length === 0) {
-      setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
-      return;
+    if (entity.zone > Math.max(...unlockedZones)) {
+       setSelectedItemTypes([]); setSelectedEntityId(null); setIsAnimatingLoot(true); 
+       const firstGk = puzzle.puzzleEntities.find(ent => ent.isGatekeeper && !defeated.includes(ent.id));
+       if (firstGk) {
+          setTempPlayerPos({ x: firstGk.x, y: firstGk.y + (level.mechanics.isVertical ? 2 : 12), depth: firstGk.depth || 3 });
+          setTimeout(() => { setAlertEntityId(firstGk.id); setTimeout(() => { setAlertEntityId(null); setTempPlayerPos(null); setTimeout(() => setIsAnimatingLoot(false), 700); }, 600); }, 700); 
+       } return;
     }
 
-    if (entity.zone === 2 && !defeated.includes(puzzle.gatekeeperId)) {
-      setSelectedIndices([]);
-      setSelectedEntityId(null);
-      setIsAnimatingLoot(true); 
-      
-      const gatekeeper = puzzle.puzzleEntities.find(ent => ent.id === puzzle.gatekeeperId);
-      setTempPlayerPos({ x: gatekeeper.x, y: gatekeeper.y + 12 });
-      
-      setTimeout(() => {
-        setAlertEntityId(puzzle.gatekeeperId); 
-        setTimeout(() => {
-          setAlertEntityId(null);
-          setTempPlayerPos(null); 
-          setTimeout(() => setIsAnimatingLoot(false), 700); 
-        }, 600); 
-      }, 700); 
-      return;
-    }
+    let canDefeat = false; let itemsToConsume = []; let spentPickaxeCharge = false;
+    const availableItems = [...inventory];
+    const takeItems = (reqArray) => {
+        let tempAvail = [...availableItems]; let consumed = [];
+        for (const req of reqArray) { const idx = tempAvail.indexOf(req); if (idx > -1) { tempAvail.splice(idx, 1); consumed.push(req); } else { return null; } }
+        return consumed;
+    };
 
-    const selectedItemIds = selectedIndices.map(idx => inventory[idx]);
-    let canDefeat = false;
-    let consumedIndices = [];
-
-    if (entity.reqType === 'AND') {
-      let tempSelected = [...selectedItemIds];
-      canDefeat = entity.requires.every(req => {
-        const i = tempSelected.indexOf(req);
-        if (i > -1) {
-          tempSelected.splice(i, 1);
-          return true;
-        }
-        return false;
-      });
-
-      if (canDefeat) {
-        let tempIdxs = [...selectedIndices];
-        entity.requires.forEach(req => {
-          const arrIdx = tempIdxs.findIndex(idx => inventory[idx] === req);
-          consumedIndices.push(tempIdxs[arrIdx]);
-          tempIdxs.splice(arrIdx, 1);
-        });
-      }
-    } else {
-      const matchedReq = entity.requires.find(req => selectedItemIds.includes(req));
-      if (matchedReq) {
-        canDefeat = true;
-        consumedIndices.push(selectedIndices.find(idx => inventory[idx] === matchedReq));
-      }
+    if (entity.isGatekeeper && level.mechanics.hasPickaxe) {
+       const prevRock = puzzle.puzzleEntities.find(e => e.isGatekeeper && e.gkIdx === entity.gkIdx - 1);
+       if (prevRock && !defeated.includes(prevRock.id)) { setSelectedItemTypes([]); return; }
+       if (selectedItemTypes.includes('pickaxe') && pickaxeCharges > 0) { canDefeat = true; spentPickaxeCharge = true; if (pickaxeCharges - 1 === 0) itemsToConsume.push('pickaxe'); }
+    } else if (entity.reqType === 'AND') {
+       if (Array.from(new Set(entity.requires || [])).every(t => selectedItemTypes.includes(t))) { const consumed = takeItems(entity.requires || []); if (consumed) { canDefeat = true; itemsToConsume = consumed; } }
+    } else { 
+      for (const req of (entity.requires || [])) { if (selectedItemTypes.includes(req) && availableItems.includes(req)) { canDefeat = true; itemsToConsume.push(req); break; } }
     }
 
     if (canDefeat) {
-      setIsAnimatingLoot(true); 
-      setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState }]);
+      setIsAnimatingLoot(true); saveHistory();
+      if (spentPickaxeCharge) setPickaxeCharges(prev => prev - 1);
+      
+      setInventory(prev => {
+          let newInv = [...prev];
+          itemsToConsume.forEach(itemToDel => { const idx = newInv.indexOf(itemToDel); if (idx > -1) newInv.splice(idx, 1); });
+          return newInv;
+      });
 
-      const rewardId = entity.reward;
-      setInventory(prev => prev.filter((_, idx) => !consumedIndices.includes(idx)));
-      setDefeated(prev => [...prev, entity.id]);
-      setPathHistory(prev => [...prev, { x: entity.x, y: entity.y }]);
-      setSelectedIndices([]);
-      setSelectedEntityId(null);
+      let nextZone = entity.zone;
+      if (!entity.isRepeatable) {
+          setDefeated(prev => {
+              const newDef = [...prev, entity.id];
+              if (entity.isGatekeeper && entity.unlocksZone) {
+                  setUnlockedZones(uz => [...new Set([...uz, entity.unlocksZone])]);
+              }
+              return newDef;
+          });
+          if (entity.isGatekeeper && entity.unlocksZone) {
+              nextZone = entity.unlocksZone; // Prepare to auto-scroll down
+          }
+      }
+      
+      const targetX = entity.roamClass ? 50 : entity.x;
+      setCurrentZone(nextZone);
+      setPathHistory(prev => [...prev, { x: targetX, y: entity.y, depth: entity.depth || 3 }]);
+      setSelectedItemTypes([]); setSelectedEntityId(null);
 
-      if (rewardId) {
-        setFlyingItem({ emoji: level.items.find(i => i.id === rewardId).emoji, x: entity.x, y: entity.y });
+      if (entity.reward) {
+        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward).emoji, x: targetX, y: entity.y, zIndex: 60 });
         setTimeout(() => {
-          setInventory(prev => [...prev, rewardId]);
-          setFlyingItem(null);
-          setIsAnimatingLoot(false); 
+          setInventory(prev => [...prev, entity.reward]);
+          if (entity.reward === 'pickaxe') setPickaxeCharges(5);
+          setFlyingItem(null); setIsAnimatingLoot(false); 
           if (entity.id === puzzle.goalEntityId) triggerVictory();
         }, 800);
-      } else {
-        setIsAnimatingLoot(false); 
-        if (entity.id === puzzle.goalEntityId) triggerVictory();
-      }
+      } else { setIsAnimatingLoot(false); if (entity.id === puzzle.goalEntityId) triggerVictory(); }
 
-    } else {
-      setSelectedIndices([]); 
-    }
+    } else { setSelectedItemTypes([]); }
   };
 
-  if (!puzzle) return <div className="min-h-screen bg-stone-900 flex items-center justify-center text-amber-500 text-2xl font-serif">Generating Realm...</div>;
+  const renderMenu = () => {
+    if (!isMenuOpen) return null;
+    return (
+      <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-serif">
+        <div className="bg-stone-800 border-4 border-stone-600 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 text-stone-200">
+          {menuView === 'main' ? (
+            <>
+              <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Menu</h2>
+              <button onClick={handleReplay} className="w-full bg-stone-600 py-4 rounded-xl font-bold text-xl hover:bg-stone-500 shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1">↺ Restart Level</button>
+              {!level.mechanics.isFarming && ( <button onClick={handleShowSolution} disabled={isVictorious || isDemonstrating || isAnimatingLoot || !puzzle} className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:bg-indigo-500 shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50">💡 Show Solution</button> )}
+              <button onClick={() => setMenuView('settings')} className="w-full bg-amber-600 py-4 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">🗺️ Generate New Map</button>
+              <button onClick={() => setIsMenuOpen(false)} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">Resume Game</button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Settings</h2>
+              <div className="space-y-4">
+                <label className="flex flex-col gap-2 font-bold text-lg pt-2">
+                  <span>Level:</span> 
+                  <select className="w-full bg-stone-900 border-2 border-stone-600 rounded-lg p-3 outline-none focus:border-amber-500 text-amber-400" value={menuSettings.levelId} onChange={(e) => setMenuSettings({...menuSettings, levelId: e.target.value})}>{Object.values(LEVEL_DICTIONARY).map(lvl => <option key={lvl.id} value={lvl.id}>{lvl.name}</option>)}</select>
+                </label>
+                {!LEVEL_DICTIONARY[menuSettings.levelId].mechanics.isFarming && ( <label className="flex flex-col gap-2 font-bold text-lg pt-2"><span className="flex justify-between"><span>Minimum Quest Chain:</span> <span className="text-amber-400">{menuSettings.steps}</span></span><input type="range" min="3" max="8" value={menuSettings.steps} onChange={(e) => setMenuSettings({...menuSettings, steps: parseInt(e.target.value)})} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label> )}
+                <label className="flex flex-col gap-2 font-bold text-lg"><span className="flex justify-between"><span>Diggers (Memory Mode):</span> <span className="text-amber-400">{menuSettings.diggers}</span></span><input type="range" min="0" max="3" value={menuSettings.diggers} onChange={(e) => setMenuSettings({...menuSettings, diggers: parseInt(e.target.value)})} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label>
+                <button onClick={() => onGenerateNew(menuSettings)} className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">🗺️ Generate Map</button>
+              </div>
+              <button onClick={() => setMenuView('main')} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">Back</button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (generationFailed) return (
+     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative p-4 text-center">
+       <div className="text-red-500 text-3xl font-black mb-4">Generation Failed</div>
+       <div className="text-stone-300 max-w-md">It was mathematically impossible to generate a realm with these exact settings.</div>
+       <button onClick={() => { setMenuView('settings'); setIsMenuOpen(true); }} className="mt-8 bg-stone-700 p-4 rounded-xl text-white font-bold hover:bg-stone-600 transition-colors z-[100] relative">Open Settings</button>
+       {renderMenu()}
+     </div>
+  );
+
+  if (!puzzle) return <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative">
+     <div className="absolute inset-0 bg-stone-900 opacity-80 z-40 backdrop-blur" />
+     <div className="text-amber-500 text-3xl font-black z-50 animate-pulse tracking-widest uppercase shadow-black drop-shadow-lg border-y-2 border-amber-500 py-4 px-12">Generating Realm...</div>
+  </div>;
 
   const playerPos = pathHistory[pathHistory.length - 1];
   const displayPlayerPos = tempPlayerPos || playerPos;
+  const playerDepth = displayPlayerPos.depth || 3;
+  const playerScale = playerDepth === 1 ? 'scale-50' : playerDepth === 2 ? 'scale-75' : 'scale-100';
+  const playerFilter = playerDepth === 1 ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : playerDepth === 2 ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
+  const playerZ = playerDepth * 10 + 5; 
+  const uniqueInventoryItems = Array.from(new Set(inventory));
+
+  const totalMapHeight = level.mechanics.isVertical ? `${level.mechanics.screens * 100}%` : '100%';
   
-  const envItemConfig = level.items.find(i => i.id === level.specialItemTemplate);
+  let scrollScreens = (currentZone - 1) * 0.5;
+  if (level.mechanics.isVertical) {
+      const maxScroll = level.mechanics.screens - 1;
+      if (scrollScreens > maxScroll) scrollScreens = maxScroll;
+  }
+  const mapTranslateY = level.mechanics.isVertical ? `-${(scrollScreens / level.mechanics.screens) * 100}%` : '0%';
 
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-2 sm:p-4 font-serif select-none overflow-hidden relative">
-      
-      <div 
-        className="relative w-full max-w-4xl h-[70vh] sm:h-[75vh] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-8 border-amber-900/80 ring-4 ring-stone-950"
-        onClick={() => setSelectedEntityId(null)}
-      >
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+      <div ref={mapRef} className="relative w-full max-w-4xl h-[70vh] sm:h-[75vh] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-8 border-amber-900/80 ring-4 ring-stone-950" onClick={() => setSelectedEntityId(null)}>
         
-        <button 
-          onClick={() => setIsMenuOpen(true)}
-          className="absolute top-4 right-4 z-50 bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"
-          title="Menu"
-        >
-          <span className="text-xl pt-0.5">⚙️</span>
-        </button>
-        
-        <div className="absolute top-4 left-4 z-40 bg-stone-800/80 backdrop-blur text-stone-200 px-4 py-1 rounded-full border-2 border-stone-600 font-bold tracking-wider uppercase text-sm">
-          {level.name}
-        </div>
-
-        <div key={mapRefreshKey} className="absolute inset-0 animate-map-appear">
-          
+        <div className="absolute inset-x-0 top-0 transition-transform duration-1000 ease-in-out pointer-events-auto animate-map-appear" style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}>
           <level.BackgroundComponent />
-
-          <div className="absolute inset-0 bg-gradient-to-c from-transparent to-black/20 pointer-events-none" />
-
-          {level.sceneryNodes.map((sc, i) => (
-            <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} opacity-40 grayscale sepia z-0 pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%` }}>
-              {sc.e}
-            </div>
+          
+          {/* Fog of War */}
+          {level.mechanics.hasDarkness && level.mechanics.darknessType === 'horizontal' && (
+            <>
+              <div className={`absolute inset-y-0 left-0 w-1/2 bg-black transition-all duration-1000 z-[90] pointer-events-none ${unlockedZones.includes(1) ? 'opacity-0' : 'opacity-100 pointer-events-auto'}`} />
+              <div className={`absolute inset-y-0 right-0 w-1/2 bg-black transition-all duration-1000 z-[90] pointer-events-none ${unlockedZones.includes(2) ? 'opacity-0' : 'opacity-100 pointer-events-auto'}`} />
+            </>
+          )}
+          {level.mechanics.hasDarkness && level.mechanics.darknessType === 'vertical' && [1, 2, 3, 4, 5, 6].map(z => (
+             <div key={z} className={`absolute left-0 w-full bg-black transition-all duration-1000 z-[90] pointer-events-none ${unlockedZones.includes(z) ? 'opacity-0' : 'opacity-100 pointer-events-auto'}`} style={{ top: `${(z - 1) * 16.666}%`, height: '16.666%' }} />
           ))}
 
-          {/* Special Environment Item (e.g. Fish) */}
-          {envItemConfig && envItemState === 'active' && (
-            <div 
-              className="absolute z-20 cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform"
-              onClick={handleCatchEnvItem}
-              title={inventory.length >= 3 ? "Inventory Full!" : `Catch ${envItemConfig.name}!`}
-            >
-              {envItemConfig.emoji}
-            </div>
+          {level.sceneryNodes?.map((sc, i) => ( <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} opacity-40 grayscale sepia pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: (sc.depth||3)*10 }}>{sc.e}</div> ))}
+          
+          {/* Horizontal Map Checkpoints */}
+          {level.checkpoints?.map(cp => (
+            <div key={cp.id} className={`absolute transform -translate-x-1/2 -translate-y-1/2 text-5xl transition-transform duration-300 ${currentZone === cp.zone ? 'scale-110 drop-shadow-[0_0_20px_rgba(251,191,36,0.8)]' : unlockedZones.includes(cp.zone) ? 'opacity-80 cursor-pointer hover:scale-110' : 'opacity-0'}`} style={{ left: `${cp.x}%`, top: `${cp.y}%`, zIndex: 80 }} onClick={(e) => { e.stopPropagation(); if (!isDemonstrating && !isAnimatingLoot && unlockedZones.includes(cp.zone) && currentZone !== cp.zone) { setCurrentZone(cp.zone); setPathHistory(prev => [...prev, {x: cp.x, y: cp.y, depth: 3}]); } }} title={unlockedZones.includes(cp.zone) && currentZone !== cp.zone ? `Travel to Zone ${cp.zone}` : ''}>{cp.emoji}</div>
+          ))}
+
+          {level.mechanics.hasFish && envItemState === 'active' && ( <div className="absolute cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform" style={{zIndex: 25}} onClick={handleCatchRiverFish}>🐟</div> )}
+          {level.mechanics.hasFish && envItemState === 'caught' && ( <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}><span className="text-3xl">🐟</span><span className="text-xs font-bold text-white bg-blue-500/80 px-2 py-0.5 rounded-full mt-1">CAUGHT!</span></div> )}
+
+          {schoolsOfFish.map(f => {
+             const fScale = f.depth === 1 ? 'scale-50' : f.depth === 2 ? 'scale-75' : 'scale-100';
+             const fFilter = f.depth === 1 ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : f.depth === 2 ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
+             return (
+               <div key={f.id} onClick={(e) => handleCatchSchoolFish(e, f)} className={`absolute cursor-pointer text-4xl transition-transform hover:brightness-150 ${f.isRight ? 'animate-[swimRight_10s_linear_forwards]' : 'animate-[swimLeft_10s_linear_forwards]'}`} style={{ top: `${f.y}%`, zIndex: f.depth * 10 + 5 }}>
+                 <div className={`inline-block ${f.isRight ? 'scale-x-[-1]' : ''} ${fScale} ${fFilter}`}>{level.items.find(i => i.id === f.type)?.emoji}</div>
+               </div>
+             );
+          })}
+
+          {!level.mechanics.noPath && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-10" preserveAspectRatio="none">
+              {pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
+              {tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
+            </svg>
           )}
-          {envItemConfig && envItemState === 'caught' && (
-            <div 
-              className="absolute z-50 flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl"
-              style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%` }}
-            >
-              <span className="text-3xl">{envItemConfig.emoji}</span>
-              <span className="text-xs font-bold text-white bg-blue-500/80 px-2 py-0.5 rounded-full mt-1 border border-blue-300">CAUGHT!</span>
-            </div>
-          )}
+          {!level.checkpoints && !level.passages && !level.mechanics.noPath && ( <div className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%` }}><div className="text-4xl drop-shadow-lg filter sepia">⛺</div></div> )}
 
-          <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-10">
-            {pathHistory.map((pos, i) => {
-              if (i === 0) return null;
-              const prev = pathHistory[i - 1];
-              return (
-                <line 
-                  key={i} 
-                  x1={`${prev.x}%`} y1={`${prev.y}%`} 
-                  x2={`${pos.x}%`} y2={`${pos.y}%`} 
-                  stroke="#4a2211" strokeWidth="5" 
-                  strokeDasharray="12 12" 
-                  className="animate-[dash_1s_linear_forwards]"
-                  style={{ strokeDashoffset: 100 }}
-                />
-              );
-            })}
-            {tempPlayerPos && (
-              <line 
-                x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} 
-                x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} 
-                stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" 
-              />
-            )}
-          </svg>
-
-          <div className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%` }}>
-            <div className="text-4xl drop-shadow-lg filter sepia">⛺</div>
-          </div>
-
-          <div 
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 z-40 transition-all duration-700 ease-in-out pointer-events-none flex items-center justify-center"
-            style={{ left: `${displayPlayerPos.x}%`, top: `${displayPlayerPos.y}%` }}
-          >
-            <div className="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-xl text-2xl">
-              🤠
-            </div>
-            {showTrophy && (
-              <div className="absolute -right-8 top-0 text-4xl animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]" style={{animationDelay: '0.2s'}}>
-                🏆
-              </div>
-            )}
-          </div>
-
-          {flyingItem && (
-            <div 
-              className="absolute z-50 animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none"
-              style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%` }}
-            >
-              {flyingItem.emoji}
-            </div>
-          )}
+          {flyingItem && ( <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div> )}
 
           {puzzle.puzzleEntities.map(ent => {
-            const isDefeated = defeated.includes(ent.id);
-            const isGoal = ent.id === puzzle.goalEntityId;
+            const isDefeated = defeated.includes(ent.id); const isGoal = ent.id === puzzle.goalEntityId;
             const rewardItem = ent.reward ? level.items.find(i => i.id === ent.reward) : null;
-            
-            const isAlerting = alertEntityId === ent.id;
-            const isSelected = selectedEntityId === ent.id;
-            
-            const slideDirection = ent.x > 50 ? '-translate-x-10' : 'translate-x-10';
-            const hideDirection = ent.x > 50 ? '-translate-x-4' : 'translate-x-4';
-            
-            const isDigger = ent.id.startsWith(level.specialEntityTemplate);
+            const isAlerting = alertEntityId === ent.id; const isSelected = selectedEntityId === ent.id;
+            const depthScale = (ent.depth === 1) ? 'scale-50' : (ent.depth === 2) ? 'scale-75' : 'scale-100';
+            const depthFilter = (ent.depth === 1) ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : (ent.depth === 2) ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
+            const entZ = isSelected ? 50 : (ent.depth || 3) * 10 + 5;
+            const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
+            const entityStyle = ent.roamClass ? { top: `${ent.y}%`, zIndex: entZ } : { left: `${ent.x}%`, top: `${ent.y}%`, zIndex: entZ };
+            const wrapperClasses = `absolute flex flex-col items-center transition-transform duration-300 ${ent.roamClass ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${isDefeated ? 'cursor-default' : 'hover:scale-110 cursor-pointer'}`;
+
+            const isNearLeft = !ent.roamClass && ent.x <= 20;
+            const isNearRight = !ent.roamClass && ent.x >= 80;
+            const isNearTop = ent.y <= 10;
+            const tooltipAlign = isNearLeft ? "left-0" : isNearRight ? "right-0" : "left-1/2 -translate-x-1/2";
+            const tooltipY = isNearTop ? "top-full mt-2" : "bottom-full mb-2";
+            const arrowAlign = isNearLeft ? "left-4" : isNearRight ? "right-4" : "left-1/2 -translate-x-1/2";
+            const arrowY = isNearTop ? "-top-[7px] border-t-2 border-l-2" : "-bottom-[7px] border-b-2 border-r-2";
+
+            const isDigger = level.specialEntityTemplate && ent.id.startsWith(level.specialEntityTemplate) && !level.mechanics.isFarming;
+            const isRock = ent.isGatekeeper && level.mechanics.hasPickaxe;
             const isBuried = isDigger && pathHistory.length > 1;
 
             return (
-              <div 
-                key={ent.id}
-                onClick={(e) => !isDefeated && handleInteract(ent, e)}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-transform duration-300 ${
-                  isSelected ? 'z-50' : 'z-20'
-                } ${isDefeated ? 'opacity-50 grayscale cursor-default' : 'hover:scale-110 cursor-pointer'}`}
-                style={{ left: `${ent.x}%`, top: `${ent.y}%` }}
-              >
-                {!isDefeated && isSelected && (
-                  <div className="absolute -top-12 bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg z-40 font-bold whitespace-nowrap animate-bounce gap-1">
-                    {ent.requires.map((reqId, i) => (
-                      <React.Fragment key={reqId}>
-                        <span title={level.items.find(item => item.id === reqId).name}>
-                          {level.items.find(item => item.id === reqId).emoji}
-                        </span>
-                        {i < ent.requires.length - 1 && (
-                          <span className="text-sm mx-1 text-stone-500 font-black">
-                            {ent.reqType === 'AND' ? '&' : 'או'}
-                          </span>
-                        )}
-                      </React.Fragment>
-                    ))}
-                    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white border-b-2 border-r-2 border-stone-800 rotate-45"></div>
-                  </div>
-                )}
-
-                <div className="relative">
-                  {ent.isGatekeeper && <level.GatekeeperPropComponent />}
-
-                  <div className={`relative transition-all duration-700 ease-in-out ${(ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : ''}`}>
-                    
-                    {!isDefeated && rewardItem && !isGoal && (
-                      isBuried ? (
-                        <>
-                          <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${hideDirection} translate-y-2 scale-90 opacity-90 -z-20`}>
-                            🕳️
-                          </div>
-                          <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${
-                            isSelected ? `${slideDirection} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : 'translate-y-2 scale-0 opacity-0 -z-10'
-                          }`}>
-                            ❓
-                          </div>
-                        </>
-                      ) : (
-                        <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${
-                          isSelected 
-                            ? `${slideDirection} -translate-y-4 rotate-12 scale-110 z-0` 
-                            : `${hideDirection} translate-y-2 rotate-0 scale-90 opacity-90 -z-10` 
-                        }`}>
-                          {rewardItem.emoji}
+              <div key={ent.id} onClick={(e) => !isDefeated && handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
+                <div className={`relative ${depthScale} ${depthFilter}`}>
+                    {!isDefeated && isSelected && (
+                      <div className={`absolute ${tooltipY} ${tooltipAlign} z-[100]`}>
+                        <div className="relative bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg font-bold whitespace-nowrap animate-bounce gap-1">
+                          {ent.isGatekeeper && level.mechanics.hasPickaxe ? ( <span title="Pickaxe" className="emoji-shadow">⛏️</span> ) : (
+                            Object.entries(groupedReqs).map(([reqId, count], i, arr) => (
+                              <React.Fragment key={reqId}>
+                                <span className="flex items-center gap-1 emoji-shadow" title={level.items.find(item => item.id === reqId)?.name || reqId}>
+                                  {count > 1 && <span className="text-sm font-black text-amber-600" style={{textShadow: 'none'}}>{count}x</span>}
+                                  {level.items.find(item => item.id === reqId)?.emoji || '❓'}
+                                </span>
+                                {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{ent.reqType === 'AND' ? '&' : 'או'}</span>}
+                              </React.Fragment>
+                            ))
+                          )}
+                          <div className={`absolute ${arrowY} ${arrowAlign} w-3 h-3 bg-white border-stone-800 rotate-45`}></div>
                         </div>
-                      )
+                      </div>
                     )}
-                    
-                    <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper ? 'text-6xl' : 'text-4xl'} ${isGoal ? 'text-purple-900' : ''} ${isAlerting ? 'animate-troll-mad scale-125' : ''} ${(isDigger && pathHistory.length === 2 && !isDemonstrating) ? 'animate-dog-dig' : ''}`}>
-                      {isAlerting ? '😡' : ent.emoji}
+                    <div className="relative">
+                      {ent.isGatekeeper && <level.GatekeeperPropComponent />}
+                      <div className={`relative transition-all duration-700 ease-in-out ${(!isRock && ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : (!isRock && isDefeated) ? 'opacity-50 grayscale' : ''}`}>
+                        
+                        {!isDefeated && rewardItem && !isGoal && !ent.isRepeatable && (
+                          isBuried ? (
+                            <>
+                              <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${ent.x > 50 ? '-translate-x-4' : 'translate-x-4'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
+                              <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : 'translate-y-2 scale-0 opacity-0 -z-10'}`}>❓</div>
+                            </>
+                          ) : (
+                            <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-4' : 'translate-x-4'} translate-y-2 rotate-0 scale-90 opacity-90 -z-10`}`}>{rewardItem.emoji}</div>
+                          )
+                        )}
+                        
+                        <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper ? 'text-6xl' : 'text-4xl'} ${isGoal ? 'text-purple-900 scale-125' : ''} ${(isDigger && pathHistory.length === 2 && !isDemonstrating) ? 'animate-dog-dig' : ''}`}>
+                           {isRock && isDefeated ? (
+                             <div className="text-3xl flex gap-1 translate-y-4 opacity-70 grayscale"><span className="scale-75 -rotate-12">🪨</span><span className="scale-50 translate-y-2 rotate-45">🪨</span></div>
+                           ) : (
+                             <div className={`${ent.filterClass || ''} ${ent.isRight ? 'scale-x-[-1]' : ''}`}>{isAlerting ? '😡' : ent.emoji}</div>
+                           )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                    {ent.isGatekeeper && isAlerting && <div className="absolute -bottom-5 bg-red-700 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-900 shadow-md scale-110 z-30">BLOCKED!</div>}
+                    {isGoal && !isDefeated && !isAlerting && <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">יציאה</div>}
                 </div>
-
-                {ent.isGatekeeper && isAlerting && (
-                  <div className="absolute -bottom-5 bg-red-700 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-900 shadow-md scale-110 z-30">
-                    BLOCKED!
-                  </div>
-                )}
-
-                {isGoal && !isDefeated && !isAlerting && (
-                  <div className="absolute -bottom-6 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">
-                    יציאה
-                  </div>
-                )}
-
-                {isDefeated && !ent.isGatekeeper && (
-                  <div className="absolute -bottom-2 text-green-500 font-bold text-xl drop-shadow-md z-30">✅</div>
-                )}
               </div>
             );
           })}
+
+          {/* Vertical Map Passages Rendered Separately so they don't overlap the Rocks */}
+          {level.passages?.map(p => {
+             if (p.type === 'down' && p.reqGk && !defeated.includes(p.reqGk)) return null; 
+             if (p.type === 'up' && !unlockedZones.includes(p.targetZone)) return null;
+             return (
+               <div key={p.id} onClick={(e) => { e.stopPropagation(); handlePassageClick(p); }} 
+                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-amber-500 border-2 border-amber-200 rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.6)] flex items-center justify-center cursor-pointer hover:bg-amber-400 hover:scale-110 transition-all text-white text-lg z-[120] ${p.type === 'down' ? 'animate-bounce' : ''}`} 
+                    style={{ left: `${p.x}%`, top: `${p.y}%` }} title={`Go ${p.type}`}>
+                 {p.type === 'down' ? '▼' : '▲'}
+               </div>
+             );
+          })}
+
+          {/* HERO RENDERED DEAD LAST SO HE IS ON TOP OF BRIDGES AND EMOJIS */}
+          <div className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} style={{ left: `${displayPlayerPos.x}%`, top: `${displayPlayerPos.y}%`, zIndex: Math.max(playerZ, 130) }}>
+            <div className={`text-white w-10 h-10 rounded-full flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.8)] text-2xl ${level.mechanics.noPath ? 'bg-cyan-600 border-2 border-cyan-200' : 'bg-blue-600 border-2 border-white'} ${level.mechanics.heroBobs ? 'animate-bob' : ''}`}>🤠</div>
+            {showTrophy && <div className="absolute -right-8 top-0 text-4xl animate-bounce drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]" style={{animationDelay: '0.2s'}}>🏆</div>}
+          </div>
+
         </div>
 
-        {showVictoryMsg && (
-          <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden">
-            {[...Array(30)].map((_, i) => {
-              const delay = Math.random() * 3; 
-              const left = 10 + Math.random() * 80;
-              const top = 10 + Math.random() * 80;
-              const tx = (Math.random() - 0.5) * 200;
-              const ty = (Math.random() - 0.5) * 200;
-              
-              return (
-                <div key={i} className="absolute text-3xl animate-star-burst-infinite" style={{
-                  left: `${left}%`,
-                  top: `${top}%`,
-                  '--tx': `${tx}px`,
-                  '--ty': `${ty}px`,
-                  animationDelay: `${delay}s`
-                }}>
-                  {['⭐', '🌟', '✨'][Math.floor(Math.random() * 3)]}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* UI Overlay guaranteed on top */}
+        <div className="absolute inset-0 opacity-10 z-[140] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+        <button onClick={(e) => { e.stopPropagation(); setMenuView('main'); setIsMenuOpen(true); }} className="absolute top-4 right-4 z-[150] bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"><span className="text-xl pt-0.5">⚙️</span></button>
 
         {showVictoryMsg && (
-          <div className="absolute top-1/2 left-1/2 z-50 pointer-events-none animate-fade-out-up">
-            <div className="bg-amber-100 p-6 rounded-3xl border-8 border-amber-600 text-center shadow-[0_0_80px_rgba(251,191,36,0.6)] whitespace-nowrap">
-              <h2 className="text-3xl sm:text-4xl text-amber-900 font-black uppercase tracking-wider">Quest Complete!</h2>
-            </div>
+          <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
+            {[...Array(30)].map((_, i) => ( <div key={i} className="absolute text-3xl animate-star-burst-infinite" style={{ left: `${10 + Math.random() * 80}%`, top: `${10 + Math.random() * 80}%`, '--tx': `${(Math.random() - 0.5) * 200}px`, '--ty': `${(Math.random() - 0.5) * 200}px`, animationDelay: `${Math.random() * 3}s` }}>{['⭐', '🌟', '✨'][Math.floor(Math.random() * 3)]}</div> ))}
+            <div className="absolute top-1/2 left-1/2 z-50 pointer-events-none animate-fade-out-up"><div className="bg-amber-100 p-6 rounded-3xl border-8 border-amber-600 text-center shadow-[0_0_80px_rgba(251,191,36,0.6)] whitespace-nowrap"><h2 className="text-3xl sm:text-4xl text-amber-900 font-black uppercase tracking-wider">Quest Complete!</h2></div></div>
           </div>
         )}
       </div>
 
-      <div className="w-full max-w-4xl mt-4 bg-stone-800 p-4 rounded-2xl border-4 border-stone-700 shadow-2xl flex items-center justify-center gap-4 h-28 relative">
-        <button 
-          onClick={handleUndo} 
-          disabled={isDemonstrating || isAnimatingLoot || historyStack.length === 0}
-          className="bg-rose-700 p-3 sm:p-4 rounded-xl text-xl sm:text-2xl hover:bg-rose-600 border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50" 
-          title="Undo Last Move"
-        >
-          ↩️
-        </button>
-
-        <div className="flex gap-4 bg-stone-900/50 p-3 rounded-xl border-2 border-stone-900">
-          {[0, 1, 2].map((slotIdx) => {
-            const itemId = inventory[slotIdx];
-            const item = itemId ? level.items.find(x => x.id === itemId) : null;
-            const isSelected = selectedIndices.includes(slotIdx);
-            
+      <div className="w-full max-w-4xl mt-4 bg-stone-800 p-4 rounded-2xl border-4 border-stone-700 shadow-2xl flex items-center justify-center gap-4 h-28 relative z-[150]">
+        <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || historyStack.length === 0} className="bg-rose-700 p-3 sm:p-4 rounded-xl text-xl sm:text-2xl hover:bg-rose-600 border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
+        <div className="flex gap-2 sm:gap-4 bg-stone-900/50 p-2 sm:p-3 rounded-xl border-2 border-stone-900">
+          {[0, 1, 2, 3].map((slotIdx) => {
+            const itemId = uniqueInventoryItems[slotIdx]; const item = itemId ? level.items.find(x => x.id === itemId) : null;
+            const count = itemId ? inventory.filter(i => i === itemId).length : 0; const isSelected = item && selectedItemTypes.includes(itemId);
             return (
-              <button
-                key={`slot-${slotIdx}`}
-                onClick={() => item && toggleInventorySlot(slotIdx)}
-                disabled={!item}
-                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl flex flex-col items-center justify-center transition-all ${
-                  isSelected 
-                    ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' 
-                    : item 
-                      ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' 
-                      : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'
-                } ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}
-              >
-                <span className="text-3xl sm:text-4xl drop-shadow-md">{item ? item.emoji : ''}</span>
+              <button key={`slot-${slotIdx}`} onClick={() => item && toggleInventoryType(itemId)} disabled={!item} className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl relative flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' : item ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'} ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}>
+                <span className="text-2xl sm:text-4xl drop-shadow-md">{item ? item.emoji : ''}</span>
+                {item?.id === 'pickaxe' && <div className="absolute -top-2 -right-2 bg-stone-800 text-amber-400 text-xs font-black rounded-full w-6 h-6 flex items-center justify-center border-2 border-stone-500 shadow-md">{pickaxeCharges}</div>}
+                {count > 1 && item?.id !== 'pickaxe' && <div className="absolute -bottom-2 -right-2 bg-blue-700 text-white text-xs sm:text-sm font-black rounded-full px-2 py-0.5 border-2 border-blue-400 shadow-md">{count}</div>}
               </button>
             );
           })}
         </div>
       </div>
 
-      {isMenuOpen && (
-        <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-stone-800 border-4 border-stone-600 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 text-stone-200">
-            <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Settings</h2>
-            
-            <div className="space-y-4">
-              
-              <label className="flex flex-col gap-2 font-bold text-lg pt-2">
-                <span className="flex justify-between">
-                  <span>Level:</span> 
-                </span>
-                <select 
-                  className="w-full bg-stone-900 border-2 border-stone-600 rounded-lg p-3 outline-none focus:border-amber-500"
-                  value={currentLevelId}
-                  onChange={(e) => setCurrentLevelId(e.target.value)}
-                >
-                  {Object.values(LEVEL_DICTIONARY).map(lvl => (
-                    <option key={lvl.id} value={lvl.id}>{lvl.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="flex flex-col gap-2 font-bold text-lg pt-2">
-                <span className="flex justify-between">
-                  <span>Minimum Quest Chain:</span> 
-                  <span className="text-amber-400">{targetSteps}</span>
-                </span>
-                <input 
-                  type="range" 
-                  min="3" 
-                  max="8" 
-                  value={targetSteps} 
-                  onChange={(e) => setTargetSteps(parseInt(e.target.value))}
-                  className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer"
-                />
-              </label>
-
-              <label className="flex flex-col gap-2 font-bold text-lg">
-                <span className="flex justify-between">
-                  <span>Diggers (Memory Mode):</span> 
-                  <span className="text-amber-400">{numDiggers}</span>
-                </span>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="3" 
-                  value={numDiggers} 
-                  onChange={(e) => setNumDiggers(parseInt(e.target.value))}
-                  className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer"
-                />
-              </label>
-
-              <button 
-                onClick={handleGenerate}
-                className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 transition-colors shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1"
-              >
-                🗺️ Generate New Map
-              </button>
-
-              <button 
-                onClick={handleReplay}
-                className="w-full bg-stone-600 py-4 rounded-xl font-bold text-xl hover:bg-stone-500 transition-colors shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1"
-              >
-                ↺ Restart Current Map
-              </button>
-
-              <button 
-                onClick={handleShowSolution}
-                disabled={isVictorious || isDemonstrating || isAnimatingLoot}
-                className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:bg-indigo-500 transition-colors shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                💡 Show Solution
-              </button>
-            </div>
-
-            <button 
-              onClick={() => setIsMenuOpen(false)}
-              className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors"
-            >
-              Cancel / Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes dash {
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes fadeOutUp {
-          0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
-          15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-          25% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          75% { opacity: 1; transform: translate(-50%, -60%) scale(1); }
-          100% { opacity: 0; transform: translate(-50%, -100%) scale(0.9); }
-        }
-        .animate-fade-out-up {
-          animation: fadeOutUp 3s ease-in-out forwards;
-        }
-        @keyframes madShake {
-          0% { transform: translate(1px, 1px) rotate(0deg); }
-          10% { transform: translate(-1px, -2px) rotate(-5deg); }
-          20% { transform: translate(-3px, 0px) rotate(5deg); }
-          30% { transform: translate(3px, 2px) rotate(0deg); }
-          40% { transform: translate(1px, -1px) rotate(5deg); }
-          50% { transform: translate(-1px, 2px) rotate(-5deg); }
-          60% { transform: translate(-3px, 1px) rotate(0deg); }
-          70% { transform: translate(3px, 1px) rotate(-5deg); }
-          80% { transform: translate(-1px, -1px) rotate(5deg); }
-          90% { transform: translate(1px, 2px) rotate(0deg); }
-          100% { transform: translate(1px, -2px) rotate(-5deg); }
-        }
-        .animate-troll-mad {
-          animation: madShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-          filter: drop-shadow(0 0 15px rgba(220, 38, 38, 0.8));
-        }
-        @keyframes dogDig {
-          0%, 100% { transform: rotate(0deg) translateY(0); }
-          10%, 30%, 50%, 70%, 90% { transform: rotate(-15deg) translateY(-3px); }
-          20%, 40%, 60%, 80% { transform: rotate(15deg) translateY(3px); }
-        }
-        .animate-dog-dig {
-          animation: dogDig 0.7s ease-in-out;
-        }
-        @keyframes lootFly {
-          0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-          30% { transform: translate(-50%, -150%) scale(1.5); opacity: 1; }
-          100% { transform: translate(-50%, 75vh) scale(0.5); opacity: 0; }
-        }
-        .animate-loot-fly {
-          animation: lootFly 0.8s cubic-bezier(0.5, 0, 0.2, 1) forwards;
-        }
-        @keyframes mapAppear {
-          0% { opacity: 0; filter: blur(4px); transform: scale(0.97); }
-          100% { opacity: 1; filter: blur(0); transform: scale(1); }
-        }
-        .animate-map-appear {
-          animation: mapAppear 0.5s ease-out forwards;
-        }
-        @keyframes riverFlow {
-          from { stroke-dashoffset: 40; }
-          to { stroke-dashoffset: 0; }
-        }
-        .animate-river-flow {
-          animation: riverFlow 2s linear infinite;
-        }
-        .animate-river-flow-slow {
-          animation: riverFlow 4s linear infinite;
-        }
-        @keyframes starBurstInfinite {
-          0% { transform: translate(0, 0) scale(0) rotate(0deg); opacity: 1; }
-          50% { opacity: 1; }
-          100% { transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(180deg); opacity: 0; }
-        }
-        .animate-star-burst-infinite {
-          animation: starBurstInfinite 2.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
-        }
-        @keyframes fishSwim {
-          0%   { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
-          12%  { left: 25%;  top: 48%; transform: translate(-50%, -50%) scaleX(-1); }
-          22%  { left: 50%;  top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
-          34%  { left: 75%;  top: 58%; transform: translate(-50%, -50%) scaleX(-1); }
-          45%  { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
-          50%  { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(1); }
-          62%  { left: 75%;  top: 58%; transform: translate(-50%, -50%) scaleX(1); }
-          72%  { left: 50%;  top: 53%; transform: translate(-50%, -50%) scaleX(1); }
-          84%  { left: 25%;  top: 48%; transform: translate(-50%, -50%) scaleX(1); }
-          95%  { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(1); }
-          100% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); }
-        }
-        .animate-fish-swim {
-          animation: fishSwim 18s linear infinite;
-        }
-      `}} />
+      {renderMenu()}
     </div>
+  );
+}
+
+// --- APP ENTRY POINT ---
+export default function App() {
+  const [activeSettings, setActiveSettings] = useState({ levelId: 'underground', steps: 5, diggers: 1 });
+  const [gameKey, setGameKey] = useState(0);
+
+  const applyAndGenerate = (newSettings) => {
+    setActiveSettings(newSettings);
+    setGameKey(k => k + 1); 
+  };
+
+  return (
+    <>
+      <GameInstance key={`${activeSettings.levelId}-${gameKey}`} level={LEVEL_DICTIONARY[activeSettings.levelId]} targetSteps={activeSettings.steps} numDiggers={activeSettings.diggers} onGenerateNew={applyAndGenerate} />
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes dash { to { stroke-dashoffset: 0; } }
+        @keyframes fadeOutUp { 0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; transform: translate(-50%, -60%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -100%) scale(0.9); } }
+        .animate-fade-out-up { animation: fadeOutUp 3s ease-in-out forwards; }
+        @keyframes madShake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-5deg); } 20% { transform: translate(-3px, 0px) rotate(5deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(5deg); } 50% { transform: translate(-1px, 2px) rotate(-5deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-5deg); } 80% { transform: translate(-1px, -1px) rotate(5deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-5deg); } }
+        .animate-troll-mad { animation: madShake 0.4s cubic-bezier(.36,.07,.19,.97) both; filter: drop-shadow(0 0 15px rgba(220, 38, 38, 0.8)); }
+        @keyframes dogDig { 0%, 100% { transform: rotate(0deg) translateY(0); } 10%, 30%, 50%, 70%, 90% { transform: rotate(-15deg) translateY(-3px); } 20%, 40%, 60%, 80% { transform: rotate(15deg) translateY(3px); } }
+        .animate-dog-dig { animation: dogDig 0.7s ease-in-out; }
+        @keyframes lootFly { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 30% { transform: translate(-50%, -150%) scale(1.5); opacity: 1; } 100% { transform: translate(-50%, 75vh) scale(0.5); opacity: 0; } }
+        .animate-loot-fly { animation: lootFly 0.8s cubic-bezier(0.5, 0, 0.2, 1) forwards; }
+        @keyframes mapAppear { 0% { opacity: 0; filter: blur(4px); transform: scale(0.97); } 100% { opacity: 1; filter: blur(0); transform: scale(1); } }
+        .animate-map-appear { animation: mapAppear 0.5s ease-out forwards; }
+        @keyframes riverFlow { from { stroke-dashoffset: 40; } to { stroke-dashoffset: 0; } }
+        .animate-river-flow { animation: riverFlow 2s linear infinite; }
+        @keyframes starBurstInfinite { 0% { transform: translate(0, 0) scale(0) rotate(0deg); opacity: 1; } 50% { opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(180deg); opacity: 0; } }
+        .animate-star-burst-infinite { animation: starBurstInfinite 2.5s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
+        @keyframes fishSwim { 0% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 12% { left: 25%; top: 48%; transform: translate(-50%, -50%) scaleX(-1); } 22% { left: 50%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 34% { left: 75%; top: 58%; transform: translate(-50%, -50%) scaleX(-1); } 45% { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 50% { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 62% { left: 75%; top: 58%; transform: translate(-50%, -50%) scaleX(1); } 72% { left: 50%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 84% { left: 25%; top: 48%; transform: translate(-50%, -50%) scaleX(1); } 95% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 100% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } }
+        .animate-fish-swim { animation: fishSwim 18s linear infinite; }
+        @keyframes bubble { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.5; } 100% { transform: translateY(-100px); opacity: 0; } }
+        .animate-bubble { animation: bubble 4s linear infinite; }
+        @keyframes sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+        .animate-sway { animation: sway 4s ease-in-out infinite; transform-origin: bottom; }
+        @keyframes swaySlow { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+        .animate-sway-slow { animation: swaySlow 6s ease-in-out infinite; transform-origin: bottom; }
+        @keyframes swimRight { 0% { left: -20%; transform: translate(-50%, -50%); } 100% { left: 120%; transform: translate(-50%, -50%); } }
+        @keyframes swimLeft { 0% { left: 120%; transform: translate(-50%, -50%); } 100% { left: -20%; transform: translate(-50%, -50%); } }
+        @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .animate-bob { animation: bob 3s ease-in-out infinite; }
+        .emoji-shadow { text-shadow: 0px 0px 3px rgba(0,0,0,0.8), 0px 0px 8px rgba(0,0,0,0.4); }
+      `}} />
+    </>
   );
 }
