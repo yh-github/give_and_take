@@ -76,18 +76,18 @@ const RiverBackground = () => (
   </svg>
 );
 
-const CaveBackground = () => ( 
+const CaveBackground = () => (
   <div className="absolute inset-0 bg-[#3a2f28] pointer-events-none z-0 overflow-hidden">
     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#1a1512 2px, transparent 2px)', backgroundSize: '40px 40px' }} />
-    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 drop-shadow-2xl" viewBox="0 0 100 100" preserveAspectRatio="none">
-      {[16.66, 33.33, 50, 66.66, 83.33].map((y, i) => (
+    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 drop-shadow-2xl" viewBox="0 0 100 300" preserveAspectRatio="none">
+      {[16.66, 33.33, 50, 66.66, 83.33, 100, 116.66, 133.33, 150, 166.66, 183.33, 200, 216.66, 233.33, 250, 266.66, 283.33].map((y, i) => (
         <React.Fragment key={i}>
           <path d={`M 0 ${y} L 43 ${y} L 46 ${y-1} L 54 ${y-1} L 57 ${y} L 100 ${y}`} fill="none" stroke="#1c1612" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           <path d={`M 0 ${y} L 43 ${y} L 46 ${y-1} L 54 ${y-1} L 57 ${y} L 100 ${y}`} fill="none" stroke="#2b201a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
         </React.Fragment>
       ))}
     </svg>
-  </div> 
+  </div>
 );
 
 const UnderwaterBackground = () => (
@@ -686,13 +686,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   const uniqueInventoryItems = Array.from(new Set(inventory));
 
   const totalMapHeight = level.mechanics.isVertical ? `${level.mechanics.screens * 100}%` : '100%';
-  
-  let scrollScreens = (currentZone - 1) * 0.5;
+
+  let mapTranslateY = '0%';
   if (level.mechanics.isVertical) {
+      const screenForZone = Math.ceil(currentZone / 2) - 1;
       const maxScroll = level.mechanics.screens - 1;
-      if (scrollScreens > maxScroll) scrollScreens = maxScroll;
+      const clampedScreen = Math.min(screenForZone, maxScroll);
+      mapTranslateY = `-${clampedScreen * 100}%`;
   }
-  const mapTranslateY = level.mechanics.isVertical ? `-${(scrollScreens / level.mechanics.screens) * 100}%` : '0%';
 
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-2 sm:p-4 font-serif select-none overflow-hidden relative">
@@ -709,7 +710,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
             </>
           )}
           {level.mechanics.hasDarkness && level.mechanics.darknessType === 'vertical' && [1, 2, 3, 4, 5, 6].map(z => (
-             <div key={z} className={`absolute left-0 w-full bg-black transition-all duration-1000 z-[90] pointer-events-none ${unlockedZones.includes(z) ? 'opacity-0' : 'opacity-100 pointer-events-auto'}`} style={{ top: `${(z - 1) * 16.666}%`, height: '16.666%' }} />
+             <div key={z} className={`absolute left-0 w-full bg-black transition-all duration-1000 z-[90] pointer-events-none ${unlockedZones.includes(z) ? 'opacity-0' : 'opacity-100 pointer-events-auto'}`} style={{ top: `${(z - 1) * 50 / 3}%`, height: `${50 / 3}%` }} />
           ))}
 
           {level.sceneryNodes?.map((sc, i) => ( <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} opacity-40 grayscale sepia pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: (sc.depth||3)*10 }}>{sc.e}</div> ))}
