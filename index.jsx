@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
 
 // --- SHARED DATA ---
 const RIVER_CROSSING_ITEMS = [
@@ -147,49 +147,55 @@ const LEVEL_DICTIONARY = {
     id: 'underground', name: 'The Deep Chasm',
     items: UNDERGROUND_ITEMS, entities: UNDERGROUND_ENTITIES,
     campPos: { x: 50, y: 2 }, 
-    mechanics: { hasPickaxe: true, hasDarkness: true, darknessType: 'radial', isVertical: true, screens: 4 }, 
+    mechanics: { hasPickaxe: true, hasDarkness: true, darknessType: 'radial', hasFog: true, isVertical: true, screens: 2.2 }, 
     specialEntityTemplate: 'mole',
     passages: [],
     mapNodes: [
-      { x: 40, y: 8, zone: 1, isPreset: 'mushroom' },
-      { x: 60, y: 10, zone: 1 },
-      { x: 50, y: 14, zone: 1 },
-      { x: 28, y: 24, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
-      { x: 72, y: 24, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
+      { x: 40, y: 6, zone: 1, isPreset: 'mushroom' },
+      { x: 60, y: 8, zone: 1 },
+      { x: 50, y: 12, zone: 1 },
+      { x: 28, y: 20, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
+      { x: 72, y: 20, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
       
-      { x: 25, y: 34, zone: 2 },
-      { x: 25, y: 40, zone: 2 },
-      { x: 28, y: 48, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
+      { x: 25, y: 30, zone: 2 },
+      { x: 25, y: 36, zone: 2 },
+      { x: 28, y: 44, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
       
-      { x: 75, y: 34, zone: 3 },
-      { x: 75, y: 40, zone: 3 },
-      { x: 72, y: 48, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
+      { x: 75, y: 30, zone: 3 },
+      { x: 75, y: 36, zone: 3 },
+      { x: 72, y: 44, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
       
-      { x: 25, y: 58, zone: 4 },
-      { x: 25, y: 66, zone: 4, isPreset: 'mushroom' },
-      { x: 28, y: 77, zone: 4, isGatekeeper: true, id: 'rock_left_3', emoji: '🪨', unlocksZones: [6] },
+      { x: 25, y: 54, zone: 4 },
+      { x: 25, y: 60, zone: 4, isPreset: 'mushroom' },
+      { x: 28, y: 70, zone: 4, isGatekeeper: true, id: 'rock_left_3', emoji: '🪨', unlocksZones: [6] },
       
-      { x: 75, y: 58, zone: 5 },
-      { x: 75, y: 66, zone: 5 },
-      { x: 72, y: 77, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
+      { x: 75, y: 54, zone: 5 },
+      { x: 75, y: 60, zone: 5 },
+      { x: 72, y: 70, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
       
-      { x: 40, y: 84, zone: 6, isPreset: 'mushroom' },
-      { x: 60, y: 84, zone: 6 },
-      { x: 50, y: 88, zone: 6, isGatekeeper: true, id: 'final_gate', emoji: '⛩️', unlocksZones: [7] },
+      { x: 40, y: 78, zone: 6, isPreset: 'mushroom' },
+      { x: 60, y: 78, zone: 6 },
+      { x: 50, y: 84, zone: 6, isGatekeeper: true, id: 'final_gate', emoji: '⛩️', unlocksZones: [7] },
       
-      { x: 30, y: 95, zone: 7, isPreset: 'treasure' },
-      { x: 50, y: 95, zone: 7, isPreset: 'treasure' },
-      { x: 70, y: 95, zone: 7, isPreset: 'treasure' }
+      { x: 30, y: 92, zone: 7, isPreset: 'treasure' },
+      { x: 50, y: 92, zone: 7, isPreset: 'treasure' },
+      { x: 70, y: 92, zone: 7, isPreset: 'treasure' }
     ],
     sceneryNodes: [
-      { x: 15, y: 8, e: '🪨', s: 'text-2xl opacity-40' },
-      { x: 80, y: 12, e: '🌑', s: 'text-3xl opacity-30' },
-      { x: 20, y: 35, e: '🪨', s: 'text-4xl opacity-50' },
-      { x: 85, y: 30, e: '🌑', s: 'text-2xl opacity-40' },
-      { x: 15, y: 60, e: '🪨', s: 'text-3xl opacity-40' },
-      { x: 80, y: 65, e: '🪨', s: 'text-4xl opacity-30' },
-      { x: 35, y: 80, e: '🌑', s: 'text-2xl opacity-50' },
-      { x: 75, y: 92, e: '🪨', s: 'text-3xl opacity-40' },
+      { x: 12, y: 20, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 }, { x: 20, y: 20, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
+      { x: 36, y: 20, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 44, y: 20, e: '🪨', s: 'text-6xl brightness-[0.35]', z: 90 },
+      { x: 56, y: 20, e: '🪨', s: 'text-6xl brightness-[0.35]', z: 90 }, { x: 64, y: 20, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
+      { x: 80, y: 20, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 88, y: 20, e: '🪨', s: 'text-6xl brightness-50', z: 90 },
+
+      { x: 12, y: 44, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 }, { x: 20, y: 44, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
+      { x: 36, y: 44, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 44, y: 44, e: '🪨', s: 'text-6xl brightness-[0.35]', z: 90 },
+      { x: 56, y: 44, e: '🪨', s: 'text-6xl brightness-[0.35]', z: 90 }, { x: 64, y: 44, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
+      { x: 80, y: 44, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 88, y: 44, e: '🪨', s: 'text-6xl brightness-50', z: 90 },
+
+      { x: 12, y: 70, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 }, { x: 20, y: 70, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
+      { x: 36, y: 70, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 44, y: 70, e: '🪨', s: 'text-6xl brightness-[0.35]', z: 90 },
+      { x: 56, y: 70, e: '🪨', s: 'text-6xl brightness-[0.35]', z: 90 }, { x: 64, y: 70, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
+      { x: 80, y: 70, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 88, y: 70, e: '🪨', s: 'text-6xl brightness-50', z: 90 },
     ],
     BackgroundComponent: CaveBackground, GatekeeperPropComponent: () => null
   },
@@ -236,9 +242,13 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
     for (const entity of puzzleEntities) {
       if (curr.def.includes(entity.id)) continue;
       
-      if (!simUnlockedZones.has(entity.zone)) continue;
+      const isReverseAccess = entity.isGatekeeper && entity.unlocksZones && entity.unlocksZones.some(z => simUnlockedZones.has(z));
+      if (!simUnlockedZones.has(entity.zone) && !isReverseAccess) continue;
       
       if (entity.isGatekeeper && level.mechanics.hasPickaxe && entity.reqType === 'SPECIAL') {
+        const fullyUnlocked = simUnlockedZones.has(entity.zone) && entity.unlocksZones && entity.unlocksZones.every(z => simUnlockedZones.has(z));
+        if (fullyUnlocked) continue; 
+
         if (entity.reqGk && !curr.def.includes(entity.reqGk)) continue;
         if (curr.inv.includes('pickaxe') && curr.pickaxeCharges > 0) {
           let newInv = [...curr.inv]; let newCharges = curr.pickaxeCharges - 1;
@@ -310,7 +320,7 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
       level.mapNodes.forEach((n, idx) => {
         if (n.isGatekeeper) {
           if (n.id === 'final_gate') activeGatekeepers.push({ ...n, name: 'Vault Gate', requires: ['key', 'key', 'key'], reqType: 'AND', reward: null });
-          else activeGatekeepers.push({ ...n, name: 'Rock', requires: [], reqType: 'SPECIAL', id: n.id || `gk_${idx}` });
+          else activeGatekeepers.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'SPECIAL', id: n.id || `gk_${idx}` });
         } else if (n.isPreset === 'mushroom') {
           presetEntities.push({ id: `preset_mush_${n.x}_${n.y}`, emoji: '🍄', requires: [], reqType: 'AND', reward: 'mushroom', x: n.x, y: n.y, zone: n.zone, isGatekeeper: false, isPreset: true });
         } else if (n.isPreset === 'treasure') {
@@ -405,6 +415,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState('main'); 
   const [menuSettings, setMenuSettings] = useState({ levelId: level.id, steps: targetSteps, diggers: numDiggers });
+  const [animatingEntityId, setAnimatingEntityId] = useState(null);
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
@@ -444,7 +455,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     setEnvItemState(prevState.envItemState); setPickaxeCharges(prevState.pickaxeCharges);
     setUnlockedZones(prevState.unlockedZones);
     setHistoryStack(prev => prev.slice(0, -1)); setSelectedItemTypes([]); setSelectedEntityId(null);
-    setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false);
+    setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false); setAnimatingEntityId(null);
   };
 
   const resetGameState = () => {
@@ -453,7 +464,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     setDefeated([]); setSelectedItemTypes([]); setSelectedEntityId(null); setPathHistory([{...level.campPos, zone: 1}]);
     setHistoryStack([]); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false);
     setIsDemonstrating(false); setIsAnimatingLoot(false); setAlertEntityId(null); setFlyingItem(null);
-    setTempPlayerPos(null); setEnvItemState('active'); setSchoolsOfFish([]);
+    setTempPlayerPos(null); setEnvItemState('active'); setSchoolsOfFish([]); setAnimatingEntityId(null);
   };
 
   const handleReplay = () => { demoRef.current = false; resetGameState(); setIsMenuOpen(false); };
@@ -482,16 +493,16 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       let waypoints = [];
       if ((leftZones.includes(currentZoneSim) && rightZones.includes(entity.zone)) ||
           (rightZones.includes(currentZoneSim) && leftZones.includes(entity.zone))) {
-          if (Math.min(currentZoneSim, entity.zone) >= 4) waypoints.push({ x: 50, y: 80, depth: 3, zone: 6 });
-          else waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
+          if (Math.min(currentZoneSim, entity.zone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+          else waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
       } else if (currentZoneSim === 1 && (leftZones.includes(entity.zone) || rightZones.includes(entity.zone))) {
-          waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
+          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
       } else if (entity.zone === 1 && (leftZones.includes(currentZoneSim) || rightZones.includes(currentZoneSim))) {
-          waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
+          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
       } else if (currentZoneSim >= 6 && (leftZones.includes(entity.zone) || rightZones.includes(entity.zone))) {
-          waypoints.push({ x: 50, y: 80, depth: 3, zone: 6 });
+          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
       } else if (entity.zone >= 6 && (leftZones.includes(currentZoneSim) || rightZones.includes(currentZoneSim))) {
-          waypoints.push({ x: 50, y: 80, depth: 3, zone: 6 });
+          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
       }
       
       for (let wp of waypoints) {
@@ -505,7 +516,23 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       } else { setSelectedItemTypes([step.itemId]); }
 
       await new Promise(r => setTimeout(r, 600));
-      currentPath.push({x: entity.x, y: entity.y, depth: entity.depth || 3, zone: entity.zone}); setPathHistory([...currentPath]);
+      
+      const lastSimPos = currentPath[currentPath.length - 1];
+      const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastSimPos;
+      let targetX = entity.roamClass ? 50 : entity.x;
+      let targetY = entity.y;
+      
+      if (!entity.roamClass) {
+          const dx = targetX - prevPoint.x;
+          const dy = targetY - prevPoint.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > 0) {
+              targetX = targetX - (dx/dist) * 3.5;
+              targetY = targetY - (dy/dist) * 3.5;
+          }
+      }
+      
+      currentPath.push({x: targetX, y: targetY, depth: entity.depth || 3, zone: entity.zone}); setPathHistory([...currentPath]);
       currentZoneSim = entity.zone;
       await new Promise(r => setTimeout(r, 800)); 
 
@@ -516,7 +543,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       setInventory([...currentInv]); setSelectedItemTypes([]); 
       
       if (entity.reward) {
-        setFlyingItem({ emoji: level.items.find(i=>i.id===entity.reward).emoji, x: entity.x, y: entity.y });
+        const entityX = entity.roamClass ? 50 : entity.x;
+        setFlyingItem({ emoji: level.items.find(i=>i.id===entity.reward).emoji, x: entityX, y: entity.y });
         await new Promise(r => setTimeout(r, 800)); 
         setFlyingItem(null); currentInv.push(entity.reward);
         if (entity.reward === 'pickaxe') { pCharges = 10; setPickaxeCharges(10); }
@@ -527,6 +555,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
       if (entity.isGatekeeper && entity.unlocksZones) {
          entity.unlocksZones.forEach(z => unlockedZonesSim.add(z));
+         unlockedZonesSim.add(entity.zone);
          setUnlockedZones(Array.from(unlockedZonesSim));
       }
       if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory();
@@ -553,6 +582,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     if (!mapRef.current) return;
     const rect = mapRef.current.getBoundingClientRect();
     saveHistory(); setIsAnimatingLoot(true);
+    const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
     setPathHistory(prev => [...prev, { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100, depth: fishObj.depth, zone: currentZone }]);
     setTimeout(() => {
       setSchoolsOfFish(currentFish => {
@@ -579,18 +609,37 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot) return;
     
-    if (!unlockedZones.includes(entity.zone)) {
+    const isReverseAccess = entity.isGatekeeper && entity.unlocksZones && entity.unlocksZones.some(z => unlockedZones.includes(z));
+    
+    if (!unlockedZones.includes(entity.zone) && !isReverseAccess) {
        setSelectedItemTypes([]); setSelectedEntityId(null); setIsAnimatingLoot(true); 
-       const blockingRock = puzzle.puzzleEntities.find(ent => ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.includes(entity.zone) && !defeated.includes(ent.id));
-       const targetAlert = blockingRock || entity;
-       setTempPlayerPos({ x: targetAlert.x, y: targetAlert.y - (level.mechanics.isVertical ? 4 : 0), depth: 3 });
+       
+       const targetAlert = puzzle.puzzleEntities.filter(ent => 
+            ent.isGatekeeper && !defeated.includes(ent.id) && 
+            (ent.unlocksZones?.includes(entity.zone) || (ent.zone === entity.zone && ent.unlocksZones?.some(z => unlockedZones.includes(z))))
+       ).sort((a, b) => Math.abs(a.y - pathHistory[pathHistory.length-1].y) - Math.abs(b.y - pathHistory[pathHistory.length-1].y))[0] || entity;
+       
+       const prevPoint = pathHistory[pathHistory.length - 1];
+       let alertX = targetAlert.roamClass ? 50 : targetAlert.x;
+       let alertY = targetAlert.y;
+       
+       if (!targetAlert.roamClass) {
+           const dx = alertX - prevPoint.x;
+           const dy = alertY - prevPoint.y;
+           const dist = Math.sqrt(dx*dx + dy*dy);
+           if (dist > 0) {
+               alertX = alertX - (dx/dist) * 3.5;
+               alertY = alertY - (dy/dist) * 3.5;
+           }
+       }
+       
+       setTempPlayerPos({ x: alertX, y: alertY, depth: 3 });
        setTimeout(() => { setAlertEntityId(targetAlert.id); setTimeout(() => { setAlertEntityId(null); setTempPlayerPos(null); setTimeout(() => setIsAnimatingLoot(false), 700); }, 600); }, 700); 
        return;
     }
 
     const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
     const targetZone = entity.zone;
-    const targetX = entity.roamClass ? 50 : entity.x;
 
     let waypoints = [];
     const leftZones = [2, 4];
@@ -598,28 +647,51 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     
     if ((leftZones.includes(currentZone) && rightZones.includes(targetZone)) ||
         (rightZones.includes(currentZone) && leftZones.includes(targetZone))) {
-        if (Math.min(currentZone, targetZone) >= 4) waypoints.push({ x: 50, y: 80, depth: 3, zone: 6 });
-        else waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
+        if (Math.min(currentZone, targetZone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+        else waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
     } else if (currentZone === 1 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
-        waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
+        waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
     } else if (targetZone === 1 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
-        waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
+        waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
     } else if (currentZone >= 6 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
-        waypoints.push({ x: 50, y: 80, depth: 3, zone: 6 });
+        waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
     } else if (targetZone >= 6 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
-        waypoints.push({ x: 50, y: 80, depth: 3, zone: 6 });
+        waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+    }
+
+    const lastPos = pathHistory[pathHistory.length - 1];
+    const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastPos;
+    
+    let targetX = entity.roamClass ? 50 : entity.x;
+    let targetY = entity.y;
+
+    if (!entity.roamClass) {
+        const dx = targetX - prevPoint.x;
+        const dy = targetY - prevPoint.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 0) {
+            targetX = targetX - (dx/dist) * 3.5;
+            targetY = targetY - (dy/dist) * 3.5;
+        }
     }
 
     setPathHistory(prev => {
-        const lastPos = prev[prev.length - 1];
-        if (lastPos.x === targetX && lastPos.y === entity.y) return prev;
-        return [...prev, ...waypoints, { x: targetX, y: entity.y, depth: entity.depth || 3, zone: targetZone }];
+        if (lastPos.x === targetX && lastPos.y === targetY) return prev;
+        return [...prev, ...waypoints, { x: targetX, y: targetY, depth: entity.depth || 3, zone: targetZone }];
     });
 
     if (defeated.includes(entity.id)) return;
 
     if (entity.isPreset && !entity.isGatekeeper) {
+        // Prevent action if inventory is at maximum unique capacity
+        if (entity.reward && !inventory.includes(entity.reward) && Array.from(new Set(inventory)).length >= 4) {
+            setAlertEntityId(entity.id);
+            setTimeout(() => setAlertEntityId(null), 600);
+            return;
+        }
+
         setIsAnimatingLoot(true); saveHistory();
+        setAnimatingEntityId(entity.id);
         setDefeated(prev => {
             const newDef = [...prev, entity.id];
             if (level.mechanics.isVertical && entity.isTreasure) {
@@ -630,12 +702,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
         });
         
         if (entity.reward) {
-            setFlyingItem({ emoji: entity.emoji, x: targetX, y: entity.y, zIndex: 60 });
+            const entityX = entity.roamClass ? 50 : entity.x;
+            setFlyingItem({ emoji: entity.emoji, x: entityX, y: entity.y, zIndex: 60 });
             setTimeout(() => {
                 setInventory(prev => [...prev, entity.reward]);
-                setFlyingItem(null); setIsAnimatingLoot(false);
+                setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntityId(null);
             }, 800);
-        } else { setIsAnimatingLoot(false); }
+        } else { setIsAnimatingLoot(false); setTimeout(() => setAnimatingEntityId(null), 800); }
         return;
     }
 
@@ -665,6 +738,16 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     }
 
     if (canDefeat) {
+      // Evaluate future inventory to avoid item loss if at maximum unique capacity
+      let futureInv = [...inventory];
+      itemsToConsume.forEach(itemToDel => { const idx = futureInv.indexOf(itemToDel); if (idx > -1) futureInv.splice(idx, 1); });
+      
+      if (entity.reward && !futureInv.includes(entity.reward) && Array.from(new Set(futureInv)).length >= 4) {
+          setAlertEntityId(entity.id);
+          setTimeout(() => setAlertEntityId(null), 600);
+          return;
+      }
+
       setIsAnimatingLoot(true); saveHistory();
       if (spentPickaxeCharge) setPickaxeCharges(prev => prev - 1);
       
@@ -677,7 +760,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       setDefeated(prev => {
           const newDef = [...prev, entity.id];
           if (entity.isGatekeeper && entity.unlocksZones) {
-              setUnlockedZones(uz => [...new Set([...uz, ...entity.unlocksZones])]);
+              setUnlockedZones(uz => [...new Set([...uz, ...(entity.unlocksZones || []), entity.zone])]);
           }
           return newDef;
       });
@@ -685,7 +768,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       setSelectedItemTypes([]); setSelectedEntityId(null);
 
       if (entity.reward) {
-        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward).emoji, x: targetX, y: entity.y, zIndex: 60 });
+        const entityX = entity.roamClass ? 50 : entity.x;
+        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward).emoji, x: entityX, y: entity.y, zIndex: 60 });
         setTimeout(() => {
           setInventory(prev => [...prev, entity.reward]);
           if (entity.reward === 'pickaxe') setPickaxeCharges(10);
@@ -783,17 +867,31 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
             </>
           )}
 
+          {/* Locked-Zone Fog Overlay */}
+          {level.mechanics.hasFog && (
+            <div className="absolute inset-0 pointer-events-none z-[84]">
+              <div className={`absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(2) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '21%', height: '22%' }} />
+              <div className={`absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(3) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '21%', height: '22%' }} />
+              
+              <div className={`absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(4) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '45%', height: '24%' }} />
+              <div className={`absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(5) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '45%', height: '24%' }} />
+              
+              <div className={`absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(6) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '72%', height: '11%' }} />
+              <div className={`absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(7) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '86%', height: '14%' }} />
+            </div>
+          )}
+
           {/* New Radial Illumination Layer for Underground */}
           {level.mechanics.hasDarkness && level.mechanics.darknessType === 'radial' && (
             <div
               className="absolute inset-0 pointer-events-none z-[85] transition-all duration-300 ease-linear animate-torch-flicker"
               style={{
-                background: `radial-gradient(ellipse 40vw 50vh at ${displayPlayerPos.x}% ${displayPlayerPos.y}%, transparent 0%, transparent 15%, rgba(0,0,0,0.5) 30%, rgba(0,0,0,0.95) 60%, #000 100%)`
+                background: `radial-gradient(ellipse 80vw 100vh at ${displayPlayerPos.x}% ${displayPlayerPos.y}%, transparent 0%, transparent 30%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.95) 80%, #000 100%)`
               }}
             />
           )}
 
-          {level.sceneryNodes?.map((sc, i) => ( <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: (sc.depth||3)*10 }}>{sc.e}</div> ))}
+          {level.sceneryNodes?.map((sc, i) => ( <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: sc.z || (sc.depth||3)*10 }}>{sc.e}</div> ))}
 
           {/* Render Fish Interactions */}
           {level.mechanics.hasFish && envItemState === 'active' && ( <div className="absolute cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform" style={{zIndex: 25}} onClick={handleCatchRiverFish}>🐟</div> )}
@@ -822,18 +920,24 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
           {puzzle.puzzleEntities.map(ent => {
             const isDefeated = defeated.includes(ent.id); const isGoal = ent.id === puzzle.goalEntityId;
             const rewardItem = ent.reward ? level.items.find(i => i.id === ent.reward) : null;
-            const isAlerting = alertEntityId === ent.id; const isSelected = selectedEntityId === ent.id;
+            const isAlerting = alertEntityId === ent.id;
+            const isSelected = selectedEntityId === ent.id;
             const depthScale = (ent.depth === 1) ? 'scale-50' : (ent.depth === 2) ? 'scale-75' : 'scale-100';
             const depthFilter = (ent.depth === 1) ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : (ent.depth === 2) ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
-            const entZ = isSelected ? 50 : (ent.depth || 3) * 10 + 5;
+            const isAnimating = animatingEntityId === ent.id;
+            
+            const entZ = isSelected ? 150 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5);
+            
             const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
             const entityStyle = ent.roamClass ? { top: `${ent.y}%`, zIndex: entZ } : { left: `${ent.x}%`, top: `${ent.y}%`, zIndex: entZ };
             
             const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !level.mechanics.isFarming);
             const isRock = ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate';
             
-            const interactableHover = (isDefeated && !ent.isGatekeeper) || isRock ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
-            const wrapperClasses = `absolute flex flex-col items-center p-4 -m-4 transition-transform duration-300 ${ent.roamClass ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
+            const inFog = level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
+
+            const interactableHover = inFog ? 'pointer-events-none cursor-default' : (isDefeated && !ent.isGatekeeper) || (isRock && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+            const wrapperClasses = `absolute flex flex-col items-center p-4 -m-4 transition-all duration-300 ${ent.roamClass ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
             const isNearLeft = !ent.roamClass && ent.x <= 20;
             const isNearRight = !ent.roamClass && ent.x >= 80;
@@ -862,13 +966,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
                             </>
                           ) : (
                             Object.entries(groupedReqs).map(([reqId, count], i, arr) => (
-                              <React.Fragment key={reqId}>
+                              <Fragment key={reqId}>
                                 <span className="flex items-center gap-1 emoji-shadow" title={level.items.find(item => item.id === reqId)?.name || reqId}>
                                   {count > 1 && <span className="text-sm font-black text-amber-600" style={{textShadow: 'none'}}>{count}x</span>}
                                   {level.items.find(item => item.id === reqId)?.emoji || '❓'}
                                 </span>
                                 {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{ent.reqType === 'AND' ? '&' : 'או'}</span>}
-                              </React.Fragment>
+                              </Fragment>
                             ))
                           )}
                           <div className={`absolute ${arrowY} ${arrowAlign} w-3 h-3 bg-white border-stone-800 rotate-45`}></div>
@@ -893,19 +997,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
                         
                         <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper ? 'text-6xl' : 'text-4xl'} ${isGoal ? 'text-purple-900 scale-125' : ''}`}>
                            {isRock && !isDefeated ? (
-                             <div className={`text-4xl flex gap-1 justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                               <span className="scale-90 rotate-6">🪨</span>
-                               <span className="scale-110 -translate-y-2 -rotate-6 z-10">🪨</span>
-                               <span className="scale-95 rotate-12">🪨</span>
+                             <div className={`flex justify-center items-center group-hover:scale-125 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                               <span className="drop-shadow-2xl">🪨</span>
                              </div>
                            ) : isRock && isDefeated ? (
-                             <div className="relative group text-3xl flex gap-1 translate-y-4 cursor-pointer z-50 animate-rock-shatter">
-                               <span className="scale-75 -rotate-12">🪨</span>
-                               <span className="scale-50 translate-y-2 rotate-45 z-10">🪨</span>
-                               <span className="scale-75 rotate-12">🪨</span>
+                             <div className="relative group text-3xl flex justify-center items-center translate-y-8 z-20 opacity-40 pointer-events-none">
+                               <span className="scale-75 -rotate-12 translate-x-2">🪨</span>
+                               <span className="scale-50 translate-y-2 -translate-x-2 rotate-45">🪨</span>
                              </div>
                            ) : (
-                             <div className={`${ent.filterClass || ''} ${ent.isRight ? 'scale-x-[-1]' : ''}`}>{isAlerting ? '😡' : ent.emoji}</div>
+                             <div className={`${ent.filterClass || ''} ${ent.isRight ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
+                               {isAlerting && !ent.isPreset ? '😡' : isAlerting ? '🚫' : ent.emoji}
+                             </div>
                            )}
                         </div>
                       </div>
@@ -961,8 +1064,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   );
 }
 
-// --- APP ENTRY POINT ---
-export default function App() {
+const App = () => {
   const [activeSettings, setActiveSettings] = useState({ levelId: 'underground', steps: 5, diggers: 1 });
   const [gameKey, setGameKey] = useState(0);
 
@@ -1013,4 +1115,6 @@ export default function App() {
       `}} />
     </>
   );
-}
+};
+
+export default App;
