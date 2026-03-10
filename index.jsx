@@ -46,7 +46,7 @@ const RIVER_CROSSING_ENTITIES = [
 
 const UNDERGROUND_ENTITIES = [
   { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['key', 'rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
-  { id: 'cave_troll', name: 'Cave Troll', emoji: '🧌', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'key', 'rope'] },
+  { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'key', 'rope'] },
   { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['key', 'rope', 'bone', 'emerald', 'relic', 'mushroom'] },
   { id: 'bat', name: 'Vampire Bat', emoji: '🦇', allowedReqs: ['relic', 'mushroom', 'bone', 'crystal', 'rope', 'gold_nugget'] },
   { id: 'slime', name: 'Acid Slime', emoji: '🦠', allowedReqs: ['crystal', 'bone', 'key', 'mushroom', 'gem', 'relic'] },
@@ -411,11 +411,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   const [envItemState, setEnvItemState] = useState('active'); 
   const [envItemCaughtPos, setEnvItemCaughtPos] = useState({x: 50, y: 50});
   const [schoolsOfFish, setSchoolsOfFish] = useState([]);
+  const [campItems, setCampItems] = useState([]);
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState('main'); 
   const [menuSettings, setMenuSettings] = useState({ levelId: level.id, steps: targetSteps, diggers: numDiggers });
-  const [animatingEntityId, setAnimatingEntityId] = useState(null);
+  
+  const [animatingEntities, setAnimatingEntities] = useState([]);
+  const [buriedEntities, setBuriedEntities] = useState([]);
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
@@ -446,16 +449,35 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     return () => clearInterval(intervalId);
   }, [level.mechanics.hasSchoolsOfFish, isDemonstrating, isVictorious]);
 
-  const saveHistory = () => { setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState, pickaxeCharges, unlockedZones: [...unlockedZones] }]); };
+  // Bury logic: triggers the moment the player takes any step (pathHistory > 1) in a zone that is unlocked
+  useEffect(() => {
+    if (!puzzle || isDemonstrating || isAnimatingLoot) return;
+    const diggersToBury = puzzle.puzzleEntities.filter(ent => {
+        const isDigger = level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !level.mechanics.isFarming && !ent.isGoal;
+        return isDigger && unlockedZones.includes(ent.zone) && pathHistory.length > 1 && !buriedEntities.includes(ent.id) && !animatingEntities.includes(ent.id) && !defeated.includes(ent.id);
+    });
+
+    if (diggersToBury.length > 0) {
+        const ids = diggersToBury.map(d => d.id);
+        setAnimatingEntities(prev => [...prev, ...ids]);
+        setTimeout(() => {
+            setAnimatingEntities(prev => prev.filter(id => !ids.includes(id)));
+            setBuriedEntities(prev => [...new Set([...prev, ...ids])]);
+        }, 700);
+    }
+  }, [pathHistory, unlockedZones, puzzle, isDemonstrating, isAnimatingLoot, buriedEntities, animatingEntities, defeated, level]);
+
+  const saveHistory = () => { setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState, pickaxeCharges, unlockedZones: [...unlockedZones], campItems: [...campItems], buriedEntities: [...buriedEntities] }]); };
 
   const handleUndo = () => {
     if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot) return;
     const prevState = historyStack[historyStack.length - 1];
     setInventory(prevState.inventory); setDefeated(prevState.defeated); setPathHistory(prevState.pathHistory);
     setEnvItemState(prevState.envItemState); setPickaxeCharges(prevState.pickaxeCharges);
-    setUnlockedZones(prevState.unlockedZones);
+    setUnlockedZones(prevState.unlockedZones); setCampItems(prevState.campItems || []);
+    setBuriedEntities(prevState.buriedEntities || []);
     setHistoryStack(prev => prev.slice(0, -1)); setSelectedItemTypes([]); setSelectedEntityId(null);
-    setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false); setAnimatingEntityId(null);
+    setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false); setAnimatingEntities([]);
   };
 
   const resetGameState = () => {
@@ -464,7 +486,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     setDefeated([]); setSelectedItemTypes([]); setSelectedEntityId(null); setPathHistory([{...level.campPos, zone: 1}]);
     setHistoryStack([]); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false);
     setIsDemonstrating(false); setIsAnimatingLoot(false); setAlertEntityId(null); setFlyingItem(null);
-    setTempPlayerPos(null); setEnvItemState('active'); setSchoolsOfFish([]); setAnimatingEntityId(null);
+    setTempPlayerPos(null); setEnvItemState('active'); setSchoolsOfFish([]); setAnimatingEntities([]); setCampItems([]); setBuriedEntities([]);
   };
 
   const handleReplay = () => { demoRef.current = false; resetGameState(); setIsMenuOpen(false); };
@@ -565,6 +587,45 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
   const triggerVictory = () => { setIsVictorious(true); setTimeout(() => setShowTrophy(true), 800); setTimeout(() => setShowVictoryMsg(true), 1000); };
 
+  const navigateTo = (targetX, targetY, targetZone, targetDepth, isEntity = false) => {
+      const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
+      let waypoints = [];
+      const leftZones = [2, 4];
+      const rightZones = [3, 5];
+
+      if ((leftZones.includes(currentZone) && rightZones.includes(targetZone)) ||
+          (rightZones.includes(currentZone) && leftZones.includes(targetZone))) {
+          if (Math.min(currentZone, targetZone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+          else waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+      } else if (currentZone === 1 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
+          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+      } else if (targetZone === 1 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
+          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+      } else if (currentZone >= 6 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
+          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+      } else if (targetZone >= 6 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
+          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+      }
+
+      const lastPos = pathHistory[pathHistory.length - 1];
+      const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastPos;
+
+      let finalX = targetX;
+      let finalY = targetY;
+
+      if (isEntity) {
+          const dx = finalX - prevPoint.x;
+          const dy = finalY - prevPoint.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > 0) {
+              finalX = finalX - (dx/dist) * 3.5;
+              finalY = finalY - (dy/dist) * 3.5;
+          }
+      }
+
+      return [...waypoints, { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
+  };
+
   const handleCatchRiverFish = (e) => {
     e.stopPropagation();
     const uniqueInvCount = Array.from(new Set(inventory)).length;
@@ -592,11 +653,67 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     }, 700);
   };
 
-  const handlePassageClick = (passage) => {
-    if (isDemonstrating || isAnimatingLoot) return;
-    setUnlockedZones(prev => [...new Set([...prev, passage.targetZone])]);
-    const arrival = level.passages.find(p => p.zone === passage.targetZone && p.targetZone === passage.zone);
-    if (arrival) setPathHistory(prev => [...prev, { x: arrival.x, y: arrival.y, depth: 3, zone: passage.targetZone }]);
+  const handleCampClick = (e) => {
+    e.stopPropagation();
+    if (isVictorious || isDemonstrating || isAnimatingLoot || selectedItemTypes.length === 0) return;
+
+    const itemToDrop = selectedItemTypes[0];
+    if (!itemToDrop) return;
+
+    saveHistory();
+    setIsAnimatingLoot(true);
+
+    const newPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
+    const lastPos = pathHistory[pathHistory.length - 1];
+    const finalPos = newPath[newPath.length - 1];
+    
+    setPathHistory(prev => {
+        if (lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+        return [...prev, ...newPath];
+    });
+
+    setTimeout(() => {
+        setInventory(prev => {
+            const newInv = [...prev];
+            const idx = newInv.indexOf(itemToDrop);
+            if (idx > -1) newInv.splice(idx, 1);
+            return newInv;
+        });
+        const offsetX = level.campPos.x + (Math.random() * 14 - 7);
+        const offsetY = level.campPos.y + (Math.random() * 8 - 4);
+        setCampItems(prev => [...prev, { id: itemToDrop, x: offsetX, y: offsetY, uid: Date.now() + Math.random() }]);
+        setSelectedItemTypes([]);
+        setIsAnimatingLoot(false);
+    }, 800);
+  };
+
+  const handleCampItemClick = (e, campItem) => {
+    e.stopPropagation();
+    if (isVictorious || isDemonstrating || isAnimatingLoot) return;
+
+    if (!inventory.includes(campItem.id) && Array.from(new Set(inventory)).length >= 4) {
+        setAlertEntityId(campItem.uid);
+        setTimeout(() => setAlertEntityId(null), 600);
+        return;
+    }
+
+    saveHistory();
+    setIsAnimatingLoot(true);
+
+    const newPath = navigateTo(campItem.x, campItem.y, 1, level.campPos.depth || 3, false);
+    const lastPos = pathHistory[pathHistory.length - 1];
+    const finalPos = newPath[newPath.length - 1];
+    
+    setPathHistory(prev => {
+        if (lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+        return [...prev, ...newPath];
+    });
+
+    setTimeout(() => {
+        setCampItems(prev => prev.filter(i => i.uid !== campItem.uid));
+        setInventory(prev => [...prev, campItem.id]);
+        setIsAnimatingLoot(false);
+    }, 800);
   };
 
   const toggleInventoryType = (itemId) => {
@@ -638,52 +755,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
        return;
     }
 
-    const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
-    const targetZone = entity.zone;
-
-    let waypoints = [];
-    const leftZones = [2, 4];
-    const rightZones = [3, 5];
-    
-    if ((leftZones.includes(currentZone) && rightZones.includes(targetZone)) ||
-        (rightZones.includes(currentZone) && leftZones.includes(targetZone))) {
-        if (Math.min(currentZone, targetZone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-        else waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
-    } else if (currentZone === 1 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
-        waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
-    } else if (targetZone === 1 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
-        waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
-    } else if (currentZone >= 6 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
-        waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-    } else if (targetZone >= 6 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
-        waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-    }
-
+    const newPath = navigateTo(entity.roamClass ? 50 : entity.x, entity.y, entity.zone, entity.depth || 3, !entity.roamClass);
     const lastPos = pathHistory[pathHistory.length - 1];
-    const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastPos;
+    const finalPos = newPath[newPath.length - 1];
     
-    let targetX = entity.roamClass ? 50 : entity.x;
-    let targetY = entity.y;
-
-    if (!entity.roamClass) {
-        const dx = targetX - prevPoint.x;
-        const dy = targetY - prevPoint.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 0) {
-            targetX = targetX - (dx/dist) * 3.5;
-            targetY = targetY - (dy/dist) * 3.5;
-        }
-    }
-
     setPathHistory(prev => {
-        if (lastPos.x === targetX && lastPos.y === targetY) return prev;
-        return [...prev, ...waypoints, { x: targetX, y: targetY, depth: entity.depth || 3, zone: targetZone }];
+        if (lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+        return [...prev, ...newPath];
     });
 
     if (defeated.includes(entity.id)) return;
 
     if (entity.isPreset && !entity.isGatekeeper) {
-        // Prevent action if inventory is at maximum unique capacity
         if (entity.reward && !inventory.includes(entity.reward) && Array.from(new Set(inventory)).length >= 4) {
             setAlertEntityId(entity.id);
             setTimeout(() => setAlertEntityId(null), 600);
@@ -691,7 +774,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
         }
 
         setIsAnimatingLoot(true); saveHistory();
-        setAnimatingEntityId(entity.id);
+        setAnimatingEntities(prev => [...prev, entity.id]);
         setDefeated(prev => {
             const newDef = [...prev, entity.id];
             if (level.mechanics.isVertical && entity.isTreasure) {
@@ -706,9 +789,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
             setFlyingItem({ emoji: entity.emoji, x: entityX, y: entity.y, zIndex: 60 });
             setTimeout(() => {
                 setInventory(prev => [...prev, entity.reward]);
-                setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntityId(null);
+                setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
             }, 800);
-        } else { setIsAnimatingLoot(false); setTimeout(() => setAnimatingEntityId(null), 800); }
+        } else { setIsAnimatingLoot(false); setTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), 800); }
         return;
     }
 
@@ -738,7 +821,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     }
 
     if (canDefeat) {
-      // Evaluate future inventory to avoid item loss if at maximum unique capacity
       let futureInv = [...inventory];
       itemsToConsume.forEach(itemToDel => { const idx = futureInv.indexOf(itemToDel); if (idx > -1) futureInv.splice(idx, 1); });
       
@@ -749,6 +831,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       }
 
       setIsAnimatingLoot(true); saveHistory();
+      setAnimatingEntities(prev => [...prev, entity.id]);
       if (spentPickaxeCharge) setPickaxeCharges(prev => prev - 1);
       
       setInventory(prev => {
@@ -773,10 +856,10 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
         setTimeout(() => {
           setInventory(prev => [...prev, entity.reward]);
           if (entity.reward === 'pickaxe') setPickaxeCharges(10);
-          setFlyingItem(null); setIsAnimatingLoot(false); 
+          setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
           if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory();
         }, 800);
-      } else { setIsAnimatingLoot(false); if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory(); }
+      } else { setIsAnimatingLoot(false); setTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), 800); if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory(); }
 
     } else { setSelectedItemTypes([]); }
   };
@@ -895,7 +978,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
           {/* Render Fish Interactions */}
           {level.mechanics.hasFish && envItemState === 'active' && ( <div className="absolute cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform" style={{zIndex: 25}} onClick={handleCatchRiverFish}>🐟</div> )}
-          {level.mechanics.hasFish && envItemState === 'caught' && ( <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}><span className="text-3xl">🐟</span><span className="text-xs font-bold text-white bg-blue-500/80 px-2 py-0.5 rounded-full mt-1">CAUGHT!</span></div> )}
+          {level.mechanics.hasFish && envItemState === 'caught' && ( <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}><span className="text-3xl">🐟</span></div> )}
 
           {schoolsOfFish.map(f => {
              const fScale = f.depth === 1 ? 'scale-50' : f.depth === 2 ? 'scale-75' : 'scale-100';
@@ -913,25 +996,53 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
               {tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
             </svg>
           )}
-          {!level.mechanics.noPath && ( <div className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%` }}><div className="text-4xl drop-shadow-lg filter sepia">⛺</div></div> )}
+
+          {/* Render Dropped Camp Items */}
+          {campItems.map(item => {
+            const itemData = level.items.find(i => i.id === item.id);
+            if (!itemData) return null;
+            const isAlerting = alertEntityId === item.uid;
+            return (
+                <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[15] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${item.y}%` }}>
+                    <div className="text-3xl drop-shadow-md">{isAlerting ? '🚫' : itemData.emoji}</div>
+                </div>
+            );
+          })}
+
+          {!level.mechanics.noPath && ( 
+            <div onClick={handleCampClick} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[10] transition-all duration-300 ${selectedItemTypes.length > 0 ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]' : ''}`} style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%` }}>
+              <div className="relative">
+                  <div className="text-4xl drop-shadow-lg filter sepia">⛺</div>
+                  {selectedItemTypes.length > 0 && (
+                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white text-stone-900 text-xs font-black px-2 py-1 rounded-xl shadow-xl animate-bounce whitespace-nowrap border-2 border-stone-800">
+                          ⬇️ Drop Item
+                      </div>
+                  )}
+              </div>
+            </div> 
+          )}
 
           {flyingItem && ( <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div> )}
 
           {puzzle.puzzleEntities.map(ent => {
-            const isDefeated = defeated.includes(ent.id); const isGoal = ent.id === puzzle.goalEntityId;
+            const isDefeated = defeated.includes(ent.id);
+            // Hide presets entirely when picked up, so they don't leave a "shadow"
+            if (ent.isPreset && isDefeated) return null;
+
+            const isGoal = ent.id === puzzle.goalEntityId;
             const rewardItem = ent.reward ? level.items.find(i => i.id === ent.reward) : null;
             const isAlerting = alertEntityId === ent.id;
             const isSelected = selectedEntityId === ent.id;
             const depthScale = (ent.depth === 1) ? 'scale-50' : (ent.depth === 2) ? 'scale-75' : 'scale-100';
             const depthFilter = (ent.depth === 1) ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : (ent.depth === 2) ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
-            const isAnimating = animatingEntityId === ent.id;
+            const isAnimating = animatingEntities.includes(ent.id);
             
             const entZ = isSelected ? 150 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5);
             
             const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
             const entityStyle = ent.roamClass ? { top: `${ent.y}%`, zIndex: entZ } : { left: `${ent.x}%`, top: `${ent.y}%`, zIndex: entZ };
             
-            const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !level.mechanics.isFarming);
+            const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !level.mechanics.isFarming && !ent.isGoal);
             const isRock = ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate';
             
             const inFog = level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
@@ -947,8 +1058,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
             const arrowAlign = isNearLeft ? "left-4" : isNearRight ? "right-4" : "left-1/2 -translate-x-1/2";
             const arrowY = isNearTop ? "-top-[7px] border-t-2 border-l-2" : "-bottom-[7px] border-b-2 border-r-2";
             
-            const pathStepsInOrPastZone = pathHistory.filter(p => p.zone === ent.zone).length;
-            const isBuried = isDigger && unlockedZones.includes(ent.zone) && pathStepsInOrPastZone > 1;
+            const isBuried = isDigger && buriedEntities.includes(ent.id);
 
             return (
               <div key={ent.id} onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
