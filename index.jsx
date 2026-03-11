@@ -124,6 +124,30 @@ const UnderwaterBackground = () => (
   </>
 );
 
+const CaveEntranceProp = () => (
+  <div className="relative flex justify-center items-end pointer-events-none w-56 h-48 sm:w-64 sm:h-56 drop-shadow-2xl -translate-y-6 sm:-translate-y-8">
+    <svg viewBox="0 0 200 150" className="absolute bottom-0 w-full h-full">
+      {/* Back mountains */}
+      <path d="M10,150 L60,40 L100,60 L140,20 L190,150 Z" fill="#4b5563"/>
+      <path d="M-10,150 L50,70 L90,90 L130,50 L210,150 Z" fill="#374151"/>
+      {/* Main rock formation */}
+      <path d="M30,150 C30,80 60,30 100,30 C140,30 170,80 170,150 Z" fill="#1f2937"/>
+      {/* Cave opening */}
+      <path d="M60,150 C60,80 90,50 100,50 C110,50 140,80 140,150 Z" fill="#030712"/>
+      {/* Texture details */}
+      <path d="M40,150 L45,100 L55,120 Z" fill="#4b5563" opacity="0.5"/>
+      <path d="M160,150 L155,90 L145,130 Z" fill="#4b5563" opacity="0.5"/>
+    </svg>
+    {/* Rock Emojis layered over the base SVG */}
+    <div className="absolute bottom-2 left-4 sm:left-6 text-3xl sm:text-4xl drop-shadow-lg -rotate-12">🪨</div>
+    <div className="absolute bottom-0 right-2 sm:right-4 text-4xl sm:text-5xl drop-shadow-lg rotate-12 scale-110">🪨</div>
+    <div className="absolute bottom-10 sm:bottom-14 left-0 text-2xl sm:text-3xl drop-shadow-md rotate-45 brightness-75">🪨</div>
+    <div className="absolute bottom-12 sm:bottom-16 -right-2 text-xl sm:text-2xl drop-shadow-md -rotate-12 brightness-50">🪨</div>
+    <div className="absolute top-16 sm:top-20 left-12 sm:left-16 text-xl sm:text-2xl drop-shadow-md -rotate-45 brightness-75 z-10">🪨</div>
+    <div className="absolute top-12 sm:top-16 right-12 sm:right-16 text-2xl sm:text-3xl drop-shadow-md rotate-45 brightness-50 z-10">🪨</div>
+  </div>
+);
+
 const LEVEL_DICTIONARY = {
   river_crossing: {
     id: 'river_crossing', name: 'River Crossing',
@@ -134,7 +158,7 @@ const LEVEL_DICTIONARY = {
     mapNodes: [
       { x: 12, y: 82, zone: 1 }, { x: 88, y: 82, zone: 1 }, { x: 25, y: 65, zone: 1 }, { x: 75, y: 65, zone: 1 }, 
       { x: 50, y: 52, zone: 1, isGatekeeper: true, gkIdx: 0, unlocksZones: [2] },
-      { x: 15, y: 35, zone: 2 }, { x: 85, y: 32, zone: 2 }, { x: 50, y: 15, zone: 2, isGoal: true }
+      { x: 15, y: 35, zone: 2 }, { x: 85, y: 32, zone: 2 }, { x: 50, y: 22, zone: 2, isGoal: true } // Moved down to y:22
     ],
     sceneryNodes: [
       { x: 8, y: 22, e: '🌲', s: 'text-3xl' }, { x: 85, y: 12, e: '⛰️', s: 'text-5xl' },
@@ -332,7 +356,13 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
     const availableNodes = level.mapNodes.filter(n => !n.isGatekeeper && !n.isGoal && !n.isPreset);
     let goalTemplate = { id: 'final_gate' }; 
     if (!level.mechanics.isVertical) {
-      goalTemplate = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate).sort(() => Math.random() - 0.5)[0];
+      if (level.id === 'river_crossing') {
+         const baseTroll = level.entities.find(e => e.id === 'troll');
+         goalTemplate = { ...baseTroll, id: 'cave_troll_exit', name: 'Cave Boss' };
+      } else {
+         goalTemplate = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate).sort(() => Math.random() - 0.5)[0];
+      }
+      
       const goalNode = level.mapNodes.find(n => n.isGoal);
       if (goalNode) {
         const availableReqs = goalTemplate.allowedReqs.filter(req => req !== 'pickaxe');
@@ -516,11 +546,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       if ((leftZones.includes(currentZoneSim) && rightZones.includes(entity.zone)) ||
           (rightZones.includes(currentZoneSim) && leftZones.includes(entity.zone))) {
           if (Math.min(currentZoneSim, entity.zone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-          else waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+          else waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
       } else if (currentZoneSim === 1 && (leftZones.includes(entity.zone) || rightZones.includes(entity.zone))) {
-          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
       } else if (entity.zone === 1 && (leftZones.includes(currentZoneSim) || rightZones.includes(currentZoneSim))) {
-          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
       } else if (currentZoneSim >= 6 && (leftZones.includes(entity.zone) || rightZones.includes(entity.zone))) {
           waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
       } else if (entity.zone >= 6 && (leftZones.includes(currentZoneSim) || rightZones.includes(currentZoneSim))) {
@@ -596,11 +626,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       if ((leftZones.includes(currentZone) && rightZones.includes(targetZone)) ||
           (rightZones.includes(currentZone) && leftZones.includes(targetZone))) {
           if (Math.min(currentZone, targetZone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-          else waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+          else waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
       } else if (currentZone === 1 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
-          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
       } else if (targetZone === 1 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
-          waypoints.push({ x: 50, y: 15, depth: 3, zone: 1 });
+          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
       } else if (currentZone >= 6 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
           waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
       } else if (targetZone >= 6 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
@@ -1024,6 +1054,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
           {flyingItem && ( <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div> )}
 
+          {/* Static Cave Entrance (rendered before entities so it sits in the background layer) */}
+          {level.id === 'river_crossing' && puzzle?.puzzleEntities.some(e => e.id === puzzle.goalEntityId) && (
+            <div className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20" style={{ left: '50%', top: '22%' }}>
+                <CaveEntranceProp />
+            </div>
+          )}
+
           {puzzle.puzzleEntities.map(ent => {
             const isDefeated = defeated.includes(ent.id);
             // Hide presets entirely when picked up, so they don't leave a "shadow"
@@ -1052,7 +1089,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
             const isNearLeft = !ent.roamClass && ent.x <= 20;
             const isNearRight = !ent.roamClass && ent.x >= 80;
-            const isNearTop = ent.y <= 10;
+            const isNearTop = ent.y <= 25; // Adjusted so top entities don't clip tooltips
             const tooltipAlign = isNearLeft ? "left-0" : isNearRight ? "right-0" : "left-1/2 -translate-x-1/2";
             const tooltipY = isNearTop ? "top-full mt-2" : "bottom-full mb-2";
             const arrowAlign = isNearLeft ? "left-4" : isNearRight ? "right-4" : "left-1/2 -translate-x-1/2";
@@ -1089,6 +1126,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
                         </div>
                       </div>
                     )}
+
                     <div className="relative">
                       {ent.isGatekeeper && !isRock && GatekeeperProp && <GatekeeperProp />}
                       
@@ -1105,15 +1143,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
                           )
                         )}
                         
-                        <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper ? 'text-6xl' : 'text-4xl'} ${isGoal ? 'text-purple-900 scale-125' : ''}`}>
+                        <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-6xl' : 'text-4xl'}`}>
                            {isRock && !isDefeated ? (
-                             <div className={`flex justify-center items-center group-hover:scale-125 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                               <span className="drop-shadow-2xl">🪨</span>
+                             <div className={`text-4xl flex gap-1 justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                               <span className="scale-90 rotate-6">🪨</span>
+                               <span className="scale-110 -translate-y-2 -rotate-6 z-10">🪨</span>
+                               <span className="scale-95 rotate-12">🪨</span>
                              </div>
                            ) : isRock && isDefeated ? (
-                             <div className="relative group text-3xl flex justify-center items-center translate-y-8 z-20 opacity-40 pointer-events-none">
-                               <span className="scale-75 -rotate-12 translate-x-2">🪨</span>
-                               <span className="scale-50 translate-y-2 -translate-x-2 rotate-45">🪨</span>
+                             <div className="relative group text-3xl flex gap-1 translate-y-4 cursor-pointer z-50 animate-rock-shatter">
+                               <span className="scale-75 -rotate-12">🪨</span>
+                               <span className="scale-50 translate-y-2 rotate-45 z-10">🪨</span>
+                               <span className="scale-75 rotate-12">🪨</span>
                              </div>
                            ) : (
                              <div className={`${ent.filterClass || ''} ${ent.isRight ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
