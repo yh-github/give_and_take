@@ -1,4 +1,35 @@
-import React, { useState, useEffect, useRef, Fragment } from 'react';
+import React, { useState, useEffect, useRef, Fragment, useMemo, useCallback } from 'react';
+
+const MAX_UNIQUE_ITEMS = 4;
+const PICKAXE_CHARGES_MAX = 10;
+const MAX_AIR = 6;
+const SOLVER_MAX_ITERS = 25000;
+const SOLVER_TIME_LIMIT_MS = 1200;
+const GENERATOR_MAX_ATTEMPTS = 5000;
+const NAV_OFFSET = 3.5;
+
+const STRINGS = {
+  en: {
+    menu: "Menu", restart: "↺ Restart Level", showSolution: "💡 Show Solution", generateMap: "🗺️ Generate New Map", resume: "Resume Game",
+    settings: "Settings", level: "Level:", minQuestChain: "Minimum Quest Chain:", diggersMemory: "Diggers (Memory Mode):", genMap: "🗺️ Generate Map", back: "Back",
+    genFailedTitle: "Generation Failed", genFailedDesc: "{dict.genFailedDesc}", openSettings: "Open Settings",
+    generating: "Generating Realm...", floatingUp: "🫧 Floating Up! 🫧", dropItem: "⬇️ Drop Item", blocked: "BLOCKED!", exit: "Exit", questComplete: "Quest Complete!",
+    entities: { troll: 'Troll', baker: 'Baker', spider: 'Spider', chest: 'Chest', wizard: 'Wizard', dragon: 'Dragon', dog: 'Hound', goblin: 'Goblin', mermaid: 'Mermaid', ghost: 'Ghost', knight: 'Knight', merchant: 'Merchant', fairy: 'Fairy', bear: 'Bear', miner: 'Miner', scorpion: 'Scorpion', bat: 'Vampire Bat', slime: 'Acid Slime', mole: 'Giant Mole', diver: 'Diver', crab: 'Crab', octopus: 'Octopus', seahorse: 'Seahorse', caveBoss: 'Cave Boss', vaultGate: 'Vault Gate', rock: 'Rock', current: 'Current' },
+    items: { apple: 'Apple', bread: 'Bread', gold: 'Gold', gem: 'Gem', sword: 'Sword', bug_spray: 'Poison', key: 'Key', wand: 'Wand', hat: 'Hat', bone: 'Bone', shield: 'Shield', map: 'Map', lantern: 'Lantern', flute: 'Flute', flower: 'Flower', fish: 'Fish', crystal: 'Crystal', gold_nugget: 'Gold Nugget', mushroom: 'Mushroom', emerald: 'Emerald', relic: 'Relic', rope: 'Rope', pickaxe: 'Pickaxe', pearl: 'Pearl', shell: 'Shell', starfish: 'Starfish', trident: 'Trident', comb: 'Comb', mirror: 'Mirror', boot: 'Old Boot' },
+    levels: { river_crossing: 'River Crossing', underground: 'The Deep Chasm', underwater: 'Deep Blue' },
+    or: "or"
+  },
+  he: {
+    menu: "תפריט", restart: "↺ התחל מחדש", showSolution: "💡 הצג פתרון", generateMap: "🗺️ צור מפה חדשה", resume: "חזור למשחק",
+    settings: "הגדרות", level: "שלב:", minQuestChain: "שרשרת משימות מינימלית:", diggersMemory: "חופרים (מצב זיכרון):", genMap: "🗺️ צור מפה", back: "חזור",
+    genFailedTitle: "היצירה נכשלה", genFailedDesc: "אי אפשר מתמטית ליצור עולם עם הגדרות אלו.", openSettings: "פתח הגדרות",
+    generating: "יוצר עולם...", floatingUp: "🫧 צף למעלה! 🫧", dropItem: "⬇️ זרוק חפץ", blocked: "חסום!", exit: "יציאה", questComplete: "המסע הושלם!",
+    entities: { troll: 'טרול', baker: 'אופה', spider: 'עכביש', chest: 'תיבה', wizard: 'קוסם', dragon: 'דרקון', dog: 'כלב ציד', goblin: 'גובלין', mermaid: 'בת ים', ghost: 'רוח רפאים', knight: 'אביר', merchant: 'סוחר', fairy: 'פיה', bear: 'דוב', miner: 'כורה', scorpion: 'עקרב', bat: 'עטלף ערפד', slime: 'רפש חומצי', mole: 'חפרפרת ענק', diver: 'צוללן', crab: 'סרטן', octopus: 'תמנון', seahorse: 'סוס ים', caveBoss: 'בוס מערה', vaultGate: 'שער כספת', rock: 'סלע', current: 'זרם' },
+    items: { apple: 'תפוח', bread: 'לחם', gold: 'זהב', gem: 'יהלום', sword: 'חרב', bug_spray: 'רעל', key: 'מפתח', wand: 'שרביט', hat: 'כובע', bone: 'עצם', shield: 'מגן', map: 'מפה', lantern: 'פנס', flute: 'חליל', flower: 'פרח', fish: 'דג', crystal: 'קריסטל', gold_nugget: 'גוש זהב', mushroom: 'פטרייה', emerald: 'ברקת', relic: 'שריד', rope: 'חבל', pickaxe: 'מכוש', pearl: 'פנינה', shell: 'צדף', starfish: 'כוכב ים', trident: 'קלשון', comb: 'מסרק', mirror: 'מראה', boot: 'מגף ישן' },
+    levels: { river_crossing: 'חציית הנהר', underground: 'התהום העמוקה', underwater: 'הכחול העמוק' },
+    or: "או"
+  }
+};
 
 // --- SHARED DATA ---
 const RIVER_CROSSING_ITEMS = [
@@ -112,7 +143,22 @@ const UnderwaterBackground = () => (
         <polygon points="10,-10 30,110 0,110" fill="white" opacity="0.05" />
         <polygon points="50,-10 80,110 40,110" fill="white" opacity="0.05" />
         <polygon points="90,-10 110,110 90,110" fill="white" opacity="0.05" />
-        {[...Array(15)].map((_, i) => ( <circle key={i} cx={10 + (i * 7) % 90} cy={100} r={0.5 + Math.random()} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${Math.random() * 5}s`, animationDuration: `${3 + Math.random() * 4}s` }} /> ))}
+        {/* Precomputed bubbles to avoid randomizing on every render */}
+        <circle cx="10" cy="100" r="1.2" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1s", animationDuration: "5s" }} />
+        <circle cx="17" cy="100" r="0.8" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "2s", animationDuration: "4s" }} />
+        <circle cx="24" cy="100" r="1.5" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.5s", animationDuration: "6s" }} />
+        <circle cx="31" cy="100" r="0.9" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "3s", animationDuration: "3s" }} />
+        <circle cx="38" cy="100" r="1.1" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1.5s", animationDuration: "5.5s" }} />
+        <circle cx="45" cy="100" r="0.7" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "4s", animationDuration: "4.5s" }} />
+        <circle cx="52" cy="100" r="1.3" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.2s", animationDuration: "6.2s" }} />
+        <circle cx="59" cy="100" r="1.0" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "2.5s", animationDuration: "3.8s" }} />
+        <circle cx="66" cy="100" r="1.4" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1.2s", animationDuration: "5.1s" }} />
+        <circle cx="73" cy="100" r="0.6" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "3.5s", animationDuration: "4.2s" }} />
+        <circle cx="80" cy="100" r="1.2" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.8s", animationDuration: "5.8s" }} />
+        <circle cx="87" cy="100" r="0.9" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "2.8s", animationDuration: "3.5s" }} />
+        <circle cx="94" cy="100" r="1.1" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1.7s", animationDuration: "4.9s" }} />
+        <circle cx="20" cy="100" r="1.3" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "4.2s", animationDuration: "6.5s" }} />
+        <circle cx="85" cy="100" r="0.8" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.3s", animationDuration: "3.2s" }} />
       </svg>
     </div>
 
@@ -225,26 +271,28 @@ const LEVEL_DICTIONARY = {
 };
 
 // --- LOGIC ---
+const uniqueCount = (arr) => new Set(arr).size;
+
 function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
-  const queue = [{ inv: [...startItems].sort(), def: [], path: [], pickaxeCharges: level.mechanics.hasPickaxe ? 0 : null }];
+  const queue = [{ inv: [...startItems].sort(), def: [], path: [], pickaxeCharges: level.mechanics.hasPickaxe ? 0 : null, steps: 0 }];
   const visited = new Set();
   let iters = 0;
 
   while (queue.length > 0) {
     iters++;
-    if (iters > 25000) return null;
+    if (iters > SOLVER_MAX_ITERS) return null;
 
     const curr = queue.shift();
-    if (curr.def.includes(goalEntityId)) return curr.path;
+    if (curr.def.includes(goalEntityId)) return curr;
 
-    const stateKey = curr.inv.join(',') + '|' + curr.def.sort().join(',') + '|' + (curr.pickaxeCharges || 0);
+    const stateKey = curr.inv.join(',') + '|' + [...curr.def].sort().join(',') + '|' + (curr.pickaxeCharges || 0);
     if (visited.has(stateKey)) continue;
     visited.add(stateKey);
 
-    const canHoldMore = Array.from(new Set(curr.inv)).length < 4;
+    const canHoldMore = uniqueCount(curr.inv) < MAX_UNIQUE_ITEMS;
 
     if (level.mechanics.hasFish && !curr.def.includes(`fish_node`) && canHoldMore) {
-      queue.push({ inv: [...curr.inv, 'fish'].sort(), def: [...curr.def, 'fish_node'], path: [...curr.path, { isEnvironmentAction: true, itemId: 'fish' }], pickaxeCharges: curr.pickaxeCharges });
+      queue.push({ inv: [...curr.inv, 'fish'].sort(), def: [...curr.def, 'fish_node'], path: [...curr.path, { isEnvironmentAction: true, itemId: 'fish' }], pickaxeCharges: curr.pickaxeCharges, steps: curr.steps });
     }
 
     let simUnlockedZones = new Set([1]);
@@ -253,6 +301,8 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
             e.unlocksZones.forEach(z => simUnlockedZones.add(z));
         }
     });
+
+    let forcedMoves = [];
 
     for (const entity of puzzleEntities) {
       if (curr.def.includes(entity.id)) continue;
@@ -268,8 +318,17 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
         if (curr.inv.includes('pickaxe') && curr.pickaxeCharges > 0) {
           let newInv = [...curr.inv]; let newCharges = curr.pickaxeCharges - 1;
           if (newCharges === 0) newInv.splice(newInv.indexOf('pickaxe'), 1);
-          queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: ['pickaxe'], reqType: 'SPECIAL' }], pickaxeCharges: newCharges });
+          forcedMoves.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: ['pickaxe'], reqType: 'SPECIAL' }], pickaxeCharges: newCharges, steps: curr.steps });
         } continue;
+      }
+
+      if (entity.isPreset && entity.reqType === 'AND' && (!entity.requires || entity.requires.length === 0)) {
+         let newInv = [...curr.inv];
+         if (entity.reward) newInv.push(entity.reward);
+         if (uniqueCount(newInv) <= MAX_UNIQUE_ITEMS) {
+            forcedMoves.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: [], reqType: 'AND' }], pickaxeCharges: curr.pickaxeCharges, steps: curr.steps });
+         }
+         continue;
       }
 
       if (entity.reqType === 'AND') {
@@ -282,25 +341,34 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
           let newInv = tempInv;
           if (entity.reward && entity.reward !== 'pickaxe') newInv.push(entity.reward);
           let newCharges = curr.pickaxeCharges;
-          if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = 10; }
+          if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = PICKAXE_CHARGES_MAX; }
           
-          const isValid = Array.from(new Set(newInv)).length <= 4;
-          if (isValid) queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: entity.requires, reqType: 'AND' }], pickaxeCharges: newCharges });
+          if (uniqueCount(newInv) <= MAX_UNIQUE_ITEMS) {
+            queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: entity.requires, reqType: 'AND' }], pickaxeCharges: newCharges, steps: curr.steps + 1 });
+          }
         }
       } else { 
-        for (let i = 0; i < curr.inv.length; i++) {
-          const itemId = curr.inv[i];
+        const uniqueInv = Array.from(new Set(curr.inv));
+        for (let i = 0; i < uniqueInv.length; i++) {
+          const itemId = uniqueInv[i];
           if ((entity.requires || []).includes(itemId)) {
-            const newInv = [...curr.inv]; newInv.splice(i, 1);
+            const newInv = [...curr.inv]; 
+            newInv.splice(newInv.indexOf(itemId), 1);
             if (entity.reward && entity.reward !== 'pickaxe') newInv.push(entity.reward);
             let newCharges = curr.pickaxeCharges;
-            if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = 10; }
+            if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = PICKAXE_CHARGES_MAX; }
             
-            const isValid = Array.from(new Set(newInv)).length <= 4;
-            if (isValid) queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, itemId: itemId, reqType: 'OR' }], pickaxeCharges: newCharges });
+            if (uniqueCount(newInv) <= MAX_UNIQUE_ITEMS) {
+              queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, itemId: itemId, reqType: 'OR' }], pickaxeCharges: newCharges, steps: curr.steps + 1 });
+            }
           }
         }
       }
+    }
+    
+    // Auto-break rocks and take free presets to reduce search explosion
+    if (forcedMoves.length > 0) {
+        queue.unshift(...forcedMoves);
     }
   } return null;
 }
@@ -308,8 +376,8 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
 function generateLevelPuzzle(level, targetSteps, numDiggers) {
   let bestPuzzle = null; let maxSteps = 0; const startTime = Date.now(); 
 
-  for (let attempt = 0; attempt < 5000; attempt++) {
-    if (Date.now() - startTime > 1200) break;
+  for (let attempt = 0; attempt < GENERATOR_MAX_ATTEMPTS; attempt++) {
+    if (Date.now() - startTime > SOLVER_TIME_LIMIT_MS) break;
 
     let activeGatekeepers = [];
     let presetEntities = [];
@@ -392,16 +460,39 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
     }
 
     const targetGoalId = (level.mechanics.isVertical && level.mechanics.hasPickaxe) ? 'final_gate' : goalTemplate.id;
-    const solution = solvePuzzle(startItems, puzzleEntities, targetGoalId, level);
-    if (solution) {
-      if (solution.length >= targetSteps) return { startItems, puzzleEntities, goalEntityId: targetGoalId, solution };
-      if (solution.length > maxSteps) { bestPuzzle = { startItems, puzzleEntities, goalEntityId: targetGoalId, solution }; maxSteps = solution.length; }
+    const currentState = solvePuzzle(startItems, puzzleEntities, targetGoalId, level);
+    if (currentState) {
+      const solutionPath = currentState.path;
+      const solutionSteps = currentState.steps;
+      if (solutionSteps >= targetSteps) return { startItems, puzzleEntities, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps };
+      if (solutionSteps > maxSteps) { bestPuzzle = { startItems, puzzleEntities, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps }; maxSteps = solutionSteps; }
     }
   } return bestPuzzle;
 }
 
+const computeWaypoints = (fromZone, toZone) => {
+  let waypoints = [];
+  const leftZones = [2, 4];
+  const rightZones = [3, 5];
+
+  if ((leftZones.includes(fromZone) && rightZones.includes(toZone)) ||
+      (rightZones.includes(fromZone) && leftZones.includes(toZone))) {
+      if (Math.min(fromZone, toZone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+      else waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
+  } else if (fromZone === 1 && (leftZones.includes(toZone) || rightZones.includes(toZone))) {
+      waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
+  } else if (toZone === 1 && (leftZones.includes(fromZone) || rightZones.includes(fromZone))) {
+      waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
+  } else if (fromZone >= 6 && (leftZones.includes(toZone) || rightZones.includes(toZone))) {
+      waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+  } else if (toZone >= 6 && (leftZones.includes(fromZone) || rightZones.includes(fromZone))) {
+      waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
+  }
+  return waypoints;
+};
+
 // --- SUB-COMPONENT: ISOLATED GAME INSTANCE ---
-function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
+function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, setLang }) {
   const [puzzle, setPuzzle] = useState(null);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [inventory, setInventory] = useState([]); 
@@ -411,8 +502,17 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   const [selectedItemTypes, setSelectedItemTypes] = useState([]); 
   const [pathHistory, setPathHistory] = useState([{...level.campPos, zone: 1}]);
   const [historyStack, setHistoryStack] = useState([]); 
-  const [air, setAir] = useState(6);
-  const maxAir = 6;
+  const [air, setAir] = useState(MAX_AIR);
+
+  // Localization
+  const dict = STRINGS[lang] || STRINGS.en;
+
+  // Refs for closure fixes
+  const airRef = useRef(air); airRef.current = air;
+  const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
+  const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
+  const stateRefs = useRef({});
+  stateRefs.current = { inventory, defeated, pathHistory, envItemState, pickaxeCharges, unlockedZones, campItems, buriedEntities, air };
   
   const [isVictorious, setIsVictorious] = useState(false);
   const [showTrophy, setShowTrophy] = useState(false);
@@ -448,21 +548,24 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       setPuzzle(newPuzzle); setInventory(newPuzzle.startItems || []);
     }, 150);
     return () => clearTimeout(timer);
-  }, []);
+  }, [level, targetSteps, numDiggers]);
 
   useEffect(() => {
-    if (!level.mechanics.hasSchoolsOfFish || isDemonstrating || isVictorious) return;
-    const fishTypes = ['fish']; // Generic fish for trading
+    if (!level.mechanics.hasSchoolsOfFish) return;
+    const fishTypes = ['fish']; 
+    let timeoutIds = [];
     const spawnFish = () => {
+      if (isDemoRef.current || isVicRef.current) return;
       const id = Date.now() + Math.random(); const type = fishTypes[Math.floor(Math.random() * fishTypes.length)];
       const depth = Math.floor(Math.random() * 3) + 1; const yPos = 30 + depth * 10 + Math.random() * 30; 
       const isRight = Math.random() > 0.5;
       setSchoolsOfFish(prev => [...prev, { id, type, y: yPos, depth, isRight }]);
-      setTimeout(() => { setSchoolsOfFish(prev => prev.filter(f => f.id !== id)); }, 10000); 
+      const tId = setTimeout(() => { setSchoolsOfFish(prev => prev.filter(f => f.id !== id)); }, 10000); 
+      timeoutIds.push(tId);
     };
     const intervalId = setInterval(spawnFish, 2500);
-    return () => clearInterval(intervalId);
-  }, [level.mechanics.hasSchoolsOfFish, isDemonstrating, isVictorious]);
+    return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
+  }, [level.mechanics.hasSchoolsOfFish]);
 
   useEffect(() => {
     if (!puzzle || isDemonstrating || isAnimatingLoot) return;
@@ -481,7 +584,19 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     }
   }, [pathHistory, unlockedZones, puzzle, isDemonstrating, isAnimatingLoot, buriedEntities, animatingEntities, defeated, level]);
 
-  const saveHistory = () => { setHistoryStack(prev => [...prev, { inventory: [...inventory], defeated: [...defeated], pathHistory: [...pathHistory], envItemState, pickaxeCharges, unlockedZones: [...unlockedZones], campItems: [...campItems], buriedEntities: [...buriedEntities], air }]); };
+  const saveHistory = useCallback(() => { 
+    setHistoryStack(prev => [...prev, { 
+       inventory: [...stateRefs.current.inventory], 
+       defeated: [...stateRefs.current.defeated], 
+       pathHistory: [...stateRefs.current.pathHistory], 
+       envItemState: stateRefs.current.envItemState, 
+       pickaxeCharges: stateRefs.current.pickaxeCharges, 
+       unlockedZones: [...stateRefs.current.unlockedZones], 
+       campItems: [...stateRefs.current.campItems], 
+       buriedEntities: [...stateRefs.current.buriedEntities], 
+       air: stateRefs.current.air 
+    }]); 
+  }, []);
 
   const handleUndo = () => {
     if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot) return;
@@ -494,13 +609,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
     setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false); setAnimatingEntities([]);
   };
 
+  const INITIAL_STATE = { pickaxeCharges: 0, unlockedZones: [1], air: MAX_AIR, defeated: [], selectedItemTypes: [], selectedEntityId: null, historyStack: [], isVictorious: false, showTrophy: false, showVictoryMsg: false, isDemonstrating: false, isAnimatingLoot: false, alertEntityId: null, flyingItem: null, tempPlayerPos: null, envItemState: 'active', schoolsOfFish: [], animatingEntities: [], campItems: [], buriedEntities: [] };
   const resetGameState = () => {
     if (!puzzle) return;
-    setInventory(puzzle.startItems || []); setPickaxeCharges(0); setUnlockedZones([1]); setAir(6);
-    setDefeated([]); setSelectedItemTypes([]); setSelectedEntityId(null); setPathHistory([{...level.campPos, zone: 1}]);
-    setHistoryStack([]); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false);
-    setIsDemonstrating(false); setIsAnimatingLoot(false); setAlertEntityId(null); setFlyingItem(null);
-    setTempPlayerPos(null); setEnvItemState('active'); setSchoolsOfFish([]); setAnimatingEntities([]); setCampItems([]); setBuriedEntities([]);
+    setInventory(puzzle.startItems || []); setPathHistory([{...level.campPos, zone: 1}]);
+    Object.entries(INITIAL_STATE).forEach(([k, v]) => {
+      if (k === 'pickaxeCharges') setPickaxeCharges(v); else if (k === 'unlockedZones') setUnlockedZones(v); else if (k === 'air') setAir(v); else if (k === 'defeated') setDefeated(v); else if (k === 'selectedItemTypes') setSelectedItemTypes(v); else if (k === 'selectedEntityId') setSelectedEntityId(v); else if (k === 'historyStack') setHistoryStack(v); else if (k === 'isVictorious') setIsVictorious(v); else if (k === 'showTrophy') setShowTrophy(v); else if (k === 'showVictoryMsg') setShowVictoryMsg(v); else if (k === 'isDemonstrating') setIsDemonstrating(v); else if (k === 'isAnimatingLoot') setIsAnimatingLoot(v); else if (k === 'alertEntityId') setAlertEntityId(v); else if (k === 'flyingItem') setFlyingItem(v); else if (k === 'tempPlayerPos') setTempPlayerPos(v); else if (k === 'envItemState') setEnvItemState(v); else if (k === 'schoolsOfFish') setSchoolsOfFish(v); else if (k === 'animatingEntities') setAnimatingEntities(v); else if (k === 'campItems') setCampItems(v); else if (k === 'buriedEntities') setBuriedEntities(v);
+    });
   };
 
   const handleReplay = () => { demoRef.current = false; resetGameState(); setIsMenuOpen(false); };
@@ -523,23 +638,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       }
 
       const entity = puzzle.puzzleEntities.find(e => e.id === step.entityId);
-      let waypoints = [];
-      const leftZones = [2, 4];
-      const rightZones = [3, 5];
-
-      if ((leftZones.includes(currentZoneSim) && rightZones.includes(entity.zone)) ||
-          (rightZones.includes(currentZoneSim) && leftZones.includes(entity.zone))) {
-          if (Math.min(currentZoneSim, entity.zone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-          else waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
-      } else if (currentZoneSim === 1 && (leftZones.includes(entity.zone) || rightZones.includes(entity.zone))) {
-          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
-      } else if (entity.zone === 1 && (leftZones.includes(currentZoneSim) || rightZones.includes(currentZoneSim))) {
-          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
-      } else if (currentZoneSim >= 6 && (leftZones.includes(entity.zone) || rightZones.includes(entity.zone))) {
-          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-      } else if (entity.zone >= 6 && (leftZones.includes(currentZoneSim) || rightZones.includes(currentZoneSim))) {
-          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-      }
+      let waypoints = computeWaypoints(currentZoneSim, entity.zone);
       
       for (let wp of waypoints) {
           currentPath.push(wp); setPathHistory([...currentPath]); currentZoneSim = wp.zone;
@@ -580,7 +679,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
       
       if (entity.reward) {
         const entityX = entity.roamClass ? 50 : entity.x;
-        setFlyingItem({ emoji: level.items.find(i=>i.id===entity.reward).emoji, x: entityX, y: entity.y });
+        setFlyingItem({ emoji: level.items.find(i=>i.id===entity.reward)?.emoji, x: entityX, y: entity.y });
         await new Promise(r => setTimeout(r, 800)); 
         setFlyingItem(null); currentInv.push(entity.reward);
         if (entity.reward === 'pickaxe') { pCharges = 10; setPickaxeCharges(10); }
@@ -601,66 +700,34 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
   const triggerVictory = () => { setIsVictorious(true); setTimeout(() => setShowTrophy(true), 800); setTimeout(() => setShowVictoryMsg(true), 1000); };
 
-  const navigateTo = (targetX, targetY, targetZone, targetDepth, isEntity = false) => {
-      const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
-      let waypoints = [];
-      const leftZones = [2, 4];
-      const rightZones = [3, 5];
-
-      if ((leftZones.includes(currentZone) && rightZones.includes(targetZone)) ||
-          (rightZones.includes(currentZone) && leftZones.includes(targetZone))) {
-          if (Math.min(currentZone, targetZone) >= 4) waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-          else waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
-      } else if (currentZone === 1 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
-          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
-      } else if (targetZone === 1 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
-          waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
-      } else if (currentZone >= 6 && (leftZones.includes(targetZone) || rightZones.includes(targetZone))) {
-          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-      } else if (targetZone >= 6 && (leftZones.includes(currentZone) || rightZones.includes(currentZone))) {
-          waypoints.push({ x: 50, y: 74, depth: 3, zone: 6 });
-      }
-
-      const lastPos = pathHistory[pathHistory.length - 1];
+  const navigateTo = useCallback((targetX, targetY, targetZone, targetDepth, isEntity = false) => {
+      const currentZone = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1].zone || 1;
+      let waypoints = computeWaypoints(currentZone, targetZone);
+      const lastPos = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1];
       const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastPos;
-
-      let finalX = targetX;
-      let finalY = targetY;
-
+      let finalX = targetX; let finalY = targetY;
       if (isEntity) {
-          const dx = finalX - prevPoint.x;
-          const dy = finalY - prevPoint.y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist > 0) {
-              finalX = finalX - (dx/dist) * 3.5;
-              finalY = finalY - (dy/dist) * 3.5;
-          }
+          const dx = finalX - prevPoint.x; const dy = finalY - prevPoint.y; const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > 0) { finalX = finalX - (dx/dist) * NAV_OFFSET; finalY = finalY - (dy/dist) * NAV_OFFSET; }
       }
-
       return [...waypoints, { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
-  };
+  }, []);
 
-  const handlePostActionAir = (finalY) => {
+  const handlePostActionAir = useCallback((finalY) => {
     if (!level.mechanics.hasAir) return;
     if (finalY <= 20) {
-        setAir(maxAir);
-    } else if (air <= 1) {
+        setAir(MAX_AIR);
+    } else if (airRef.current <= 1) {
         setAir(0);
         setTimeout(() => {
             setAlertEntityId('out_of_air');
             setIsAnimatingLoot(true);
             const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
             setPathHistory(prev => [...prev, ...returnPath]);
-            setTimeout(() => { 
-                setAir(maxAir); 
-                setAlertEntityId(null); 
-                setIsAnimatingLoot(false); 
-            }, 3000); // Drastically slower floating up time
+            setTimeout(() => { setAir(MAX_AIR); setAlertEntityId(null); setIsAnimatingLoot(false); }, 3000); 
         }, 800);
-    } else {
-        setAir(a => a - 1);
-    }
-  };
+    } else setAir(a => a - 1);
+  }, [level.mechanics.hasAir, level.campPos, navigateTo]);
 
   const handleCatchRiverFish = (e) => {
     e.stopPropagation();
@@ -900,7 +967,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
       if (entity.reward) {
         const entityX = entity.roamClass ? 50 : entity.x;
-        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward).emoji, x: entityX, y: entity.y, zIndex: 60 });
+        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: entity.y, zIndex: 60 });
         setTimeout(() => {
           setInventory(prev => [...prev, entity.reward]);
           if (entity.reward === 'pickaxe') setPickaxeCharges(10);
@@ -924,29 +991,29 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   const renderMenu = () => {
     if (!isMenuOpen) return null;
     return (
-      <div className="absolute inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-serif">
+      <div className="absolute inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-serif" dir={lang === 'he' ? 'rtl' : 'ltr'}>
         <div className="bg-stone-800 border-4 border-stone-600 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 text-stone-200">
           {menuView === 'main' ? (
             <>
-              <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Menu</h2>
-              <button onClick={handleReplay} className="w-full bg-stone-600 py-4 rounded-xl font-bold text-xl hover:bg-stone-500 shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1">↺ Restart Level</button>
-              <button onClick={handleShowSolution} disabled={isVictorious || isDemonstrating || isAnimatingLoot || !puzzle} className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:bg-indigo-500 shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50">💡 Show Solution</button>
-              <button onClick={() => setMenuView('settings')} className="w-full bg-amber-600 py-4 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">🗺️ Generate New Map</button>
-              <button onClick={() => setIsMenuOpen(false)} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">Resume Game</button>
+              <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.menu}</h2>
+              <button onClick={handleReplay} className="w-full bg-stone-600 py-4 rounded-xl font-bold text-xl hover:bg-stone-500 shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1">{dict.restart}</button>
+              <button onClick={handleShowSolution} disabled={isVictorious || isDemonstrating || isAnimatingLoot || !puzzle} className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:bg-indigo-500 shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50">{dict.showSolution}</button>
+              <button onClick={() => setMenuView('settings')} className="w-full bg-amber-600 py-4 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">{dict.generateMap}</button>
+              <button onClick={() => setIsMenuOpen(false)} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.resume}</button>
             </>
           ) : (
             <>
-              <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">Settings</h2>
+              <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.settings}</h2>
               <div className="space-y-4">
                 <label className="flex flex-col gap-2 font-bold text-lg pt-2">
-                  <span>Level:</span> 
-                  <select className="w-full bg-stone-900 border-2 border-stone-600 rounded-lg p-3 outline-none focus:border-amber-500 text-amber-400" value={menuSettings.levelId} onChange={(e) => setMenuSettings({...menuSettings, levelId: e.target.value})}>{Object.values(LEVEL_DICTIONARY).map(lvl => <option key={lvl.id} value={lvl.id}>{lvl.name}</option>)}</select>
+                  <span>{dict.level}</span> 
+                  <select className="w-full bg-stone-900 border-2 border-stone-600 rounded-lg p-3 outline-none focus:border-amber-500 text-amber-400" value={menuSettings.levelId} onChange={(e) => setMenuSettings({...menuSettings, levelId: e.target.value})}>{Object.values(LEVEL_DICTIONARY).map(lvl => <option key={lvl.id} value={lvl.id}>{dict.levels[lvl.id] || lvl.name}</option>)}</select>
                 </label>
-                <label className="flex flex-col gap-2 font-bold text-lg pt-2"><span className="flex justify-between"><span>Minimum Quest Chain:</span> <span className="text-amber-400">{menuSettings.steps}</span></span><input type="range" min="3" max="8" value={menuSettings.steps} onChange={(e) => setMenuSettings({...menuSettings, steps: parseInt(e.target.value)})} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label>
-                <label className="flex flex-col gap-2 font-bold text-lg"><span className="flex justify-between"><span>Diggers (Memory Mode):</span> <span className="text-amber-400">{menuSettings.diggers}</span></span><input type="range" min="0" max="3" value={menuSettings.diggers} onChange={(e) => setMenuSettings({...menuSettings, diggers: parseInt(e.target.value)})} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label>
-                <button onClick={() => onGenerateNew(menuSettings)} className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">🗺️ Generate Map</button>
+                <label className="flex flex-col gap-2 font-bold text-lg pt-2"><span className="flex justify-between"><span>{dict.minQuestChain}</span> <span className="text-amber-400">{menuSettings.steps}</span></span><input type="range" min="3" max="8" value={menuSettings.steps} onChange={(e) => setMenuSettings({...menuSettings, steps: parseInt(e.target.value)})} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label>
+                <label className="flex flex-col gap-2 font-bold text-lg"><span className="flex justify-between"><span>{dict.diggersMemory}</span> <span className="text-amber-400">{menuSettings.diggers}</span></span><input type="range" min="0" max="3" value={menuSettings.diggers} onChange={(e) => setMenuSettings({...menuSettings, diggers: parseInt(e.target.value)})} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label>
+                <button onClick={() => onGenerateNew(menuSettings)} className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">{dict.genMap}</button>
               </div>
-              <button onClick={() => setMenuView('main')} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">Back</button>
+              <button onClick={() => setMenuView('main')} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.back}</button>
             </>
           )}
         </div>
@@ -956,16 +1023,16 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
 
   if (generationFailed) return (
      <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative p-4 text-center">
-       <div className="text-red-500 text-3xl font-black mb-4">Generation Failed</div>
-       <div className="text-stone-300 max-w-md">It was mathematically impossible to generate a realm with these exact settings.</div>
-       <button onClick={() => { setMenuView('settings'); setIsMenuOpen(true); }} className="mt-8 bg-stone-700 p-4 rounded-xl text-white font-bold hover:bg-stone-600 transition-colors z-[100] relative">Open Settings</button>
+       <div className="text-red-500 text-3xl font-black mb-4">{dict.genFailedTitle}</div>
+       <div className="text-stone-300 max-w-md">{dict.genFailedDesc}</div>
+       <button onClick={() => { setMenuView('settings'); setIsMenuOpen(true); }} className="mt-8 bg-stone-700 p-4 rounded-xl text-white font-bold hover:bg-stone-600 transition-colors z-[100] relative">{dict.openSettings}</button>
        {renderMenu()}
      </div>
   );
 
   if (!puzzle) return <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative">
      <div className="absolute inset-0 bg-stone-900 opacity-80 z-40 backdrop-blur" />
-     <div className="text-amber-500 text-3xl font-black z-50 animate-pulse tracking-widest uppercase shadow-black drop-shadow-lg border-y-2 border-amber-500 py-4 px-12">Generating Realm...</div>
+     <div className="text-amber-500 text-3xl font-black z-50 animate-pulse tracking-widest uppercase shadow-black drop-shadow-lg border-y-2 border-amber-500 py-4 px-12">{dict.generating}</div>
   </div>;
 
   const playerPos = pathHistory[pathHistory.length - 1];
@@ -1141,11 +1208,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
                           ) : (
                             Object.entries(groupedReqs).map(([reqId, count], i, arr) => (
                               <Fragment key={reqId}>
-                                <span className="flex items-center gap-1 emoji-shadow" title={level.items.find(item => item.id === reqId)?.name || reqId}>
+                                <span className="flex items-center gap-1 emoji-shadow" title={dict.items[reqId] || reqId}>
                                   {count > 1 && <span className="text-sm font-black text-amber-600" style={{textShadow: 'none'}}>{count}x</span>}
                                   {level.items.find(item => item.id === reqId)?.emoji || '❓'}
                                 </span>
-                                {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{ent.reqType === 'AND' ? '&' : 'או'}</span>}
+                                {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{ent.reqType === 'AND' ? '&' : dict.or}</span>}
                               </Fragment>
                             ))
                           )}
@@ -1191,8 +1258,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
                         </div>
                       </div>
                     </div>
-                    {ent.isGatekeeper && isAlerting && <div className="absolute -bottom-5 bg-red-700 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-900 shadow-md scale-110 z-30">BLOCKED!</div>}
-                    {isGoal && !isDefeated && !isAlerting && <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">Exit</div>}
+                    {ent.isGatekeeper && isAlerting && <div className="absolute -bottom-5 bg-red-700 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-900 shadow-md scale-110 z-30">{dict.blocked}</div>}
+                    {isGoal && !isDefeated && !isAlerting && <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">{dict.exit}</div>}
                 </div>
               </div>
             );
@@ -1209,12 +1276,16 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
         </div>
 
         <div className="absolute inset-0 opacity-10 z-[140] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+        <div className="absolute top-4 left-4 z-[150] flex gap-2">
+           <button onClick={(e) => { e.stopPropagation(); setLang('he'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'he' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇮🇱</button>
+           <button onClick={(e) => { e.stopPropagation(); setLang('en'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'en' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇺🇸</button>
+        </div>
         <button onClick={(e) => { e.stopPropagation(); setMenuView('main'); setIsMenuOpen(true); }} className="absolute top-4 right-4 z-[150] bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"><span className="text-xl pt-0.5">⚙️</span></button>
 
         {showVictoryMsg && (
           <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
             {[...Array(30)].map((_, i) => ( <div key={i} className="absolute text-3xl animate-star-burst-infinite" style={{ left: `${10 + Math.random() * 80}%`, top: `${10 + Math.random() * 80}%`, '--tx': `${(Math.random() - 0.5) * 200}px`, '--ty': `${(Math.random() - 0.5) * 200}px`, animationDelay: `${Math.random() * 3}s` }}>{['⭐', '🌟', '✨'][Math.floor(Math.random() * 3)]}</div> ))}
-            <div className="absolute top-1/2 left-1/2 z-50 pointer-events-none animate-fade-out-up"><div className="bg-amber-100 p-6 rounded-3xl border-8 border-amber-600 text-center shadow-[0_0_80px_rgba(251,191,36,0.6)] whitespace-nowrap"><h2 className="text-3xl sm:text-4xl text-amber-900 font-black uppercase tracking-wider">Quest Complete!</h2></div></div>
+            <div className="absolute top-1/2 left-1/2 z-50 pointer-events-none animate-fade-out-up"><div className="bg-amber-100 p-6 rounded-3xl border-8 border-amber-600 text-center shadow-[0_0_80px_rgba(251,191,36,0.6)] whitespace-nowrap"><h2 className="text-3xl sm:text-4xl text-amber-900 font-black uppercase tracking-wider">{dict.questComplete}</h2></div></div>
           </div>
         )}
       </div>
@@ -1241,9 +1312,16 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew }) {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() { if (this.state.hasError) return <div className="text-white text-center p-10 font-bold text-2xl">Something went wrong rendering the game.</div>; return this.props.children; }
+}
+
 const App = () => {
   const [activeSettings, setActiveSettings] = useState({ levelId: 'underwater', steps: 5, diggers: 1 });
   const [gameKey, setGameKey] = useState(0);
+  const [lang, setLang] = useState('he');
 
   const applyAndGenerate = (newSettings) => {
     setActiveSettings(newSettings);
@@ -1252,7 +1330,9 @@ const App = () => {
 
   return (
     <>
-      <GameInstance key={`${activeSettings.levelId}-${gameKey}`} level={LEVEL_DICTIONARY[activeSettings.levelId]} targetSteps={activeSettings.steps} numDiggers={activeSettings.diggers} onGenerateNew={applyAndGenerate} />
+      <ErrorBoundary>
+        <GameInstance key={`${activeSettings.levelId}-${gameKey}`} level={LEVEL_DICTIONARY[activeSettings.levelId]} targetSteps={activeSettings.steps} numDiggers={activeSettings.diggers} onGenerateNew={applyAndGenerate} lang={lang} setLang={setLang} />
+      </ErrorBoundary>
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes dash { to { stroke-dashoffset: 0; } }
         @keyframes fadeOutUp { 0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; transform: translate(-50%, -60%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -100%) scale(0.9); } }
