@@ -507,13 +507,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   // Localization
   const dict = STRINGS[lang] || STRINGS.en;
 
-  // Refs for closure fixes
-  const airRef = useRef(air); airRef.current = air;
-  const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
-  const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
-  const stateRefs = useRef({});
-  stateRefs.current = { inventory, defeated, pathHistory, envItemState, pickaxeCharges, unlockedZones, campItems, buriedEntities, air };
-  
   const [isVictorious, setIsVictorious] = useState(false);
   const [showTrophy, setShowTrophy] = useState(false);
   const [showVictoryMsg, setShowVictoryMsg] = useState(false);
@@ -534,6 +527,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   
   const [animatingEntities, setAnimatingEntities] = useState([]);
   const [buriedEntities, setBuriedEntities] = useState([]);
+
+  // Refs for closure fixes
+  const airRef = useRef(air); airRef.current = air;
+  const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
+  const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
+  const stateRefs = useRef({});
+  stateRefs.current = { inventory, defeated, pathHistory, envItemState, pickaxeCharges, unlockedZones, campItems, buriedEntities, air };
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
@@ -791,7 +791,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             setSelectedItemTypes([]);
         }
         setIsAnimatingLoot(false);
-        if (level.mechanics.hasAir) setAir(maxAir);
+        if (level.mechanics.hasAir) setAir(MAX_AIR);
     }, 800);
   };
 
@@ -821,7 +821,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         setCampItems(prev => prev.filter(i => i.uid !== campItem.uid));
         setInventory(prev => [...prev, campItem.id]);
         setIsAnimatingLoot(false);
-        if (level.mechanics.hasAir) setAir(maxAir);
+        if (level.mechanics.hasAir) setAir(MAX_AIR);
     }, 800);
   };
 
@@ -1067,7 +1067,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         {/* Air Gauge Overlay */}
         {level.mechanics.hasAir && (
            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-1 z-[150] bg-blue-900/60 p-2 sm:p-3 rounded-full border-2 border-blue-400 backdrop-blur-md shadow-lg">
-             {[...Array(maxAir)].map((_, i) => (
+             {[...Array(MAX_AIR)].map((_, i) => (
                 <div key={i} className={`text-xl sm:text-2xl transition-all duration-300 ${i < air ? 'opacity-100 scale-100' : 'opacity-30 scale-75 drop-shadow-none grayscale'}`}>🫧</div>
              ))}
            </div>
