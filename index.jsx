@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, Fragment, useMemo, useCallback } from 'react';
 
 const MAX_UNIQUE_ITEMS = 4;
-const PICKAXE_CHARGES_MAX = 10;
 const MAX_AIR = 6;
 const SOLVER_MAX_ITERS = 25000;
 const SOLVER_TIME_LIMIT_MS = 1200;
@@ -47,8 +46,8 @@ const UNDERGROUND_ITEMS = [
   { id: 'crystal', name: 'Crystal', emoji: '🔮' }, { id: 'gold_nugget', name: 'Gold Nugget', emoji: '🪙' },
   { id: 'mushroom', name: 'Mushroom', emoji: '🍄' }, { id: 'emerald', name: 'Emerald', emoji: '🟩' },
   { id: 'relic', name: 'Relic', emoji: '🏺' }, { id: 'rope', name: 'Rope', emoji: '🪢' },
-  { id: 'key', name: 'Key', emoji: '🔑' }, { id: 'bone', name: 'Bone', emoji: '🦴' },
-  { id: 'gem', name: 'Gem', emoji: '💎' }, { id: 'pickaxe', name: 'Pickaxe', emoji: '⛏️' }
+  { id: 'bone', name: 'Bone', emoji: '🦴' }, { id: 'gem', name: 'Gem', emoji: '💎' }, 
+  { id: 'pickaxe', name: 'Pickaxe', emoji: '⛏️' }
 ];
 
 const UNDERWATER_ITEMS = [
@@ -76,14 +75,14 @@ const RIVER_CROSSING_ENTITIES = [
 ];
 
 const UNDERGROUND_ENTITIES = [
-  { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['key', 'rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
-  { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'key', 'rope'] },
-  { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['key', 'rope', 'bone', 'emerald', 'relic', 'mushroom'] },
+  { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
+  { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'rope'] },
+  { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['rope', 'bone', 'emerald', 'relic', 'mushroom'] },
   { id: 'bat', name: 'Vampire Bat', emoji: '🦇', allowedReqs: ['relic', 'mushroom', 'bone', 'crystal', 'rope', 'gold_nugget'] },
-  { id: 'slime', name: 'Acid Slime', emoji: '🦠', allowedReqs: ['crystal', 'bone', 'key', 'mushroom', 'gem', 'relic'] },
-  { id: 'ghost', name: 'Miner Ghost', emoji: '👻', allowedReqs: ['key', 'gold_nugget', 'bone', 'emerald', 'rope', 'crystal'] },
+  { id: 'slime', name: 'Acid Slime', emoji: '🦠', allowedReqs: ['crystal', 'bone', 'mushroom', 'gem', 'relic'] },
+  { id: 'ghost', name: 'Miner Ghost', emoji: '👻', allowedReqs: ['gold_nugget', 'bone', 'emerald', 'rope', 'crystal'] },
   { id: 'mole', name: 'Giant Mole', emoji: '🐭', allowedReqs: ['mushroom', 'relic', 'crystal', 'gold_nugget', 'bone', 'emerald'] },
-  { id: 'goblin', name: 'Cave Goblin', emoji: '👺', allowedReqs: ['gold_nugget', 'gem', 'mushroom', 'emerald', 'key', 'rope'] },
+  { id: 'goblin', name: 'Cave Goblin', emoji: '👺', allowedReqs: ['gold_nugget', 'gem', 'mushroom', 'emerald', 'rope'] },
 ];
 
 const UNDERWATER_ENTITIES = [
@@ -233,8 +232,10 @@ const LEVEL_DICTIONARY = {
       { x: 75, y: 54, zone: 5 }, { x: 75, y: 60, zone: 5 },
       { x: 72, y: 70, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
       { x: 40, y: 78, zone: 6, isPreset: 'mushroom' }, { x: 60, y: 78, zone: 6 },
-      { x: 50, y: 84, zone: 6, isGatekeeper: true, id: 'final_gate', emoji: '⛩️', unlocksZones: [7] },
-      { x: 30, y: 92, zone: 7, isPreset: 'treasure' }, { x: 50, y: 92, zone: 7, isPreset: 'treasure' }, { x: 70, y: 92, zone: 7, isPreset: 'treasure' }
+      { x: 30, y: 86, zone: 6, isGatekeeper: true, id: 'rock_final_1', emoji: '🪨', unlocksZones: [7] },
+      { x: 50, y: 86, zone: 6, isGatekeeper: true, id: 'vault_rock', emoji: '🪨', unlocksZones: [8] },
+      { x: 70, y: 86, zone: 6, isGatekeeper: true, id: 'rock_final_3', emoji: '🪨', unlocksZones: [9] },
+      { x: 30, y: 93, zone: 7, isPreset: 'treasure' }, { x: 50, y: 93, zone: 8, isPreset: 'treasure' }, { x: 70, y: 93, zone: 9, isPreset: 'treasure' }
     ],
     sceneryNodes: [
       { x: 12, y: 20, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 }, { x: 20, y: 20, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
@@ -274,7 +275,7 @@ const LEVEL_DICTIONARY = {
 const uniqueCount = (arr) => new Set(arr).size;
 
 function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
-  const queue = [{ inv: [...startItems].sort(), def: [], path: [], pickaxeCharges: level.mechanics.hasPickaxe ? 0 : null, steps: 0 }];
+  const queue = [{ inv: [...startItems].sort(), def: [], path: [], steps: 0 }];
   const visited = new Set();
   let iters = 0;
 
@@ -285,14 +286,14 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
     const curr = queue.shift();
     if (curr.def.includes(goalEntityId)) return curr;
 
-    const stateKey = curr.inv.join(',') + '|' + [...curr.def].sort().join(',') + '|' + (curr.pickaxeCharges || 0);
+    const stateKey = curr.inv.join(',') + '|' + [...curr.def].sort().join(',');
     if (visited.has(stateKey)) continue;
     visited.add(stateKey);
 
     const canHoldMore = uniqueCount(curr.inv) < MAX_UNIQUE_ITEMS;
 
     if (level.mechanics.hasFish && !curr.def.includes(`fish_node`) && canHoldMore) {
-      queue.push({ inv: [...curr.inv, 'fish'].sort(), def: [...curr.def, 'fish_node'], path: [...curr.path, { isEnvironmentAction: true, itemId: 'fish' }], pickaxeCharges: curr.pickaxeCharges, steps: curr.steps });
+      queue.push({ inv: [...curr.inv, 'fish'].sort(), def: [...curr.def, 'fish_node'], path: [...curr.path, { isEnvironmentAction: true, itemId: 'fish' }], steps: curr.steps });
     }
 
     let simUnlockedZones = new Set([1]);
@@ -310,23 +311,11 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
       const isReverseAccess = entity.isGatekeeper && entity.unlocksZones && entity.unlocksZones.some(z => simUnlockedZones.has(z));
       if (!simUnlockedZones.has(entity.zone) && !isReverseAccess) continue;
       
-      if (entity.isGatekeeper && level.mechanics.hasPickaxe && entity.reqType === 'SPECIAL') {
-        const fullyUnlocked = simUnlockedZones.has(entity.zone) && entity.unlocksZones && entity.unlocksZones.every(z => simUnlockedZones.has(z));
-        if (fullyUnlocked) continue; 
-
-        if (entity.reqGk && !curr.def.includes(entity.reqGk)) continue;
-        if (curr.inv.includes('pickaxe') && curr.pickaxeCharges > 0) {
-          let newInv = [...curr.inv]; let newCharges = curr.pickaxeCharges - 1;
-          if (newCharges === 0) newInv.splice(newInv.indexOf('pickaxe'), 1);
-          forcedMoves.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: ['pickaxe'], reqType: 'SPECIAL' }], pickaxeCharges: newCharges, steps: curr.steps });
-        } continue;
-      }
-
       if (entity.isPreset && entity.reqType === 'AND' && (!entity.requires || entity.requires.length === 0)) {
          let newInv = [...curr.inv];
          if (entity.reward) newInv.push(entity.reward);
          if (uniqueCount(newInv) <= MAX_UNIQUE_ITEMS) {
-            forcedMoves.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: [], reqType: 'AND' }], pickaxeCharges: curr.pickaxeCharges, steps: curr.steps });
+            forcedMoves.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: [], reqType: 'AND' }], steps: curr.steps });
          }
          continue;
       }
@@ -339,12 +328,10 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
         }
         if (hasAll) {
           let newInv = tempInv;
-          if (entity.reward && entity.reward !== 'pickaxe') newInv.push(entity.reward);
-          let newCharges = curr.pickaxeCharges;
-          if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = PICKAXE_CHARGES_MAX; }
+          if (entity.reward) newInv.push(entity.reward);
           
           if (uniqueCount(newInv) <= MAX_UNIQUE_ITEMS) {
-            queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: entity.requires, reqType: 'AND' }], pickaxeCharges: newCharges, steps: curr.steps + 1 });
+            queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, usedItems: entity.requires, reqType: 'AND' }], steps: curr.steps + 1 });
           }
         }
       } else { 
@@ -354,19 +341,17 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
           if ((entity.requires || []).includes(itemId)) {
             const newInv = [...curr.inv]; 
             newInv.splice(newInv.indexOf(itemId), 1);
-            if (entity.reward && entity.reward !== 'pickaxe') newInv.push(entity.reward);
-            let newCharges = curr.pickaxeCharges;
-            if (entity.reward === 'pickaxe') { newInv.push('pickaxe'); newCharges = PICKAXE_CHARGES_MAX; }
+            if (entity.reward) newInv.push(entity.reward);
             
             if (uniqueCount(newInv) <= MAX_UNIQUE_ITEMS) {
-              queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, itemId: itemId, reqType: 'OR' }], pickaxeCharges: newCharges, steps: curr.steps + 1 });
+              queue.push({ inv: newInv.sort(), def: [...curr.def, entity.id], path: [...curr.path, { entityId: entity.id, itemId: itemId, reqType: 'OR' }], steps: curr.steps + 1 });
             }
           }
         }
       }
     }
     
-    // Auto-break rocks and take free presets to reduce search explosion
+    // Take free presets to reduce search explosion
     if (forcedMoves.length > 0) {
         queue.unshift(...forcedMoves);
     }
@@ -390,8 +375,7 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
     } else {
       level.mapNodes.forEach((n, idx) => {
         if (n.isGatekeeper) {
-          if (n.id === 'final_gate') activeGatekeepers.push({ ...n, name: 'Vault Gate', requires: ['key', 'key', 'key'], reqType: 'AND', reward: null });
-          else if (level.mechanics.hasPickaxe) activeGatekeepers.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'SPECIAL', id: n.id || `gk_${idx}` });
+          if (level.mechanics.hasPickaxe) activeGatekeepers.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'AND', id: n.id || `gk_${idx}` });
           else activeGatekeepers.push({ ...n, name: 'Current', requires: ['starfish'], reqType: 'AND', reward: null, id: n.id || `gk_${idx}` });
         } else if (n.isPreset === 'mushroom') {
           presetEntities.push({ id: `preset_mush_${n.x}_${n.y}`, emoji: '🍄', requires: [], reqType: 'AND', reward: 'mushroom', x: n.x, y: n.y, zone: n.zone, isGatekeeper: false, isPreset: true });
@@ -402,7 +386,7 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
     }
 
     const availableNodes = level.mapNodes.filter(n => !n.isGatekeeper && !n.isGoal && !n.isPreset);
-    let goalTemplate = { id: 'final_gate' }; 
+    let goalTemplate = { id: 'vault_rock' }; 
     if (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) {
       if (level.id === 'river_crossing') {
          const baseTroll = level.entities.find(e => e.id === 'troll');
@@ -453,13 +437,13 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
     if (level.mechanics.isVertical && level.mechanics.hasPickaxe) {
       const nonGoalNodes = puzzleEntities.filter(e => !e.isGatekeeper && !e.isTreasure && !e.isPreset && e.reward !== 'pickaxe');
       const shuffled = [...nonGoalNodes].sort(() => Math.random() - 0.5);
-      for(let i=0; i<3; i++) { if(shuffled[i]) shuffled[i].reward = 'key'; }
+      for(let i=0; i<4; i++) { if(shuffled[i]) shuffled[i].reward = 'pickaxe'; }
     } else if (level.mechanics.hasPickaxe) {
       const z1NonGoal = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && e.id !== goalTemplate.id && e.id !== firstStepEnt?.id);
       if (z1NonGoal) z1NonGoal.reward = 'pickaxe';
     }
 
-    const targetGoalId = (level.mechanics.isVertical && level.mechanics.hasPickaxe) ? 'final_gate' : goalTemplate.id;
+    const targetGoalId = (level.mechanics.isVertical && level.mechanics.hasPickaxe) ? 'vault_rock' : goalTemplate.id;
     const currentState = solvePuzzle(startItems, puzzleEntities, targetGoalId, level);
     if (currentState) {
       const solutionPath = currentState.path;
@@ -496,7 +480,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [puzzle, setPuzzle] = useState(null);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [inventory, setInventory] = useState([]); 
-  const [pickaxeCharges, setPickaxeCharges] = useState(0);
   const [unlockedZones, setUnlockedZones] = useState([1]);
   const [defeated, setDefeated] = useState([]);
   const [selectedItemTypes, setSelectedItemTypes] = useState([]); 
@@ -533,7 +516,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
   const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
   const stateRefs = useRef({});
-  stateRefs.current = { inventory, defeated, pathHistory, envItemState, pickaxeCharges, unlockedZones, campItems, buriedEntities, air };
+  stateRefs.current = { inventory, defeated, pathHistory, envItemState, unlockedZones, campItems, buriedEntities, air };
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
@@ -590,7 +573,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
        defeated: [...stateRefs.current.defeated], 
        pathHistory: [...stateRefs.current.pathHistory], 
        envItemState: stateRefs.current.envItemState, 
-       pickaxeCharges: stateRefs.current.pickaxeCharges, 
        unlockedZones: [...stateRefs.current.unlockedZones], 
        campItems: [...stateRefs.current.campItems], 
        buriedEntities: [...stateRefs.current.buriedEntities], 
@@ -602,19 +584,19 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot) return;
     const prevState = historyStack[historyStack.length - 1];
     setInventory(prevState.inventory); setDefeated(prevState.defeated); setPathHistory(prevState.pathHistory);
-    setEnvItemState(prevState.envItemState); setPickaxeCharges(prevState.pickaxeCharges);
+    setEnvItemState(prevState.envItemState);
     setUnlockedZones(prevState.unlockedZones); setCampItems(prevState.campItems || []);
     setBuriedEntities(prevState.buriedEntities || []); setAir(prevState.air ?? 6);
     setHistoryStack(prev => prev.slice(0, -1)); setSelectedItemTypes([]); setSelectedEntityId(null);
     setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false); setAnimatingEntities([]);
   };
 
-  const INITIAL_STATE = { pickaxeCharges: 0, unlockedZones: [1], air: MAX_AIR, defeated: [], selectedItemTypes: [], selectedEntityId: null, historyStack: [], isVictorious: false, showTrophy: false, showVictoryMsg: false, isDemonstrating: false, isAnimatingLoot: false, alertEntityId: null, flyingItem: null, tempPlayerPos: null, envItemState: 'active', schoolsOfFish: [], animatingEntities: [], campItems: [], buriedEntities: [] };
+  const INITIAL_STATE = { unlockedZones: [1], air: MAX_AIR, defeated: [], selectedItemTypes: [], selectedEntityId: null, historyStack: [], isVictorious: false, showTrophy: false, showVictoryMsg: false, isDemonstrating: false, isAnimatingLoot: false, alertEntityId: null, flyingItem: null, tempPlayerPos: null, envItemState: 'active', schoolsOfFish: [], animatingEntities: [], campItems: [], buriedEntities: [] };
   const resetGameState = () => {
     if (!puzzle) return;
     setInventory(puzzle.startItems || []); setPathHistory([{...level.campPos, zone: 1}]);
     Object.entries(INITIAL_STATE).forEach(([k, v]) => {
-      if (k === 'pickaxeCharges') setPickaxeCharges(v); else if (k === 'unlockedZones') setUnlockedZones(v); else if (k === 'air') setAir(v); else if (k === 'defeated') setDefeated(v); else if (k === 'selectedItemTypes') setSelectedItemTypes(v); else if (k === 'selectedEntityId') setSelectedEntityId(v); else if (k === 'historyStack') setHistoryStack(v); else if (k === 'isVictorious') setIsVictorious(v); else if (k === 'showTrophy') setShowTrophy(v); else if (k === 'showVictoryMsg') setShowVictoryMsg(v); else if (k === 'isDemonstrating') setIsDemonstrating(v); else if (k === 'isAnimatingLoot') setIsAnimatingLoot(v); else if (k === 'alertEntityId') setAlertEntityId(v); else if (k === 'flyingItem') setFlyingItem(v); else if (k === 'tempPlayerPos') setTempPlayerPos(v); else if (k === 'envItemState') setEnvItemState(v); else if (k === 'schoolsOfFish') setSchoolsOfFish(v); else if (k === 'animatingEntities') setAnimatingEntities(v); else if (k === 'campItems') setCampItems(v); else if (k === 'buriedEntities') setBuriedEntities(v);
+      if (k === 'unlockedZones') setUnlockedZones(v); else if (k === 'air') setAir(v); else if (k === 'defeated') setDefeated(v); else if (k === 'selectedItemTypes') setSelectedItemTypes(v); else if (k === 'selectedEntityId') setSelectedEntityId(v); else if (k === 'historyStack') setHistoryStack(v); else if (k === 'isVictorious') setIsVictorious(v); else if (k === 'showTrophy') setShowTrophy(v); else if (k === 'showVictoryMsg') setShowVictoryMsg(v); else if (k === 'isDemonstrating') setIsDemonstrating(v); else if (k === 'isAnimatingLoot') setIsAnimatingLoot(v); else if (k === 'alertEntityId') setAlertEntityId(v); else if (k === 'flyingItem') setFlyingItem(v); else if (k === 'tempPlayerPos') setTempPlayerPos(v); else if (k === 'envItemState') setEnvItemState(v); else if (k === 'schoolsOfFish') setSchoolsOfFish(v); else if (k === 'animatingEntities') setAnimatingEntities(v); else if (k === 'campItems') setCampItems(v); else if (k === 'buriedEntities') setBuriedEntities(v);
     });
   };
 
@@ -646,8 +628,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       }
 
       await new Promise(r => setTimeout(r, 600));
-      if (step.reqType === 'SPECIAL') { setSelectedItemTypes(['pickaxe']);
-      } else if (step.reqType === 'AND') { setSelectedItemTypes(Array.from(new Set(step.usedItems)));
+      if (step.reqType === 'AND') { setSelectedItemTypes(Array.from(new Set(step.usedItems)));
       } else { setSelectedItemTypes([step.itemId]); }
 
       await new Promise(r => setTimeout(r, 600));
@@ -671,8 +652,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       currentZoneSim = entity.zone;
       await new Promise(r => setTimeout(r, 800)); 
 
-      if (step.reqType === 'SPECIAL') { pCharges -= 1; setPickaxeCharges(pCharges); if (pCharges === 0) currentInv.splice(currentInv.indexOf('pickaxe'), 1);
-      } else if (step.reqType === 'AND') { step.usedItems.forEach(req => { const idx = currentInv.indexOf(req); if (idx > -1) currentInv.splice(idx, 1); });
+      if (step.reqType === 'AND') { step.usedItems.forEach(req => { const idx = currentInv.indexOf(req); if (idx > -1) currentInv.splice(idx, 1); });
       } else { currentInv.splice(currentInv.indexOf(step.itemId), 1); }
       
       setInventory([...currentInv]); setSelectedItemTypes([]); 
@@ -682,7 +662,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         setFlyingItem({ emoji: level.items.find(i=>i.id===entity.reward)?.emoji, x: entityX, y: entity.y });
         await new Promise(r => setTimeout(r, 800)); 
         setFlyingItem(null); currentInv.push(entity.reward);
-        if (entity.reward === 'pickaxe') { pCharges = 10; setPickaxeCharges(10); }
         setInventory([...currentInv]);
       }
       
@@ -915,7 +894,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         return; 
     }
 
-    let canDefeat = false; let itemsToConsume = []; let spentPickaxeCharge = false;
+    let canDefeat = false; let itemsToConsume = [];
     const availableItems = [...inventory];
     const takeItems = (reqArray) => {
         let tempAvail = [...availableItems]; let consumed = [];
@@ -923,10 +902,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         return consumed;
     };
 
-    if (entity.isGatekeeper && level.mechanics.hasPickaxe && entity.reqType === 'SPECIAL') {
-       if (entity.reqGk && !defeated.includes(entity.reqGk)) { setSelectedItemTypes([]); handlePostActionAir(entity.y); return; }
-       if (selectedItemTypes.includes('pickaxe') && pickaxeCharges > 0) { canDefeat = true; spentPickaxeCharge = true; if (pickaxeCharges - 1 === 0) itemsToConsume.push('pickaxe'); }
-    } else if (entity.reqType === 'AND') {
+    if (entity.reqType === 'AND') {
        if (entity.requires.length === 0 || Array.from(new Set(entity.requires || [])).every(t => selectedItemTypes.includes(t))) { 
            const consumed = takeItems(entity.requires || []); 
            if (consumed) { canDefeat = true; itemsToConsume = consumed; } 
@@ -947,7 +923,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
       setIsAnimatingLoot(true); saveHistory();
       setAnimatingEntities(prev => [...prev, entity.id]);
-      if (spentPickaxeCharge) setPickaxeCharges(prev => prev - 1);
       
       setInventory(prev => {
           let newInv = [...prev];
@@ -970,7 +945,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: entity.y, zIndex: 60 });
         setTimeout(() => {
           setInventory(prev => [...prev, entity.reward]);
-          if (entity.reward === 'pickaxe') setPickaxeCharges(10);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
           handlePostActionAir(entity.y);
           if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory();
@@ -1299,8 +1273,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             return (
               <button key={`slot-${slotIdx}`} onClick={() => item && toggleInventoryType(itemId)} disabled={!item} className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl relative flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' : item ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'} ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}>
                 <span className="text-2xl sm:text-4xl drop-shadow-md emoji-shadow">{item ? item.emoji : ''}</span>
-                {item?.id === 'pickaxe' && <div className="absolute -top-2 -right-2 bg-stone-800 text-amber-400 text-xs font-black rounded-full w-6 h-6 flex items-center justify-center border-2 border-stone-500 shadow-md">{pickaxeCharges}</div>}
-                {count > 1 && item?.id !== 'pickaxe' && <div className="absolute -bottom-2 -right-2 bg-blue-700 text-white text-xs sm:text-sm font-black rounded-full px-2 py-0.5 border-2 border-blue-400 shadow-md">{count}</div>}
+                {count > 1 && <div className="absolute -bottom-2 -right-2 bg-blue-700 text-white text-xs sm:text-sm font-black rounded-full px-2 py-0.5 border-2 border-blue-400 shadow-md">{count}</div>}
               </button>
             );
           })}
