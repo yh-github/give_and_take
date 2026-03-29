@@ -1106,14 +1106,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
           {level.mechanics.hasFog && (
             <div className="absolute inset-0 pointer-events-none z-[100]">
-              <div className={`absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(2) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '21%', height: '22%' }} />
-              <div className={`absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(3) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '21%', height: '22%' }} />
-              <div className={`absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(4) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '45%', height: '20%' }} />
-              <div className={`absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(5) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '45%', height: '20%' }} />
-              <div className={`absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(6) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '65%', height: '12%' }} />
-              <div className={`absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(7) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '77%', height: '10%' }} />
-              <div className={`absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(8) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '87%', height: '8%' }} />
-              <div className={`absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 ${unlockedZones.includes(9) ? 'opacity-0' : 'opacity-100'}`} style={{ top: '95%', height: '5%' }} />
+              {!unlockedZones.includes(2) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
+              {!unlockedZones.includes(3) && <div className="absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
+              {!unlockedZones.includes(4) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '45%', height: '20%' }} />}
+              {!unlockedZones.includes(5) && <div className="absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '45%', height: '20%' }} />}
+              {!unlockedZones.includes(6) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000" style={{ top: '65%', height: '12%' }} />}
+              {!unlockedZones.includes(7) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000" style={{ top: '77%', height: '10%' }} />}
+              {!unlockedZones.includes(8) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000" style={{ top: '87%', height: '8%' }} />}
+              {!unlockedZones.includes(9) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000" style={{ top: '95%', height: '5%' }} />}
             </div>
           )}
 
@@ -1121,7 +1121,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             <div className="absolute inset-0 pointer-events-none z-[98] transition-all duration-300 ease-linear animate-torch-flicker" style={{ background: `radial-gradient(ellipse 80vw 100vh at ${displayPlayerPos.x}% ${displayPlayerPos.y}%, transparent 0%, transparent 30%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.95) 80%, #000 100%)` }} />
           )}
 
-          {level.sceneryNodes?.map((sc, i) => ( <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: sc.z || (sc.depth||3)*10 }}>{sc.e}</div> ))}
+          {level.sceneryNodes?.map((sc, i) => {
+              const sDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(sc.x - displayPlayerPos.x, 2) + Math.pow(sc.y - displayPlayerPos.y, 2)) : 100;
+              const sZ = sDist < 28 ? 99 : (sc.z || (sc.depth||3)*10);
+              return <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: sZ }}>{sc.e}</div>;
+          })}
 
           {level.mechanics.hasFish && envItemState === 'active' && ( <div className="absolute cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform" style={{zIndex: 25}} onClick={handleCatchRiverFish}>🐟</div> )}
           {level.mechanics.hasFish && envItemState === 'caught' && ( <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}><span className="text-3xl">🐟</span></div> )}
@@ -1136,7 +1140,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
              );
           })}
 
-          <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-10" preserveAspectRatio="none">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-[99]" preserveAspectRatio="none">
             {pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
             {tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
           </svg>
@@ -1152,7 +1156,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             );
           })}
 
-          <div onClick={handleCampClick} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[10] transition-all duration-300 ${selectedItemTypes.length > 0 ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]' : (!selectedItemTypes.length && level.mechanics.hasAir ? 'cursor-pointer hover:scale-110' : '')}`} style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%` }}>
+          <div onClick={handleCampClick} className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${selectedItemTypes.length > 0 ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]' : (!selectedItemTypes.length && level.mechanics.hasAir ? 'cursor-pointer hover:scale-110' : '')}`} style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 10 }}>
             <div className="relative">
                 <div className="text-5xl drop-shadow-lg filter sepia">{level.mechanics.hasAir ? '⛵' : '⛺'}</div>
                 {selectedItemTypes.length > 0 && (
@@ -1193,7 +1197,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             
             const inFog = level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
 
-            const entZ = isSelected ? 150 : (isRock ? 99 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5));
+            const eDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(ent.x - displayPlayerPos.x, 2) + Math.pow(ent.y - displayPlayerPos.y, 2)) : 100;
+            const inLight = eDist < 28;
+            const entZ = isSelected ? 150 : ( (inLight && !inFog) ? 105 : (isRock ? 99 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5)) );
 
             const interactableHover = inFog ? 'pointer-events-none cursor-default' : (isDefeated && !ent.isGatekeeper) || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
             const wrapperClasses = `absolute flex flex-col items-center p-4 -m-4 transition-all duration-300 ${ent.roamClass ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
