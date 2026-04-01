@@ -1151,6 +1151,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       mapTranslateY = `-${targetScroll}%`;
   }
 
+  const isDrowning = alertEntityId === 'out_of_air';
+  const heroFace = isDrowning ? '😵' : '🤠';
+  const playerTransition = isDrowning ? 'duration-[3000ms] ease-linear' : 'duration-700 ease-in-out';
   const GatekeeperProp = level.GatekeeperPropComponent;
 
   return (
