@@ -13,8 +13,8 @@ const STRINGS = {
     settings: "Settings", level: "Level:", minQuestChain: "Minimum Quest Chain:", diggersMemory: "Diggers (Memory Mode):", genMap: "🗺️ Generate Map", back: "Back",
     genFailedTitle: "Generation Failed", genFailedDesc: "{dict.genFailedDesc}", openSettings: "Open Settings",
     generating: "Generating Realm...", floatingUp: "🫧 Floating Up! 🫧", dropItem: "⬇️ Drop Item", blocked: "BLOCKED!", exit: "Exit", questComplete: "Quest Complete!",
-    entities: { troll: 'Troll', baker: 'Baker', spider: 'Spider', chest: 'Chest', wizard: 'Wizard', dragon: 'Dragon', dog: 'Hound', goblin: 'Goblin', mermaid: 'Mermaid', ghost: 'Ghost', knight: 'Knight', merchant: 'Merchant', fairy: 'Fairy', bear: 'Bear', miner: 'Miner', scorpion: 'Scorpion', bat: 'Vampire Bat', slime: 'Acid Slime', mole: 'Giant Mole', diver: 'Diver', crab: 'Crab', octopus: 'Octopus', seahorse: 'Seahorse', caveBoss: 'Cave Boss', vaultGate: 'Vault Gate', rock: 'Rock', current: 'Current' },
-    items: { apple: 'Apple', bread: 'Bread', gold: 'Gold', gem: 'Gem', sword: 'Sword', bug_spray: 'Poison', key: 'Key', wand: 'Wand', hat: 'Hat', bone: 'Bone', shield: 'Shield', map: 'Map', lantern: 'Lantern', flute: 'Flute', flower: 'Flower', fish: 'Fish', crystal: 'Crystal', gold_nugget: 'Gold Nugget', mushroom: 'Mushroom', emerald: 'Emerald', relic: 'Relic', rope: 'Rope', pickaxe: 'Pickaxe', pearl: 'Pearl', shell: 'Shell', starfish: 'Starfish', trident: 'Trident', comb: 'Comb', mirror: 'Mirror', boot: 'Old Boot' },
+    entities: { troll: 'Troll', baker: 'Baker', spider: 'Spider', chest: 'Chest', wizard: 'Wizard', dragon: 'Dragon', dog: 'Hound', goblin: 'Goblin', mermaid: 'Mermaid', ghost: 'Ghost', knight: 'Knight', merchant: 'Merchant', fairy: 'Fairy', bear: 'Bear', miner: 'Miner', scorpion: 'Scorpion', bat: 'Vampire Bat', slime: 'Acid Slime', mole: 'Giant Mole', diver: 'Diver', crab: 'Crab', octopus: 'Octopus', seahorse: 'Seahorse', sea_witch: 'Sea Witch', caveBoss: 'Cave Boss', vaultGate: 'Vault Gate', rock: 'Rock', giant_clam: 'Giant Clam' },
+    items: { apple: 'Apple', bread: 'Bread', gold: 'Gold', gem: 'Gem', sword: 'Sword', bug_spray: 'Poison', key: 'Key', wand: 'Wand', hat: 'Hat', bone: 'Bone', shield: 'Shield', map: 'Map', lantern: 'Lantern', flute: 'Flute', flower: 'Flower', fish: 'Fish', crystal: 'Crystal', gold_nugget: 'Gold Nugget', mushroom: 'Mushroom', emerald: 'Emerald', relic: 'Relic', rope: 'Rope', pickaxe: 'Pickaxe', pearl: 'Pearl', shell: 'Shell', starfish: 'Starfish', trident: 'Trident', comb: 'Dinglehopper', mirror: 'Looking Glass', boot: 'Old Boot', locket: 'Golden Locket', bubble_item: 'Magic Bubble' },
     levels: { river_crossing: 'River Crossing', underground: 'The Deep Chasm', underwater: 'Deep Blue' },
     or: "or"
   },
@@ -23,8 +23,8 @@ const STRINGS = {
     settings: "הגדרות", level: "שלב:", minQuestChain: "שרשרת משימות מינימלית:", diggersMemory: "חופרים (מצב זיכרון):", genMap: "🗺️ צור מפה", back: "חזור",
     genFailedTitle: "היצירה נכשלה", genFailedDesc: "אי אפשר מתמטית ליצור עולם עם הגדרות אלו.", openSettings: "פתח הגדרות",
     generating: "יוצר עולם...", floatingUp: "🫧 צף למעלה! 🫧", dropItem: "⬇️ זרוק חפץ", blocked: "חסום!", exit: "יציאה", questComplete: "המסע הושלם!",
-    entities: { troll: 'טרול', baker: 'אופה', spider: 'עכביש', chest: 'תיבה', wizard: 'קוסם', dragon: 'דרקון', dog: 'כלב ציד', goblin: 'גובלין', mermaid: 'בת ים', ghost: 'רוח רפאים', knight: 'אביר', merchant: 'סוחר', fairy: 'פיה', bear: 'דוב', miner: 'כורה', scorpion: 'עקרב', bat: 'עטלף ערפד', slime: 'רפש חומצי', mole: 'חפרפרת ענק', diver: 'צוללן', crab: 'סרטן', octopus: 'תמנון', seahorse: 'סוס ים', caveBoss: 'בוס מערה', vaultGate: 'שער כספת', rock: 'סלע', current: 'זרם' },
-    items: { apple: 'תפוח', bread: 'לחם', gold: 'זהב', gem: 'יהלום', sword: 'חרב', bug_spray: 'רעל', key: 'מפתח', wand: 'שרביט', hat: 'כובע', bone: 'עצם', shield: 'מגן', map: 'מפה', lantern: 'פנס', flute: 'חליל', flower: 'פרח', fish: 'דג', crystal: 'קריסטל', gold_nugget: 'גוש זהב', mushroom: 'פטרייה', emerald: 'ברקת', relic: 'שריד', rope: 'חבל', pickaxe: 'מכוש', pearl: 'פנינה', shell: 'צדף', starfish: 'כוכב ים', trident: 'קלשון', comb: 'מסרק', mirror: 'מראה', boot: 'מגף ישן' },
+    entities: { troll: 'טרול', baker: 'אופה', spider: 'עכביש', chest: 'תיבה', wizard: 'קוסם', dragon: 'דרקון', dog: 'כלב ציד', goblin: 'גובלין', mermaid: 'בת ים', ghost: 'רוח רפאים', knight: 'אביר', merchant: 'סוחר', fairy: 'פיה', bear: 'דוב', miner: 'כורה', scorpion: 'עקרב', bat: 'עטלף ערפד', slime: 'רפש חומצי', mole: 'חפרפרת ענק', diver: 'צוללן', crab: 'סרטן', octopus: 'תמנון', seahorse: 'סוס ים', sea_witch: 'מכשפת ים', caveBoss: 'בוס מערה', vaultGate: 'שער כספת', rock: 'סלע', giant_clam: 'צדפת ענק' },
+    items: { apple: 'תפוח', bread: 'לחם', gold: 'זהב', gem: 'יהלום', sword: 'חרב', bug_spray: 'רעל', key: 'מפתח', wand: 'שרביט', hat: 'כובע', bone: 'עצם', shield: 'מגן', map: 'מפה', lantern: 'פנס', flute: 'חליל', flower: 'פרח', fish: 'דג', crystal: 'קריסטל', gold_nugget: 'גוש זהב', mushroom: 'פטרייה', emerald: 'ברקת', relic: 'שריד', rope: 'חבל', pickaxe: 'מכוש', pearl: 'פנינה', shell: 'צדף', starfish: 'כוכב ים', trident: 'קלשון', comb: 'דינגלהופר', mirror: 'מראה', boot: 'מגף ישן', locket: 'תליון זהב', bubble_item: 'בועה קסומה' },
     levels: { river_crossing: 'חציית הנהר', underground: 'התהום העמוקה', underwater: 'הכחול העמוק' },
     or: "או"
   }
@@ -53,8 +53,8 @@ const UNDERGROUND_ITEMS = [
 const UNDERWATER_ITEMS = [
   { id: 'pearl', name: 'Pearl', emoji: '⚪' }, { id: 'shell', name: 'Shell', emoji: '🐚' },
   { id: 'starfish', name: 'Starfish', emoji: '⭐' }, { id: 'trident', name: 'Trident', emoji: '🔱' },
-  { id: 'comb', name: 'Comb', emoji: '🪮' }, { id: 'mirror', name: 'Mirror', emoji: '🪞' },
-  { id: 'boot', name: 'Old Boot', emoji: '🥾' }
+  { id: 'comb', name: 'Dinglehopper', emoji: '🍴' }, { id: 'mirror', name: 'Looking Glass', emoji: '🪞' },
+  { id: 'boot', name: 'Old Boot', emoji: '🥾' }, { id: 'locket', name: 'Golden Locket', emoji: '📿' }
 ];
 
 const RIVER_CROSSING_ENTITIES = [
@@ -87,10 +87,11 @@ const UNDERGROUND_ENTITIES = [
 
 const UNDERWATER_ENTITIES = [
   { id: 'diver', name: 'Diver', emoji: '🤿', allowedReqs: ['comb', 'mirror', 'boot'] },
-  { id: 'mermaid', name: 'Mermaid', emoji: '🧜‍♀️', allowedReqs: ['comb', 'mirror', 'boot', 'starfish'] },
-  { id: 'crab', name: 'Crab', emoji: '🦀', allowedReqs: ['shell', 'pearl', 'boot'] },
-  { id: 'octopus', name: 'Octopus', emoji: '🐙', allowedReqs: ['trident', 'pearl', 'starfish'] },
-  { id: 'seahorse', name: 'Seahorse', emoji: '🎠', allowedReqs: ['shell', 'comb', 'pearl'] }
+  { id: 'mermaid', name: 'Mermaid', emoji: '🧜‍♀️', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
+  { id: 'crab', name: 'Crab', emoji: '🦀', allowedReqs: ['shell', 'pearl', 'boot', 'comb'] },
+  { id: 'octopus', name: 'Octopus', emoji: '🐙', allowedReqs: ['trident', 'pearl', 'starfish', 'locket'] },
+  { id: 'clam', name: 'Giant Clam', emoji: '🐚', allowedReqs: ['pearl', 'shell', 'starfish', 'comb', 'mirror'] },
+  { id: 'sea_witch', name: 'Sea Witch', emoji: '🧙‍♀️', allowedReqs: ['pearl', 'locket', 'trident'] }
 ];
 
 // --- BACKGROUND COMPONENTS ---
@@ -123,59 +124,120 @@ const CaveBackground = () => (
   </div>
 );
 
+const MermaidSVG = ({ isAlerting }) => (
+  <svg viewBox="0 0 100 100" className={`w-16 h-16 sm:w-20 sm:h-20 drop-shadow-xl ${isAlerting ? 'animate-troll-mad' : 'animate-bob'}`}>
+    <path d="M50,70 Q 30,80 20,95 Q 50,100 80,95 Q 70,80 50,70" fill="#2dd4bf" />
+    <path d="M50,70 Q 45,60 50,40" stroke="#2dd4bf" strokeWidth="8" fill="none" strokeLinecap="round" />
+    <circle cx="50" cy="35" r="10" fill="#fde68a" />
+    <path d="M 40,30 Q 50,20 60,30" stroke="#f87171" strokeWidth="4" fill="none" strokeLinecap="round" />
+    <path d="M 20,95 L 30,85 M 80,95 L 70,85" stroke="white" strokeWidth="1" opacity="0.5" />
+  </svg>
+);
+
+const CrabSVG = ({ isAlerting }) => (
+  <svg viewBox="0 0 100 100" className={`w-12 h-12 sm:w-16 sm:h-16 drop-shadow-lg ${isAlerting ? 'animate-troll-mad' : 'animate-sway'}`}>
+    <circle cx="50" cy="65" r="15" fill="#ef4444" />
+    <path d="M30,65 Q 20,50 25,40" stroke="#ef4444" strokeWidth="4" fill="none" />
+    <path d="M70,65 Q 80,50 75,40" stroke="#ef4444" strokeWidth="4" fill="none" />
+    <circle cx="25" cy="40" r="5" fill="#ef4444" className="animate-pulse" />
+    <circle cx="75" cy="40" r="5" fill="#ef4444" className="animate-pulse" />
+    <circle cx="45" cy="58" r="2" fill="white" />
+    <circle cx="55" cy="58" r="2" fill="white" />
+  </svg>
+);
+
+const OctopusSVG = ({ isAlerting }) => (
+  <svg viewBox="0 0 100 100" className={`w-16 h-16 sm:w-24 sm:h-24 drop-shadow-2xl ${isAlerting ? 'animate-troll-mad' : 'animate-bob'}`}>
+    <path d="M30,60 Q 50,20 70,60" fill="#a855f7" />
+    {[20, 35, 50, 65, 80].map((x, i) => (
+      <path key={i} d={`M${x},60 Q ${x + (Math.sin(i)*10)},85 ${x + (Math.cos(i)*5)},95`} stroke="#a855f7" strokeWidth="6" fill="none" strokeLinecap="round" className="animate-sway" style={{ animationDelay: `${i*0.2}s` }} />
+    ))}
+    <circle cx="43" cy="50" r="3" fill="white" />
+    <circle cx="57" cy="50" r="3" fill="white" />
+  </svg>
+);
+
+const GiantClamSVG = ({ isDefeated, isAlerting, rewardEmoji }) => (
+  <svg viewBox="0 0 100 100" className={`w-16 h-16 sm:w-20 sm:h-20 drop-shadow-xl ${isAlerting ? 'animate-troll-mad' : ''}`}>
+    {/* Bottom Shell - Scalloped */}
+    <path d="M10,70 C15,85 30,95 50,95 C70,95 85,85 90,70 L 85,75 C70,90 30,90 15,75 Z" fill="#f9a8d4" stroke="#db2777" strokeWidth="2" />
+    
+    {/* Top Shell - Open/Closed */}
+    {isDefeated ? (
+      <path d="M10,70 C15,30 30,10 50,10 C70,10 85,30 90,70 Q 70,60 50,60 T 10,70" fill="#fce7f3" stroke="#db2777" strokeWidth="2" />
+    ) : (
+      <path d="M10,70 C15,55 30,50 50,50 C70,50 85,55 90,70 Q 70,75 50,75 T 10,70" fill="#f9a8d4" stroke="#db2777" strokeWidth="2" />
+    )}
+    
+    {/* Ribs/Texture */}
+    {[25, 40, 50, 60, 75].map(x => (
+      <path key={x} d={`M${x},${isDefeated?10:50} Q 50,${isDefeated?40:65} ${x},70`} stroke="#f472b6" strokeWidth="1" fill="none" opacity="0.5" />
+    ))}
+
+    {/* Reward / Pearl */}
+    {isDefeated && rewardEmoji ? (
+      <g>
+        <circle cx="50" cy="55" r="14" fill="#fff" opacity="0.4" className="animate-pulse" />
+        <text x="50" y="58" textAnchor="middle" fontSize="26" className="drop-shadow-sm">{rewardEmoji}</text>
+      </g>
+    ) : (
+      !isDefeated && <circle cx="50" cy="65" r="3" fill="white" className="animate-pulse" opacity="0.8" />
+    )}
+  </svg>
+);
+
+const BubbleVentSVG = () => (
+  <svg viewBox="0 0 100 100" className="w-12 h-12 sm:w-16 sm:h-16">
+    <path d="M30,90 Q 50,70 70,90" fill="#3b82f6" opacity="0.4" />
+    {[1, 2, 3].map(i => (
+      <circle key={i} cx={40 + i*5} cy={80 - i*15} r={2 + i} fill="white" opacity="0.6" className="animate-bubble" style={{ animationDelay: `${i*0.5}s` }} />
+    ))}
+  </svg>
+);
+
+const BoatSVG = () => (
+  <svg viewBox="0 0 100 100" className="w-20 h-20 sm:w-24 sm:h-24 drop-shadow-xl animate-bob">
+    <path d="M10,60 L90,60 L80,85 L20,85 Z" fill="#78350f" stroke="#451a03" strokeWidth="2" />
+    <rect x="48" y="20" width="4" height="40" fill="#92400e" />
+    <path d="M52,20 L85,45 L52,55 Z" fill="#fff" stroke="#cbd5e1" strokeWidth="1" />
+    <path d="M15,65 Q 50,75 85,65" fill="none" stroke="#451a03" strokeWidth="1.5" opacity="0.4" />
+  </svg>
+);
+
+const SeahorseSVG = ({ isAlerting }) => (
+  <svg viewBox="0 0 100 100" className={`w-10 h-10 sm:w-12 sm:h-12 drop-shadow-md ${isAlerting ? 'animate-troll-mad' : 'animate-bob'}`}>
+    <path d="M40,20 Q 60,10 70,30 Q 50,40 40,30" fill="#fbbf24" />
+    <path d="M40,30 Q 30,50 40,70 Q 50,90 40,95" fill="#fbbf24" stroke="#d97706" strokeWidth="2" />
+    <path d="M40,70 Q 60,60 50,50" fill="#f59e0b" />
+    <circle cx="55" cy="25" r="2" fill="white" />
+  </svg>
+);
+
 const UnderwaterBackground = () => (
   <>
-    {/* Sky Layer */}
-    <div className="absolute top-0 left-0 w-full h-[20%] bg-gradient-to-b from-sky-400 to-sky-100 pointer-events-none z-0">
-        <div className="absolute top-4 left-10 w-16 h-16 bg-yellow-200 rounded-full blur-[4px] opacity-90 z-0"></div>
+    <div className="absolute top-0 left-0 w-full h-[20%] bg-gradient-to-b from-sky-300 to-sky-100 pointer-events-none z-0">
+        <div className="absolute top-4 left-10 w-16 h-16 bg-yellow-100 rounded-full blur-[2px] opacity-80 z-0"></div>
     </div>
     
-    {/* Surface Horizon */}
+    {/* Surface ripples - subtle, no big seesawing polygons */}
     <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 5 }} preserveAspectRatio="none" viewBox="0 0 100 100">
-        <path d="M 0 20 Q 25 18 50 20 T 100 20 L 100 100 L 0 100 Z" fill="none" stroke="#38bdf8" strokeWidth="1" className="animate-river-flow" opacity="0.6" />
-        <path d="M 0 20.5 Q 25 22 50 20.5 T 100 20.5 L 100 100 L 0 100 Z" fill="none" stroke="#bae6fd" strokeWidth="0.5" className="animate-sway" opacity="0.8" />
+        <path d="M 0 20 Q 25 19 50 20 T 100 20" fill="none" stroke="#38bdf8" strokeWidth="1" className="animate-river-flow" opacity="0.4" />
+        <path d="M 0 20.5 Q 25 21.5 50 20.5 T 100 20.5" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.2" />
     </svg>
 
-    {/* Sea Gradient */}
-    <div className="absolute top-[20%] left-0 w-full h-[80%] bg-gradient-to-b from-cyan-400 via-blue-600 to-blue-950 pointer-events-none z-0 overflow-hidden border-t-2 border-cyan-300">
+    <div className="absolute top-[20%] left-0 w-full h-[80%] bg-gradient-to-b from-cyan-400 via-blue-600 to-blue-950 pointer-events-none z-0 overflow-hidden border-t-2 border-cyan-200/50">
       <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-        <polygon points="10,-10 30,110 0,110" fill="white" opacity="0.05" />
-        <polygon points="50,-10 80,110 40,110" fill="white" opacity="0.05" />
-        <polygon points="90,-10 110,110 90,110" fill="white" opacity="0.05" />
-        {/* Precomputed bubbles to avoid randomizing on every render */}
-        <circle cx="10" cy="100" r="1.2" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1s", animationDuration: "5s" }} />
-        <circle cx="17" cy="100" r="0.8" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "2s", animationDuration: "4s" }} />
-        <circle cx="24" cy="100" r="1.5" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.5s", animationDuration: "6s" }} />
-        <circle cx="31" cy="100" r="0.9" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "3s", animationDuration: "3s" }} />
-        <circle cx="38" cy="100" r="1.1" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1.5s", animationDuration: "5.5s" }} />
-        <circle cx="45" cy="100" r="0.7" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "4s", animationDuration: "4.5s" }} />
-        <circle cx="52" cy="100" r="1.3" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.2s", animationDuration: "6.2s" }} />
-        <circle cx="59" cy="100" r="1.0" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "2.5s", animationDuration: "3.8s" }} />
-        <circle cx="66" cy="100" r="1.4" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1.2s", animationDuration: "5.1s" }} />
-        <circle cx="73" cy="100" r="0.6" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "3.5s", animationDuration: "4.2s" }} />
-        <circle cx="80" cy="100" r="1.2" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.8s", animationDuration: "5.8s" }} />
-        <circle cx="87" cy="100" r="0.9" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "2.8s", animationDuration: "3.5s" }} />
-        <circle cx="94" cy="100" r="1.1" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "1.7s", animationDuration: "4.9s" }} />
-        <circle cx="20" cy="100" r="1.3" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "4.2s", animationDuration: "6.5s" }} />
-        <circle cx="85" cy="100" r="0.8" fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: "0.3s", animationDuration: "3.2s" }} />
+        {[...Array(20)].map((_, i) => (
+            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*0.8} fill="white" opacity="0.2" className="animate-bubble" style={{ animationDelay: `${i*0.5}s`, animationDuration: `${4 + Math.random()*6}s` }} />
+        ))}
       </svg>
     </div>
 
-    {/* Foreground Scenery */}
-    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 10, filter: 'blur(2px) brightness(0.6)' }} preserveAspectRatio="none" viewBox="0 0 100 100">
-      <path d="M 0 65 Q 50 55 100 65 L 100 100 L 0 100 Z" fill="#2c425e" />
-      <path d="M 10 100 Q 5 80 15 65 T 10 40" fill="none" stroke="#1c3041" strokeWidth="2" strokeLinecap="round" className="animate-sway-slow" />
-      <path d="M 85 100 Q 80 80 90 65 T 85 40" fill="none" stroke="#1c3041" strokeWidth="2.5" strokeLinecap="round" className="animate-sway" />
-    </svg>
-    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 20, filter: 'blur(1px) brightness(0.85)' }} preserveAspectRatio="none" viewBox="0 0 100 100">
-      <path d="M 0 78 Q 50 70 100 78 L 100 100 L 0 100 Z" fill="#3a5168" />
-      <path d="M 25 100 Q 30 85 25 75 T 30 50" fill="none" stroke="#1e4638" strokeWidth="3" strokeLinecap="round" className="animate-sway" />
-      <path d="M 75 100 Q 70 85 75 75 T 70 50" fill="none" stroke="#1e4638" strokeWidth="3" strokeLinecap="round" className="animate-sway-slow" />
-    </svg>
-    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 30 }} preserveAspectRatio="none" viewBox="0 0 100 100">
-      <path d="M 0 90 Q 50 85 100 90 L 100 100 L 0 100 Z" fill="#b49365" />
-      <path d="M 15 100 Q 20 85 15 75 T 20 50" fill="none" stroke="#15803d" strokeWidth="4" strokeLinecap="round" className="animate-sway" />
-      <path d="M 90 100 Q 85 90 88 80 T 82 60" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" className="animate-sway-slow" />
+    {/* Environment Scenery - Restored Reefs */}
+    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 10, filter: 'blur(1px) brightness(0.8)' }} preserveAspectRatio="none" viewBox="0 0 100 100">
+      <path d="M 0 85 Q 25 75 50 85 T 100 85 L 100 100 L 0 100 Z" fill="#1e3a8a" opacity="0.6" />
+      <path d="M 10 100 Q 5 80 15 65 T 10 40" fill="none" stroke="#1e40af" strokeWidth="2" strokeLinecap="round" className="animate-sway-slow" />
+      <path d="M 85 100 Q 90 80 80 65 T 85 45" fill="none" stroke="#1e40af" strokeWidth="2.5" strokeLinecap="round" className="animate-sway" />
     </svg>
   </>
 );
@@ -262,22 +324,22 @@ const LEVEL_DICTIONARY = {
   underwater: {
     id: 'underwater', name: 'Deep Blue',
     items: UNDERWATER_ITEMS, entities: UNDERWATER_ENTITIES,
-    campPos: { x: 50, y: 16, depth: 3 }, 
-    mechanics: { hasFish: true, hasSchoolsOfFish: true, hasAir: true, heroBobs: true, isVertical: true, screens: 2.2 },
-    specialEntityTemplate: 'diver',
+    campPos: { x: 50, y: 19, depth: 3 }, 
+    mechanics: { hasFish: true, hasSchoolsOfFish: true, hasAir: true, heroBobs: true, isVertical: true, screens: 1.7 },
+    specialEntityTemplate: 'clam',
     mapNodes: [
-      { x: 25, y: 30, zone: 1 }, { x: 75, y: 30, zone: 1 }, { x: 50, y: 35, zone: 1 },
-      { x: 28, y: 45, zone: 1, isGatekeeper: true, id: 'current_1', emoji: '🌀', unlocksZones: [2] },
-      { x: 72, y: 45, zone: 1, isGatekeeper: true, id: 'current_2', emoji: '🌀', unlocksZones: [3] },
-      { x: 25, y: 55, zone: 2 }, { x: 25, y: 65, zone: 2 },
-      { x: 75, y: 55, zone: 3 }, { x: 75, y: 65, zone: 3 },
-      { x: 28, y: 78, zone: 2, isGatekeeper: true, id: 'current_3', emoji: '🌀', unlocksZones: [4] },
-      { x: 72, y: 78, zone: 3, isGatekeeper: true, id: 'current_4', emoji: '🌀', unlocksZones: [4] },
-      { x: 30, y: 92, zone: 4 }, { x: 70, y: 92, zone: 4 }, { x: 50, y: 92, zone: 4, isGoal: true }
+      { x: 30, y: 25, zone: 1 }, { x: 70, y: 25, zone: 1 }, { x: 50, y: 30, zone: 1 },
+      { x: 22, y: 38, zone: 1 }, { x: 78, y: 38, zone: 1 },
+      { x: 40, y: 46, zone: 1, isPreset: 'bubble_vent', isVent: true },
+      { x: 60, y: 46, zone: 1, isPreset: 'bubble_vent', isVent: true },
+      { x: 28, y: 54, zone: 1 }, { x: 50, y: 56, zone: 1 }, { x: 72, y: 54, zone: 1 },
+      { x: 35, y: 64, zone: 1 }, { x: 65, y: 64, zone: 1 },
+      { x: 50, y: 74, zone: 1, isGoal: true }
     ],
     sceneryNodes: [
-      { x: 15, y: 30, e: '🪸', s: 'text-4xl', z: 20 }, { x: 85, y: 35, e: '🪸', s: 'text-5xl', z: 20 },
-      { x: 20, y: 60, e: '🌿', s: 'text-5xl', z: 20 }, { x: 80, y: 65, e: '🌿', s: 'text-4xl', z: 20 },
+      { x: 10, y: 27, e: '🪸', s: 'text-4xl', z: 20 }, { x: 88, y: 32, e: '🪸', s: 'text-5xl', z: 20 },
+      { x: 8, y: 52, e: '🌿', s: 'text-5xl', z: 20 }, { x: 90, y: 58, e: '🌿', s: 'text-4xl', z: 20 },
+      { x: 12, y: 70, e: '🪸', s: 'text-3xl', z: 20 }, { x: 88, y: 74, e: '🌿', s: 'text-3xl', z: 20 },
     ],
     BackgroundComponent: UnderwaterBackground, GatekeeperPropComponent: () => null
   }
@@ -363,7 +425,6 @@ function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
       }
     }
     
-    // Take free presets to reduce search explosion
     if (forcedMoves.length > 0) {
         queue.unshift(...forcedMoves);
     }
@@ -388,11 +449,13 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
       level.mapNodes.forEach((n, idx) => {
         if (n.isGatekeeper) {
           if (level.mechanics.hasPickaxe) activeGatekeepers.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'AND', id: n.id || `gk_${idx}` });
-          else activeGatekeepers.push({ ...n, name: 'Current', requires: ['starfish'], reqType: 'AND', reward: null, id: n.id || `gk_${idx}` });
+          else activeGatekeepers.push({ ...n, name: 'Giant Clam', requires: ['pearl', 'shell', 'starfish'].sort(() => Math.random() - 0.5).slice(0, 1), reqType: 'AND', reward: null, id: n.id || `gk_${idx}` });
         } else if (n.isPreset === 'pickaxe') {
           presetEntities.push({ id: `preset_pick_${n.x}_${n.y}`, emoji: '⛏️', requires: [], reqType: 'AND', reward: 'pickaxe', x: n.x, y: n.y, zone: n.zone, isGatekeeper: false, isPreset: true });
         } else if (n.isPreset === 'mushroom') {
           presetEntities.push({ id: `preset_mush_${n.x}_${n.y}`, emoji: '🍄', requires: [], reqType: 'AND', reward: 'mushroom', x: n.x, y: n.y, zone: n.zone, isGatekeeper: false, isPreset: true });
+        } else if (n.isPreset === 'bubble_vent') {
+          presetEntities.push({ id: `preset_vent_${n.x}_${n.y}`, emoji: '🫧', requires: [], reqType: 'AND', reward: null, x: n.x, y: n.y, zone: n.zone, isGatekeeper: false, isPreset: true, isVent: true });
         } else if (n.isPreset === 'treasure') {
           presetEntities.push({ id: `preset_treas_${n.x}_${n.y}`, emoji: '💎', requires: [], reqType: 'AND', reward: null, x: n.x, y: n.y, zone: n.zone, isGatekeeper: false, isTreasure: true, isPreset: true });
         }
@@ -412,7 +475,6 @@ function generateLevelPuzzle(level, targetSteps, numDiggers) {
       const goalNode = level.mapNodes.find(n => n.isGoal);
       if (goalNode) {
         const availableReqs = goalTemplate.allowedReqs.filter(req => req !== 'pickaxe');
-        // Force 2 items for the Cave Boss Troll in River Crossing, else standard logic
         const numReqs = level.id === 'river_crossing' ? 2 : (Math.random() > 0.5 && availableReqs.length >= 2 ? 2 : 1);
         const reqs = [...availableReqs].sort(() => Math.random() - 0.5).slice(0, numReqs);
         activeGatekeepers.push({ ...goalTemplate, requires: reqs, reqType: 'AND', reward: null, x: goalNode.x, y: goalNode.y, zone: goalNode.zone, isGatekeeper: false, id: goalTemplate.id });
@@ -501,7 +563,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [historyStack, setHistoryStack] = useState([]); 
   const [air, setAir] = useState(MAX_AIR);
 
-  // Localization
   const dict = STRINGS[lang] || STRINGS.en;
 
   const [isVictorious, setIsVictorious] = useState(false);
@@ -526,7 +587,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [animatingEntities, setAnimatingEntities] = useState([]);
   const [buriedEntities, setBuriedEntities] = useState([]);
 
-  // Refs for closure fixes
   const airRef = useRef(air); airRef.current = air;
   const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
   const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
@@ -582,7 +642,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                     setBuriedEntities(prev => [...new Set([...prev, ent.id])]);
                     delete activeDigTimers.current[ent.id];
                 }, 700);
-            }, 3000); // 3 seconds delay before digging animation starts
+            }, 3000);
         }
     });
   }, [pathHistory, unlockedZones, puzzle, isDemonstrating, isAnimatingLoot, buriedEntities, animatingEntities, defeated, level]);
@@ -632,7 +692,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     setIsDemonstrating(true); demoRef.current = true; resetGameState(); setIsMenuOpen(false);
 
     let currentInv = [...(puzzle.startItems || [])]; let currentDefeated = []; let currentPath = [{...level.campPos, zone: 1}];
-    let currentZoneSim = 1; let unlockedZonesSim = new Set([1]); let pCharges = 0;
+    let currentZoneSim = 1; let unlockedZonesSim = new Set([1]);
 
     for (const step of puzzle.solution) {
       if (!demoRef.current) break; 
@@ -717,9 +777,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       return [...waypoints, { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
   }, []);
 
-  const handlePostActionAir = useCallback((finalY) => {
+  const handlePostActionAir = useCallback((finalY, isVentAction = false) => {
     if (!level.mechanics.hasAir) return;
-    if (finalY <= 20) {
+    if (finalY <= 20 || isVentAction) {
         setAir(MAX_AIR);
     } else if (airRef.current <= 1) {
         setAir(0);
@@ -767,7 +827,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (isVictorious || isDemonstrating || isAnimatingLoot) return;
 
     const itemToDrop = selectedItemTypes[0];
-    if (!itemToDrop && !level.mechanics.hasAir) return; // Allow clicking with empty hand strictly for air refill
+    if (!itemToDrop && !level.mechanics.hasAir) return;
 
     saveHistory();
     setIsAnimatingLoot(true);
@@ -877,7 +937,10 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         return [...prev, ...newPath];
     });
 
-    if (defeated.includes(entity.id)) { handlePostActionAir(entity.y); return; }
+    if (defeated.includes(entity.id)) { 
+        handlePostActionAir(entity.y, entity.isVent); 
+        return; 
+    }
 
     if (entity.isPreset && !entity.isGatekeeper) {
         if (entity.reward && !inventory.includes(entity.reward) && Array.from(new Set(inventory)).length >= 4) {
@@ -889,7 +952,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         setIsAnimatingLoot(true); saveHistory();
         
         if (level.id === 'underground' && entity.isTreasure) {
-            // Mass treasure collection
             const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
             setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji, x: t.x, y: t.y, delay: idx * 150 })));
             setDefeated(prev => [...prev, ...allTreasures.map(t => t.id)]);
@@ -987,13 +1049,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           setInventory(prev => [...prev, entity.reward]);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
           handlePostActionAir(entity.y);
-          if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory();
+          if ((!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
         }, 800);
       } else { 
           setIsAnimatingLoot(false); 
           setTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), 800); 
           handlePostActionAir(entity.y);
-          if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory(); 
+          if ((!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory(); 
       }
 
     } else { 
@@ -1011,7 +1073,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             <>
               <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.menu}</h2>
               <button onClick={handleReplay} className="w-full bg-stone-600 py-4 rounded-xl font-bold text-xl hover:bg-stone-500 shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1">{dict.restart}</button>
-              <button onClick={handleShowSolution} disabled={isVictorious || isDemonstrating || isAnimatingLoot || !puzzle} className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:bg-indigo-500 shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50">{dict.showSolution}</button>
+              <button onClick={handleShowSolution} disabled={isVictorious || isDemonstrating || isAnimatingLoot || !puzzle} className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:indigo-500 shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50">{dict.showSolution}</button>
               <button onClick={() => setMenuView('settings')} className="w-full bg-amber-600 py-4 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">{dict.generateMap}</button>
               <button onClick={() => setIsMenuOpen(false)} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.resume}</button>
             </>
@@ -1078,7 +1140,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-2 sm:p-4 font-serif select-none overflow-hidden relative">
       <div ref={mapRef} className="relative w-full max-w-4xl h-[70vh] sm:h-[75vh] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-8 border-amber-900/80 ring-4 ring-stone-950">
         
-        {/* Air Gauge Overlay */}
         {level.mechanics.hasAir && (
            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-1 z-[150] bg-blue-900/60 p-2 sm:p-3 rounded-full border-2 border-blue-400 backdrop-blur-md shadow-lg">
              {[...Array(MAX_AIR)].map((_, i) => (
@@ -1087,7 +1148,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
            </div>
         )}
 
-        {/* Floating Up Message */}
         {isDrowning && (
            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500/90 backdrop-blur-sm text-white font-black text-2xl sm:text-4xl px-8 py-6 rounded-3xl border-4 border-white shadow-[0_0_40px_rgba(59,130,246,0.8)] z-[200] animate-[floatUp_2s_ease-in-out_infinite] whitespace-nowrap">
               🫧 Floating Up! 🫧
@@ -1140,10 +1200,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
              );
           })}
 
-          <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-[99]" preserveAspectRatio="none">
-            {pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
-            {tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
-          </svg>
+          {level.id !== 'underwater' && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-[99]" preserveAspectRatio="none">
+              {pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
+              {tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
+            </svg>
+          )}
 
           {campItems.map(item => {
             const itemData = level.items.find(i => i.id === item.id);
@@ -1158,7 +1220,10 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
           <div onClick={handleCampClick} className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${selectedItemTypes.length > 0 ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]' : (!selectedItemTypes.length && level.mechanics.hasAir ? 'cursor-pointer hover:scale-110' : '')}`} style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 10 }}>
             <div className="relative">
-                <div className="text-5xl drop-shadow-lg filter sepia">{level.mechanics.hasAir ? '⛵' : '⛺'}</div>
+                {level.id === 'river_crossing' ? <div className="text-6xl drop-shadow-lg -translate-y-4">🛶</div> : 
+                level.id === 'underground' && level.GatekeeperPropComponent ? <level.GatekeeperPropComponent isDefeated={false} /> : 
+                level.id === 'underwater' ? <div className="-translate-y-1"><BoatSVG /></div> :
+                <div className="text-6xl drop-shadow-lg scale-x-[-1] animate-flicker">🔥</div>}
                 {selectedItemTypes.length > 0 && (
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white text-stone-900 text-xs font-black px-2 py-1 rounded-xl shadow-xl animate-bounce whitespace-nowrap border-2 border-stone-800">
                         ⬇️ Drop Item
@@ -1193,7 +1258,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             
             const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal);
             const isRock = ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate';
-            const isCurrent = ent.isGatekeeper && level.mechanics.hasAir;
+            const isCurrent = ent.id === 'current' || (ent.isGatekeeper && ent.id?.startsWith('current_'));
             
             const inFog = level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
 
@@ -1251,15 +1316,20 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                       
                       <div className={`relative transition-all duration-700 ease-in-out ${(!isRock && !isCurrent && ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (!isRock && !isCurrent && ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : (!isRock && !isCurrent && isDefeated) ? 'opacity-50 grayscale' : ''}`}>
                         
-                        {!isDefeated && rewardItem && !isGoal && !ent.isRepeatable && !ent.isPreset && (
-                          isBuried ? (
+                        {!isGoal && !ent.isRepeatable && !ent.isPreset && (
+                          (isBuried && level.id === 'underwater') ? (
+                            // Closed underwater clam: item is INSIDE the SVG, not shown here
+                            null
+                          ) : (!isDefeated && rewardItem && isBuried) ? (
                             <>
                               <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
                               <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-16' : 'translate-x-16'} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : `${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-0 opacity-0 -z-10`}`}>❓</div>
                             </>
-                          ) : (
+                          ) : (!isDefeated && rewardItem && level.id !== 'underwater') ? (
                             <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-8' : 'translate-x-8'} translate-y-0 rotate-0 scale-90 opacity-90 -z-10 animate-bob`}`}>{rewardItem.emoji}</div>
-                          )
+                          ) : (!isDefeated && rewardItem && !isDigger) ? (
+                             <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-8' : 'translate-x-8'} translate-y-0 rotate-0 scale-90 opacity-90 -z-10 animate-bob`}`}>{rewardItem.emoji}</div>
+                          ) : null
                         )}
                         
                         <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-6xl' : 'text-4xl'}`}>
@@ -1277,7 +1347,16 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                              <div className={`text-5xl animate-spin-slow ${isAlerting ? 'animate-troll-mad text-red-500' : 'text-cyan-400'}`}>🌀</div>
                            ) : (
                              <div className={`${ent.filterClass || ''} ${ent.isRight ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
-                               {isAlerting && !ent.isPreset ? '😡' : isAlerting ? '🚫' : ent.emoji}
+                               {isAlerting && !ent.isPreset ? '😡' : 
+                                isAlerting ? '🚫' : 
+                                level.id === 'underwater' ? (
+                                  ent.id === 'mermaid' ? <MermaidSVG isAlerting={isAlerting} /> :
+                                  ent.id === 'crab' ? <CrabSVG isAlerting={isAlerting} /> :
+                                  ent.id === 'octopus' ? <OctopusSVG isAlerting={isAlerting} /> :
+                                  isDigger ? <GiantClamSVG isDefeated={!isBuried} isAlerting={isAlerting} rewardEmoji={isDefeated ? null : rewardItem?.emoji} /> :
+                                  ent.isVent ? <BubbleVentSVG /> :
+                                  ent.emoji
+                                ) : ent.emoji}
                              </div>
                            )}
                         </div>
