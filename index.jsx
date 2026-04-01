@@ -12,20 +12,20 @@ const STRINGS = {
     menu: "Menu", restart: "↺ Restart Level", showSolution: "💡 Show Solution", generateMap: "🗺️ Generate New Map", resume: "Resume Game",
     settings: "Settings", level: "Level:", minQuestChain: "Minimum Quest Chain:", diggersMemory: "Diggers (Memory Mode):", genMap: "🗺️ Generate Map", back: "Back",
     genFailedTitle: "Generation Failed", genFailedDesc: "{dict.genFailedDesc}", openSettings: "Open Settings",
-    generating: "Generating Realm...", floatingUp: "🫧 Floating Up! 🫧", dropItem: "⬇️ Drop Item", blocked: "BLOCKED!", exit: "Exit", questComplete: "Quest Complete!",
+    generating: "Generating Realm...", dropItem: "⬇️ Drop Item", blocked: "BLOCKED!", exit: "Exit", questComplete: "Quest Complete!",
     entities: { troll: 'Troll', baker: 'Baker', spider: 'Spider', chest: 'Chest', wizard: 'Wizard', dragon: 'Dragon', dog: 'Hound', goblin: 'Goblin', mermaid: 'Mermaid', ghost: 'Ghost', knight: 'Knight', merchant: 'Merchant', fairy: 'Fairy', bear: 'Bear', miner: 'Miner', scorpion: 'Scorpion', bat: 'Vampire Bat', slime: 'Acid Slime', mole: 'Giant Mole', diver: 'Diver', crab: 'Crab', octopus: 'Octopus', seahorse: 'Seahorse', sea_witch: 'Sea Witch', caveBoss: 'Cave Boss', vaultGate: 'Vault Gate', rock: 'Rock', giant_clam: 'Giant Clam' },
-    items: { apple: 'Apple', bread: 'Bread', gold: 'Gold', gem: 'Gem', sword: 'Sword', bug_spray: 'Poison', key: 'Key', wand: 'Wand', hat: 'Hat', bone: 'Bone', shield: 'Shield', map: 'Map', lantern: 'Lantern', flute: 'Flute', flower: 'Flower', fish: 'Fish', crystal: 'Crystal', gold_nugget: 'Gold Nugget', mushroom: 'Mushroom', emerald: 'Emerald', relic: 'Relic', rope: 'Rope', pickaxe: 'Pickaxe', pearl: 'Pearl', shell: 'Shell', starfish: 'Starfish', trident: 'Trident', comb: 'Dinglehopper', mirror: 'Looking Glass', boot: 'Old Boot', locket: 'Golden Locket', bubble_item: 'Magic Bubble' },
-    levels: { river_crossing: 'River Crossing', underground: 'The Deep Chasm', underwater: 'Deep Blue' },
+    items: { apple: 'Apple', bread: 'Bread', gold: 'Gold', gem: 'Gem', sword: 'Sword', bug_spray: 'Poison', key: 'Key', wand: 'Wand', hat: 'Hat', bone: 'Bone', shield: 'Shield', map: 'Map', lantern: 'Lantern', flute: 'Flute', flower: 'Flower', fish: 'Fish', crystal: 'Crystal', gold_nugget: 'Gold Nugget', mushroom: 'Mushroom', emerald: 'Emerald', relic: 'Relic', rope: 'Rope', pickaxe: 'Pickaxe', pearl: 'Pearl', shell: 'Shell', starfish: 'Starfish', trident: 'Trident', comb: 'Dinglehopper', mirror: 'Looking Glass', boot: 'Old Boot', locket: 'Golden Locket' },
+    levels: { river_crossing: 'River Crossing', underground: 'The Deep Chasm', underwater: 'Under the Sea' },
     or: "or"
   },
   he: {
     menu: "תפריט", restart: "↺ התחל מחדש", showSolution: "💡 הצג פתרון", generateMap: "🗺️ צור מפה חדשה", resume: "חזור למשחק",
     settings: "הגדרות", level: "שלב:", minQuestChain: "שרשרת משימות מינימלית:", diggersMemory: "חופרים (מצב זיכרון):", genMap: "🗺️ צור מפה", back: "חזור",
     genFailedTitle: "היצירה נכשלה", genFailedDesc: "אי אפשר מתמטית ליצור עולם עם הגדרות אלו.", openSettings: "פתח הגדרות",
-    generating: "יוצר עולם...", floatingUp: "🫧 צף למעלה! 🫧", dropItem: "⬇️ זרוק חפץ", blocked: "חסום!", exit: "יציאה", questComplete: "המסע הושלם!",
+    generating: "יוצר עולם...", dropItem: "⬇️ זרוק חפץ", blocked: "חסום!", exit: "יציאה", questComplete: "המסע הושלם!",
     entities: { troll: 'טרול', baker: 'אופה', spider: 'עכביש', chest: 'תיבה', wizard: 'קוסם', dragon: 'דרקון', dog: 'כלב ציד', goblin: 'גובלין', mermaid: 'בת ים', ghost: 'רוח רפאים', knight: 'אביר', merchant: 'סוחר', fairy: 'פיה', bear: 'דוב', miner: 'כורה', scorpion: 'עקרב', bat: 'עטלף ערפד', slime: 'רפש חומצי', mole: 'חפרפרת ענק', diver: 'צוללן', crab: 'סרטן', octopus: 'תמנון', seahorse: 'סוס ים', sea_witch: 'מכשפת ים', caveBoss: 'בוס מערה', vaultGate: 'שער כספת', rock: 'סלע', giant_clam: 'צדפת ענק' },
-    items: { apple: 'תפוח', bread: 'לחם', gold: 'זהב', gem: 'יהלום', sword: 'חרב', bug_spray: 'רעל', key: 'מפתח', wand: 'שרביט', hat: 'כובע', bone: 'עצם', shield: 'מגן', map: 'מפה', lantern: 'פנס', flute: 'חליל', flower: 'פרח', fish: 'דג', crystal: 'קריסטל', gold_nugget: 'גוש זהב', mushroom: 'פטרייה', emerald: 'ברקת', relic: 'שריד', rope: 'חבל', pickaxe: 'מכוש', pearl: 'פנינה', shell: 'צדף', starfish: 'כוכב ים', trident: 'קלשון', comb: 'דינגלהופר', mirror: 'מראה', boot: 'מגף ישן', locket: 'תליון זהב', bubble_item: 'בועה קסומה' },
-    levels: { river_crossing: 'חציית הנהר', underground: 'התהום העמוקה', underwater: 'הכחול העמוק' },
+    items: { apple: 'תפוח', bread: 'לחם', gold: 'זהב', gem: 'יהלום', sword: 'חרב', bug_spray: 'רעל', key: 'מפתח', wand: 'שרביט', hat: 'כובע', bone: 'עצם', shield: 'מגן', map: 'מפה', lantern: 'פנס', flute: 'חליל', flower: 'פרח', fish: 'דג', crystal: 'קריסטל', gold_nugget: 'גוש זהב', mushroom: 'פטרייה', emerald: 'ברקת', relic: 'שריד', rope: 'חבל', pickaxe: 'מכוש', pearl: 'פנינה', shell: 'צדף', starfish: 'כוכב ים', trident: 'קלשון', comb: 'דינגלהופר', mirror: 'מראה', boot: 'מגף ישן', locket: 'תליון זהב' },
+    levels: { river_crossing: 'חציית הנהר', underground: 'התהום העמוקה', underwater: 'מתחת לים' },
     or: "או"
   }
 };
@@ -54,7 +54,8 @@ const UNDERWATER_ITEMS = [
   { id: 'pearl', name: 'Pearl', emoji: '⚪' }, { id: 'shell', name: 'Shell', emoji: '🐚' },
   { id: 'starfish', name: 'Starfish', emoji: '⭐' }, { id: 'trident', name: 'Trident', emoji: '🔱' },
   { id: 'comb', name: 'Dinglehopper', emoji: '🍴' }, { id: 'mirror', name: 'Looking Glass', emoji: '🪞' },
-  { id: 'boot', name: 'Old Boot', emoji: '🥾' }, { id: 'locket', name: 'Golden Locket', emoji: '📿' }
+  { id: 'boot', name: 'Old Boot', emoji: '🥾' }, { id: 'locket', name: 'Golden Locket', emoji: '📿' },
+  { id: 'fish', name: 'Fish', emoji: '🐟' }
 ];
 
 const RIVER_CROSSING_ENTITIES = [
@@ -124,6 +125,61 @@ const CaveBackground = () => (
   </div>
 );
 
+const UnderwaterBackground = () => (
+  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+    {/* Sky section */}
+    <div className="absolute top-0 left-0 w-full h-[20%] bg-gradient-to-b from-sky-400 via-sky-200 to-sky-100 z-0" />
+    
+    {/* Surface waves - Layered for WOW factor */}
+    <div className="absolute top-[20%] left-0 w-full h-[8%] z-10 overflow-hidden">
+      {[...Array(4)].map((_, i) => (
+        <svg key={`wave-${i}`} className="absolute w-[300%] h-full -translate-x-1/3 animate-river-flow" style={{ animationDuration: `${8 + i * 4}s`, opacity: 0.4 - i * 0.1, top: `${i * 2}px` }} preserveAspectRatio="none" viewBox="0 0 1000 100">
+           <path d="M 0 50 Q 250 30 500 50 T 1000 50 L 1000 100 L 0 100 Z" fill="#38bdf8" />
+        </svg>
+      ))}
+    </div>
+
+    {/* Deep Sea Gradient */}
+    <div className="absolute top-[20%] left-0 w-full h-[80%] bg-gradient-to-b from-cyan-500 via-blue-700 to-blue-950 z-0">
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2) 0%, transparent 50%)' }} />
+      {/* Sunlight Beams & Bubbles */}
+      <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+            <linearGradient id="beamGrad" x1="0%" y1="0%" x2="40%" y2="100%">
+                <stop offset="0%" style={{ stopColor: '#fff', stopOpacity: 0.15 }} />
+                <stop offset="100%" style={{ stopColor: '#fff', stopOpacity: 0 }} />
+            </linearGradient>
+        </defs>
+        <polygon points="10,-10 40,110 0,110" fill="url(#beamGrad)" />
+        <polygon points="50,-10 90,110 40,110" fill="url(#beamGrad)" />
+        <polygon points="80,-10 110,110 80,110" fill="url(#beamGrad)" />
+        {[...Array(30)].map((_, i) => (
+            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*1} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${i*0.4}s`, animationDuration: `${4 + Math.random()*8}s` }} />
+        ))}
+      </svg>
+    </div>
+
+    {/* Sandy Seabed - WOW visuals */}
+    <svg className="absolute bottom-0 w-full h-32 z-20" preserveAspectRatio="none" viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="sandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style={{ stopColor: '#fde68a', stopOpacity: 1 }} />
+          <stop offset="100%" style={{ stopColor: '#d97706', stopOpacity: 1 }} />
+        </linearGradient>
+        <filter id="shadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="1" floodColor="#000" floodOpacity="0.5"/>
+        </filter>
+      </defs>
+      <path d="M 0 100 Q 25 85 50 100 T 100 100 L 100 100 L 0 100 Z" fill="url(#sandGrad)" />
+      <path d="M 0 100 Q 25 75 50 100 T 100 100 L 100 100 L 0 100 Z" fill="#b45309" opacity="0.4" />
+      {/* Rocks and mounds */}
+      <path d="M 15 98 Q 20 90 25 98" fill="#78350f" filter="url(#shadow)" />
+      <path d="M 75 99 Q 80 88 85 99" fill="#78350f" filter="url(#shadow)" opacity="0.8" />
+      <path d="M 50 97 Q 55 92 60 97" fill="#78350f" filter="url(#shadow)" opacity="0.6" />
+    </svg>
+  </div>
+);
+
 const MermaidSVG = ({ isAlerting }) => (
   <svg viewBox="0 0 100 100" className={`w-16 h-16 sm:w-20 sm:h-20 drop-shadow-xl ${isAlerting ? 'animate-troll-mad' : 'animate-bob'}`}>
     <path d="M50,70 Q 30,80 20,95 Q 50,100 80,95 Q 70,80 50,70" fill="#2dd4bf" />
@@ -159,22 +215,15 @@ const OctopusSVG = ({ isAlerting }) => (
 
 const GiantClamSVG = ({ isDefeated, isAlerting, rewardEmoji }) => (
   <svg viewBox="0 0 100 100" className={`w-16 h-16 sm:w-20 sm:h-20 drop-shadow-xl ${isAlerting ? 'animate-troll-mad' : ''}`}>
-    {/* Bottom Shell - Scalloped */}
     <path d="M10,70 C15,85 30,95 50,95 C70,95 85,85 90,70 L 85,75 C70,90 30,90 15,75 Z" fill="#f9a8d4" stroke="#db2777" strokeWidth="2" />
-    
-    {/* Top Shell - Open/Closed */}
     {isDefeated ? (
       <path d="M10,70 C15,30 30,10 50,10 C70,10 85,30 90,70 Q 70,60 50,60 T 10,70" fill="#fce7f3" stroke="#db2777" strokeWidth="2" />
     ) : (
       <path d="M10,70 C15,55 30,50 50,50 C70,50 85,55 90,70 Q 70,75 50,75 T 10,70" fill="#f9a8d4" stroke="#db2777" strokeWidth="2" />
     )}
-    
-    {/* Ribs/Texture */}
     {[25, 40, 50, 60, 75].map(x => (
       <path key={x} d={`M${x},${isDefeated?10:50} Q 50,${isDefeated?40:65} ${x},70`} stroke="#f472b6" strokeWidth="1" fill="none" opacity="0.5" />
     ))}
-
-    {/* Reward / Pearl */}
     {isDefeated && rewardEmoji ? (
       <g>
         <circle cx="50" cy="55" r="14" fill="#fff" opacity="0.4" className="animate-pulse" />
@@ -211,35 +260,6 @@ const SeahorseSVG = ({ isAlerting }) => (
     <path d="M40,70 Q 60,60 50,50" fill="#f59e0b" />
     <circle cx="55" cy="25" r="2" fill="white" />
   </svg>
-);
-
-const UnderwaterBackground = () => (
-  <>
-    <div className="absolute top-0 left-0 w-full h-[20%] bg-gradient-to-b from-sky-300 to-sky-100 pointer-events-none z-0">
-        <div className="absolute top-4 left-10 w-16 h-16 bg-yellow-100 rounded-full blur-[2px] opacity-80 z-0"></div>
-    </div>
-    
-    {/* Surface ripples - subtle, no big seesawing polygons */}
-    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 5 }} preserveAspectRatio="none" viewBox="0 0 100 100">
-        <path d="M 0 20 Q 25 19 50 20 T 100 20" fill="none" stroke="#38bdf8" strokeWidth="1" className="animate-river-flow" opacity="0.4" />
-        <path d="M 0 20.5 Q 25 21.5 50 20.5 T 100 20.5" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.2" />
-    </svg>
-
-    <div className="absolute top-[20%] left-0 w-full h-[80%] bg-gradient-to-b from-cyan-400 via-blue-600 to-blue-950 pointer-events-none z-0 overflow-hidden border-t-2 border-cyan-200/50">
-      <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-        {[...Array(20)].map((_, i) => (
-            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*0.8} fill="white" opacity="0.2" className="animate-bubble" style={{ animationDelay: `${i*0.5}s`, animationDuration: `${4 + Math.random()*6}s` }} />
-        ))}
-      </svg>
-    </div>
-
-    {/* Environment Scenery - Restored Reefs */}
-    <svg style={{ width: '100%', height: '100%', position: 'absolute', zIndex: 10, filter: 'blur(1px) brightness(0.8)' }} preserveAspectRatio="none" viewBox="0 0 100 100">
-      <path d="M 0 85 Q 25 75 50 85 T 100 85 L 100 100 L 0 100 Z" fill="#1e3a8a" opacity="0.6" />
-      <path d="M 10 100 Q 5 80 15 65 T 10 40" fill="none" stroke="#1e40af" strokeWidth="2" strokeLinecap="round" className="animate-sway-slow" />
-      <path d="M 85 100 Q 90 80 80 65 T 85 45" fill="none" stroke="#1e40af" strokeWidth="2.5" strokeLinecap="round" className="animate-sway" />
-    </svg>
-  </>
 );
 
 const CaveEntranceProp = () => (
@@ -322,7 +342,7 @@ const LEVEL_DICTIONARY = {
     BackgroundComponent: CaveBackground, GatekeeperPropComponent: () => null
   },
   underwater: {
-    id: 'underwater', name: 'Deep Blue',
+    id: 'underwater', name: 'Under the Sea',
     items: UNDERWATER_ITEMS, entities: UNDERWATER_ENTITIES,
     campPos: { x: 50, y: 19, depth: 3 }, 
     mechanics: { hasFish: true, hasSchoolsOfFish: true, hasAir: true, heroBobs: true, isVertical: true, screens: 1.7 },
@@ -1132,9 +1152,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   }
 
   const GatekeeperProp = level.GatekeeperPropComponent;
-  const isDrowning = alertEntityId === 'out_of_air';
-  const heroFace = isDrowning ? '😵' : '🤠';
-  const playerTransition = isDrowning ? 'duration-[3000ms] ease-linear' : 'duration-700 ease-in-out';
 
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-2 sm:p-4 font-serif select-none overflow-hidden relative">
@@ -1148,11 +1165,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
            </div>
         )}
 
-        {isDrowning && (
-           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500/90 backdrop-blur-sm text-white font-black text-2xl sm:text-4xl px-8 py-6 rounded-3xl border-4 border-white shadow-[0_0_40px_rgba(59,130,246,0.8)] z-[200] animate-[floatUp_2s_ease-in-out_infinite] whitespace-nowrap">
-              🫧 Floating Up! 🫧
-           </div>
-        )}
 
         <div className="absolute inset-x-0 top-0 transition-transform duration-1000 ease-in-out pointer-events-auto animate-map-appear" style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}>
           <Background />
@@ -1398,8 +1410,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || historyStack.length === 0} className="bg-rose-700 p-3 sm:p-4 rounded-xl text-xl sm:text-2xl hover:bg-rose-600 border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
         <div className="flex gap-2 sm:gap-4 bg-stone-900/50 p-2 sm:p-3 rounded-xl border-2 border-stone-900">
           {[0, 1, 2, 3].map((slotIdx) => {
-            const itemId = uniqueInventoryItems[slotIdx]; const item = itemId ? level.items.find(x => x.id === itemId) : null;
-            const count = itemId ? inventory.filter(i => i === itemId).length : 0; const isSelected = item && selectedItemTypes.includes(itemId);
+            const itemId = uniqueInventoryItems[slotIdx]; 
+            let item = itemId ? level.items.find(x => x.id === itemId) : null;
+            // Fallback for fish item logic to ensure emoji renders even if find fails due to weird scoping
+            if (itemId === 'fish' && !item) {
+              item = { id: 'fish', name: dict.items.fish, emoji: '🐟' };
+            }
+            const count = itemId ? inventory.filter(i => i === itemId).length : 0;
+            const isSelected = item && selectedItemTypes.includes(itemId);
             return (
               <button key={`slot-${slotIdx}`} onClick={() => item && toggleInventoryType(itemId)} disabled={!item} className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl relative flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' : item ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'} ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}>
                 <span className="text-2xl sm:text-4xl drop-shadow-md emoji-shadow">{item ? item.emoji : ''}</span>
