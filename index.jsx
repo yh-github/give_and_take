@@ -14,7 +14,7 @@ const STRINGS = {
     genFailedTitle: "Generation Failed", genFailedDesc: "{dict.genFailedDesc}", openSettings: "Open Settings",
     generating: "Generating Realm...", dropItem: "⬇️ Drop Item", blocked: "BLOCKED!", exit: "Exit", questComplete: "Quest Complete!",
     entities: { troll: 'Troll', baker: 'Baker', spider: 'Spider', chest: 'Chest', wizard: 'Wizard', dragon: 'Dragon', dog: 'Hound', goblin: 'Goblin', mermaid: 'Mermaid', mermaid_red: 'Red Mermaid', mermaid_purple: 'Purple Mermaid', mermaid_green: 'Green Mermaid', mermaid_teal: 'Teal Mermaid', ghost: 'Ghost', knight: 'Knight', merchant: 'Merchant', fairy: 'Fairy', bear: 'Bear', miner: 'Miner', scorpion: 'Scorpion', bat: 'Vampire Bat', slime: 'Acid Slime', mole: 'Giant Mole', diver: 'Diver', crab: 'Crab', octopus: 'Octopus', seahorse: 'Seahorse', dolphin: 'Dolphin', sea_witch: 'Sea Witch', caveBoss: 'Cave Boss', vaultGate: 'Vault Gate', rock: 'Rock', giant_clam: 'Giant Clam', clam: 'Giant Clam' },
-    items: { apple: 'Apple', bread: 'Bread', gold: 'Gold', gem: 'Gem', sword: 'Sword', bug_spray: 'Poison', key: 'Key', wand: 'Wand', hat: 'Hat', bone: 'Bone', shield: 'Shield', map: 'Map', lantern: 'Lantern', flute: 'Flute', flower: 'Flower', fish: 'Fish', crystal: 'Crystal', gold_nugget: 'Gold Nugget', mushroom: 'Mushroom', emerald: 'Emerald', relic: 'Relic', rope: 'Rope', pickaxe: 'Pickaxe', pearl: 'Pearl', shell: 'Shell', starfish: 'Starfish', trident: 'Trident', comb: 'Dinglehopper', mirror: 'Looking Glass', boot: 'Old Boot', locket: 'Golden Locket', crown: 'Glowing Crown' },
+    items: { apple: 'Apple', bread: 'Bread', gold: 'Gold', gem: 'Gem', sword: 'Sword', bug_spray: 'Poison', key: 'Key', wand: 'Wand', hat: 'Hat', bone: 'Bone', shield: 'Shield', map: 'Map', lantern: 'Lantern', flute: 'Flute', flower: 'Flower', fish: 'Fish', gold_fish: 'Goldfish', crystal: 'Crystal', gold_nugget: 'Gold Nugget', mushroom: 'Mushroom', emerald: 'Emerald', relic: 'Relic', rope: 'Rope', pickaxe: 'Pickaxe', pearl: 'Pearl', shell: 'Shell', starfish: 'Starfish', trident: 'Trident', comb: 'Dinglehopper', mirror: 'Looking Glass', boot: 'Old Boot', locket: 'Golden Locket', crown: 'Glowing Crown' },
     levels: { river_crossing: 'River Crossing', underground: 'The Deep Chasm', underwater: 'Under the Sea' },
     or: "or"
   },
@@ -24,7 +24,7 @@ const STRINGS = {
     genFailedTitle: "היצירה נכשלה", genFailedDesc: "אי אפשר מתמטית ליצור עולם עם הגדרות אלו.", openSettings: "פתח הגדרות",
     generating: "יוצר עולם...", dropItem: "⬇️ זרוק חפץ", blocked: "חסום!", exit: "יציאה", questComplete: "המסע הושלם!",
     entities: { troll: 'טרול', baker: 'אופה', spider: 'עכביש', chest: 'תיבה', wizard: 'קוסם', dragon: 'דרקון', dog: 'כלב ציד', goblin: 'גובלין', mermaid: 'בת ים', mermaid_red: 'בת ים אדומה', mermaid_purple: 'בת ים סגולה', mermaid_green: 'בת ים ירוקה', mermaid_teal: 'בת ים כחלחלה', ghost: 'רוח רפאים', knight: 'אביר', merchant: 'סוחר', fairy: 'פיה', bear: 'דוב', miner: 'כורה', scorpion: 'עקרב', bat: 'עטלף ערפד', slime: 'רפש חומצי', mole: 'חפרפרת ענק', diver: 'צוללן', crab: 'סרטן', octopus: 'תמנון', seahorse: 'סוס ים', dolphin: 'דולפין', sea_witch: 'מכשפת ים', caveBoss: 'בוס מערה', vaultGate: 'שער כספת', rock: 'סלע', giant_clam: 'צדפת ענק', clam: 'צדפת ענק' },
-    items: { apple: 'תפוח', bread: 'לחם', gold: 'זהב', gem: 'יהלום', sword: 'חרב', bug_spray: 'רעל', key: 'מפתח', wand: 'שרביט', hat: 'כובע', bone: 'עצם', shield: 'מגן', map: 'מפה', lantern: 'פנס', flute: 'חליל', flower: 'פרח', fish: 'דג', crystal: 'קריסטל', gold_nugget: 'גוש זהב', mushroom: 'פטרייה', emerald: 'ברקת', relic: 'שריד', rope: 'חבל', pickaxe: 'מכוש', pearl: 'פנינה', shell: 'צדף', starfish: 'כוכב ים', trident: 'קלשון', comb: 'דינגלהופר', mirror: 'מראה', boot: 'מגף ישן', locket: 'תליון זהב', crown: 'כתר מואר' },
+    items: { apple: 'תפוח', bread: 'לחם', gold: 'זהב', gem: 'יהלום', sword: 'חרב', bug_spray: 'רעל', key: 'מפתח', wand: 'שרביט', hat: 'כובע', bone: 'עצם', shield: 'מגן', map: 'מפה', lantern: 'פנס', flute: 'חליל', flower: 'פרח', fish: 'דג', gold_fish: 'דג זהב', crystal: 'קריסטל', gold_nugget: 'גוש זהב', mushroom: 'פטרייה', emerald: 'ברקת', relic: 'שריד', rope: 'חבל', pickaxe: 'מכוש', pearl: 'פנינה', shell: 'צדף', starfish: 'כוכב ים', trident: 'קלשון', comb: 'דינגלהופר', mirror: 'מראה', boot: 'מגף ישן', locket: 'תליון זהב', crown: 'כתר מואר' },
     levels: { river_crossing: 'חציית הנהר', underground: 'התהום העמוקה', underwater: 'מתחת לים' },
     or: "או"
   }
@@ -55,7 +55,9 @@ const UNDERWATER_ITEMS = [
   { id: 'starfish', name: 'Starfish', emoji: '⭐' }, { id: 'trident', name: 'Trident', emoji: '🔱' },
   { id: 'comb', name: 'Dinglehopper', emoji: '🍴' }, { id: 'mirror', name: 'Looking Glass', emoji: '🪞' },
   { id: 'boot', name: 'Old Boot', emoji: '🥾' }, { id: 'locket', name: 'Golden Locket', emoji: '📿' },
-  { id: 'fish', name: 'Fish', emoji: '🐟' }, { id: 'crown', name: 'Glowing Crown', emoji: '👑' }
+  { id: 'fish', name: 'Fish', emoji: '🐟' }, { id: 'gold_fish', name: 'Goldfish', emoji: '🐠' },
+  { id: 'crown', name: 'Glowing Crown', emoji: '👑' }, { id: 'gem', name: 'Gem', emoji: '💎' },
+  { id: 'crystal', name: 'Crystal', emoji: '🔮' }
 ];
 
 const RIVER_CROSSING_ENTITIES = [
@@ -163,7 +165,7 @@ const UnderwaterBackground = () => (
     </div>
 
     {/* Sandy Seabed - WOW visuals */}
-    <svg className="absolute bottom-0 w-full h-32 z-20" preserveAspectRatio="none" viewBox="0 0 100 100">
+    <svg className="absolute bottom-0 w-full h-[25%] z-20" preserveAspectRatio="none" viewBox="0 0 100 100">
       <defs>
         <linearGradient id="sandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" style={{ stopColor: '#fde68a', stopOpacity: 1 }} />
@@ -345,19 +347,17 @@ const LEVEL_DICTIONARY = {
         hasAir: true, 
         heroBobs: true, 
         isVertical: true, 
-        screens: 2.2 
+        screens: 2.4 
     },
-    specialEntityTemplate: 'clam',
     mapNodes: [
         { x: 30, y: 28, zone: 1 }, { x: 70, y: 28, zone: 1 },
-        { x: 22, y: 38, zone: 1 }, { x: 78, y: 38, zone: 1 },
-        { x: 50, y: 44, zone: 1 },
+        { x: 30, y: 28, zone: 2 }, { x: 70, y: 28, zone: 2 }, { x: 50, y: 40, zone: 2 },
         { x: 40, y: 52, zone: 1, isPreset: 'bubble_vent', isVent: true },
         { x: 60, y: 52, zone: 1, isPreset: 'bubble_vent', isVent: true },
-        { x: 28, y: 60, zone: 1 }, { x: 72, y: 60, zone: 1 },
-        { x: 50, y: 68, zone: 1, id: 'sea_witch', isGatekeeper: true },
-        { x: 30, y: 80, zone: 2 }, { x: 70, y: 80, zone: 2 },
-        { x: 50, y: 88, zone: 2, isGoal: true }
+        { x: 50, y: 65, zone: 2, id: 'sea_witch', isGatekeeper: true },
+        { x: 50, y: 78, zone: 3 },
+        { x: 35, y: 84, zone: 3 }, { x: 65, y: 84, zone: 3 },
+        { x: 20, y: 90, zone: 3 }, { x: 50, y: 90, zone: 3 }, { x: 80, y: 90, zone: 3 }
     ],
     sceneryNodes: [
       { x: 10, y: 27, e: '🪸', s: 'text-4xl', z: 20 }, { x: 88, y: 32, e: '🪸', s: 'text-5xl', z: 20 },
@@ -528,21 +528,15 @@ function generateUnderwaterPuzzle(level) {
   }
 
   const clamTpl = level.entities.find(e => e.id === 'clam');
-  if (z3Nodes.length >= 3) {
-      puzzleEntities.push({ ...clamTpl, id: 'clam_1', requires: ['starfish'], reqType: 'OR', reward: 'shell', x: z3Nodes[0].x, y: z3Nodes[0].y, zone: z3Nodes[0].zone, isGatekeeper: false });
-      puzzleEntities.push({ ...clamTpl, id: 'clam_2', requires: ['shell'], reqType: 'OR', reward: 'trident', x: z3Nodes[1].x, y: z3Nodes[1].y, zone: z3Nodes[1].zone, isGatekeeper: false });
-      puzzleEntities.push({ ...clamTpl, id: 'clam_3', requires: ['trident'], reqType: 'OR', reward: 'crown', x: z3Nodes[2].x, y: z3Nodes[2].y, zone: z3Nodes[2].zone, isGatekeeper: false, isGoal: true });
-  }
-
-  const usedCoords = puzzleEntities.map(e => `${e.x},${e.y}`);
-  const remainingNodes = level.mapNodes.filter(n => !n.isGatekeeper && !n.isPreset && !usedCoords.includes(`${n.x},${n.y}`) && n.id !== 'sea_witch');
+  const crabTpl = level.entities.find(e => e.id === 'crab');
   
-  const flavorTemplates = level.entities.filter(e => ['crab', 'octopus', 'dolphin'].includes(e.id));
-  if (flavorTemplates.length > 0) {
-      remainingNodes.forEach((n, idx) => {
-          const tpl = flavorTemplates[Math.floor(Math.random() * flavorTemplates.length)];
-          puzzleEntities.push({ ...tpl, id: `${tpl.id}_${idx}`, requires: ['fish'], reqType: 'OR', reward: null, x: n.x, y: n.y, zone: n.zone, isGatekeeper: false });
-      });
+  if (z3Nodes.length >= 6) {
+      puzzleEntities.push({ ...clamTpl, id: 'clam_1', requires: ['starfish'], reqType: 'OR', reward: 'shell', x: z3Nodes[0].x, y: z3Nodes[0].y, zone: z3Nodes[0].zone, isGatekeeper: false });
+      puzzleEntities.push({ ...crabTpl, id: 'crab_1', emoji: '🦀', requires: ['shell'], reqType: 'OR', reward: 'gem', x: z3Nodes[1].x, y: z3Nodes[1].y, zone: z3Nodes[1].zone, isGatekeeper: false });
+      puzzleEntities.push({ ...crabTpl, id: 'crab_3', emoji: '🦀', requires: ['fish'], reqType: 'OR', reward: 'gold_fish', x: z3Nodes[2].x, y: z3Nodes[2].y, zone: z3Nodes[2].zone, isGatekeeper: false });
+      puzzleEntities.push({ ...clamTpl, id: 'clam_2', requires: ['gem', 'crystal'], reqType: 'AND', reward: 'pearl', x: z3Nodes[3].x, y: z3Nodes[3].y, zone: z3Nodes[3].zone, isGatekeeper: false });
+      puzzleEntities.push({ ...clamTpl, id: 'clam_3', requires: ['pearl'], reqType: 'OR', reward: 'crown', x: z3Nodes[4].x, y: z3Nodes[4].y, zone: z3Nodes[4].zone, isGatekeeper: false, isGoal: true });
+      puzzleEntities.push({ ...crabTpl, id: 'crab_2', emoji: '🦀', requires: ['trident'], reqType: 'OR', reward: 'crystal', x: z3Nodes[5].x, y: z3Nodes[5].y, zone: z3Nodes[5].zone, isGatekeeper: false });
   }
 
   return { startItems, puzzleEntities, goalEntityId: 'clam_3', solution: [], steps: 10 };
@@ -724,6 +718,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [animatingEntities, setAnimatingEntities] = useState([]);
   const [buriedEntities, setBuriedEntities] = useState([]);
   const [isTransformed, setIsTransformed] = useState(false);
+  const [isRefillingAir, setIsRefillingAir] = useState(false);
   const [hasDeepTreasure, setHasDeepTreasure] = useState(false);
   const [inkFogEntities, setInkFogEntities] = useState(new Set());
   const [roamingBoats, setRoamingBoats] = useState([]);
@@ -752,18 +747,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   useEffect(() => {
     if (!level.mechanics.hasSchoolsOfFish) return;
-    const fishTypes = ['fish']; 
     let timeoutIds = [];
     const spawnFish = () => {
       if (isDemoRef.current || isVicRef.current) return;
-      const id = Date.now() + Math.random(); const type = fishTypes[Math.floor(Math.random() * fishTypes.length)];
+      const id = Date.now() + Math.random();
+      const type = Math.random() > 0.6 && level.id === 'underwater' ? 'gold_fish' : 'fish';
       const depth = Math.floor(Math.random() * 3) + 1; const yPos = 30 + depth * 10 + Math.random() * 30; 
       const isRight = Math.random() > 0.5;
       setSchoolsOfFish(prev => [...prev, { id, type, y: yPos, depth, isRight }]);
       const tId = setTimeout(() => { setSchoolsOfFish(prev => prev.filter(f => f.id !== id)); }, 10000); 
       timeoutIds.push(tId);
     };
-    const intervalId = setInterval(spawnFish, 2500);
+    const intervalId = setInterval(spawnFish, 1200);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.mechanics.hasSchoolsOfFish]);
 
@@ -775,8 +770,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       const id = Date.now() + Math.random();
       const junkItems = ['comb', 'mirror', 'boot', 'locket'];
       const offeredItem = junkItems[Math.floor(Math.random() * junkItems.length)];
+      const reqItem = Math.random() > 0.5 ? 'gold_fish' : 'fish';
       const isRight = Math.random() > 0.5;
-      setRoamingBoats(prev => [...prev, { id, offeredItem, x: isRight ? -10 : 110, isRight }]);
+      setRoamingBoats(prev => [...prev, { id, offeredItem, reqItem, x: isRight ? -10 : 110, isRight }]);
       const tId = setTimeout(() => { setRoamingBoats(prev => prev.filter(b => b.id !== id)); }, 15000);
       timeoutIds.push(tId);
     };
@@ -884,7 +880,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       
       const lastSimPos = currentPath[currentPath.length - 1];
       const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastSimPos;
-      let targetX = entity.roamClass ? 50 : entity.x;
+      let targetX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
       let targetY = entity.y;
       
       if (!entity.roamClass) {
@@ -955,18 +951,33 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             setIsAnimatingLoot(true);
             const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
             setPathHistory(prev => [...prev, ...returnPath]);
-            // RESET GAME AFTER DROWNING ANIMATION
             setTimeout(() => { 
-                resetGameState();
-            }, 3000); 
+                setIsAnimatingLoot(false);
+                setIsRefillingAir(true);
+            }, 2000); 
         }, 800);
     } else setAir(a => a - 1);
   }, [level.id, level.mechanics.hasAir, level.campPos, navigateTo, isTransformed]);
 
+  useEffect(() => {
+    if (!isRefillingAir) return;
+    const timer = setInterval(() => {
+      setAir(prev => {
+        if (prev >= MAX_AIR - 1) {
+           clearInterval(timer);
+           setIsRefillingAir(false);
+           return MAX_AIR;
+        }
+        return prev + 1;
+      });
+    }, 500);
+    return () => clearInterval(timer);
+  }, [isRefillingAir]);
+
   const handleCatchRiverFish = (e) => {
     e.stopPropagation();
     const uniqueInvCount = Array.from(new Set(inventory)).length;
-    if (envItemState !== 'active' || (uniqueInvCount >= 4 && !inventory.includes('fish')) || isDemonstrating || isAnimatingLoot) return;
+    if (envItemState !== 'active' || (uniqueInvCount >= 4 && !inventory.includes('fish')) || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     saveHistory();
     const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
     setEnvItemCaughtPos({ x: ((e.clientX - parentRect.left) / parentRect.width) * 100, y: ((e.clientY - parentRect.top) / parentRect.height) * 100 });
@@ -976,7 +987,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const handleCatchSchoolFish = (e, fishObj) => {
     e.stopPropagation();
     const uniqueInvCount = Array.from(new Set(inventory)).length;
-    if ((uniqueInvCount >= 4 && !inventory.includes(fishObj.type)) || isDemonstrating || isAnimatingLoot) return;
+    if ((uniqueInvCount >= 4 && !inventory.includes(fishObj.type)) || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     if (!mapRef.current) return;
     const rect = mapRef.current.getBoundingClientRect();
     saveHistory(); setIsAnimatingLoot(true);
@@ -994,7 +1005,15 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const handleBoatTrade = (e, boat) => {
     e.stopPropagation();
-    if (!inventory.includes('fish') || isDemonstrating || isAnimatingLoot) {
+    const tradeReq = boat.reqItem || 'fish';
+    
+    const futureInv = [...inventory];
+    const tradeIdx = futureInv.indexOf(tradeReq);
+    if (tradeIdx > -1) futureInv.splice(tradeIdx, 1);
+    if (boat.offeredItem) futureInv.push(boat.offeredItem);
+    const willExceed = Array.from(new Set(futureInv)).length > 4;
+
+    if (!inventory.includes(tradeReq) || willExceed || isDemonstrating || isAnimatingLoot || isRefillingAir) {
         setAlertEntityId(boat.id);
         setTimeout(() => setAlertEntityId(null), 600);
         return;
@@ -1007,7 +1026,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     setTimeout(() => {
         setInventory(prev => {
             const newInv = [...prev];
-            newInv.splice(newInv.indexOf('fish'), 1);
+            newInv.splice(newInv.indexOf(tradeReq), 1);
             newInv.push(boat.offeredItem);
             return newInv;
         });
@@ -1019,7 +1038,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const handleCampClick = (e) => {
     e.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot) return;
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
     const itemToDrop = selectedItemTypes[0];
     if (!itemToDrop && !level.mechanics.hasAir) return;
@@ -1059,7 +1078,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const handleCampItemClick = (e, campItem) => {
     e.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot) return;
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
     if (!inventory.includes(campItem.id) && Array.from(new Set(inventory)).length >= 4) {
         setAlertEntityId(campItem.uid);
@@ -1087,8 +1106,19 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     }, 800);
   };
 
+  const handleCellClick = (e, targetX, targetY) => {
+    e.stopPropagation();
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+    
+    saveHistory();
+    setIsAnimatingLoot(true);
+    const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
+    setPathHistory(prev => [...prev, { x: targetX, y: targetY, depth: 3, zone: currentZone }]);
+    setTimeout(() => { setIsAnimatingLoot(false); handlePostActionAir(targetY); }, 800);
+  };
+
   const toggleInventoryType = (itemId) => {
-    if (isDemonstrating) return;
+    if (isDemonstrating || isRefillingAir) return;
     // Allow selection even if a small loot animation is playing, to make it feel more responsive
     if (selectedItemTypes.includes(itemId)) setSelectedItemTypes(prev => prev.filter(i => i !== itemId));
     else setSelectedItemTypes(prev => [...prev, itemId]);
@@ -1096,10 +1126,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const handleInteract = (entity, e) => {
     e.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot) return;
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     
     const isReverseAccess = entity.isGatekeeper && entity.unlocksZones && entity.unlocksZones.some(z => unlockedZones.includes(z));
     
+    const isElevator = entity.roamClass?.includes('elevator');
+    let targetY = entity.y;
+    if (isElevator && mapRef.current) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const mapRect = mapRef.current.getBoundingClientRect();
+        targetY = ((rect.top + rect.height/2 - mapRect.top) / mapRect.height) * 100;
+    }
+
     if (level.id !== 'underwater' && !unlockedZones.includes(entity.zone) && !isReverseAccess) {
        setSelectedItemTypes([]); setSelectedEntityId(null); setIsAnimatingLoot(true); 
        
@@ -1109,8 +1147,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
        ).sort((a, b) => Math.abs(a.y - pathHistory[pathHistory.length-1].y) - Math.abs(b.y - pathHistory[pathHistory.length-1].y))[0] || entity;
        
        const prevPoint = pathHistory[pathHistory.length - 1];
-       let alertX = targetAlert.roamClass ? 50 : targetAlert.x;
-       let alertY = targetAlert.y;
+       let alertX = (targetAlert.roamClass && !targetAlert.roamClass.includes('elevator')) ? 50 : targetAlert.x;
+       let alertY = targetAlert.roamClass?.includes('elevator') ? targetY : targetAlert.y;
        
        if (!targetAlert.roamClass) {
            const dx = alertX - prevPoint.x;
@@ -1127,7 +1165,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
        return;
     }
 
-    const newPath = navigateTo(entity.roamClass ? 50 : entity.x, entity.y, entity.zone, entity.depth || 3, !entity.roamClass);
+    const targetX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
+    const newPath = navigateTo(targetX, targetY, entity.zone, entity.depth || 3, !entity.roamClass);
     const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
     
@@ -1137,7 +1176,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     });
 
     if (defeated.includes(entity.id)) { 
-        handlePostActionAir(entity.y, entity.isVent); 
+        handlePostActionAir(targetY, entity.isVent); 
         return; 
     }
 
@@ -1158,7 +1197,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 triggerVictory();
                 setMassFlyingTreasures([]);
                 setIsAnimatingLoot(false);
-                handlePostActionAir(entity.y);
+                handlePostActionAir(targetY);
             }, 800 + (allTreasures.length * 150));
             return;
         }
@@ -1174,17 +1213,17 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         });
         
         if (entity.reward) {
-            const entityX = entity.roamClass ? 50 : entity.x;
-            setFlyingItem({ emoji: entity.emoji, x: entityX, y: entity.y, zIndex: 60 });
+            const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
+            setFlyingItem({ emoji: entity.emoji, x: entityX, y: targetY, zIndex: 60 });
             setTimeout(() => {
                 setInventory(prev => [...prev, entity.reward]);
                 setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
-                handlePostActionAir(entity.y);
+                handlePostActionAir(targetY);
             }, 800);
         } else { 
             setIsAnimatingLoot(false); 
             setTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), 800); 
-            handlePostActionAir(entity.y);
+            handlePostActionAir(targetY);
         }
         return;
     }
@@ -1194,7 +1233,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
     if (!isFreeUnTransform && selectedItemTypes.length === 0 && entity.requires && entity.requires.length > 0) { 
         setSelectedEntityId(prev => prev === entity.id ? null : entity.id); 
-        handlePostActionAir(entity.y);
+        handlePostActionAir(targetY);
         setIsAnimatingLoot(false); // Safety clear
         return; 
     }
@@ -1221,8 +1260,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (canDefeat) {
       let futureInv = [...inventory];
       itemsToConsume.forEach(itemToDel => { const idx = futureInv.indexOf(itemToDel); if (idx > -1) futureInv.splice(idx, 1); });
+      if (entity.reward) futureInv.push(entity.reward);
       
-      if (entity.reward && !futureInv.includes(entity.reward) && Array.from(new Set(futureInv)).length >= 4) {
+      if (entity.reward && Array.from(new Set(futureInv)).length > 4) {
           setAlertEntityId(entity.id);
           setTimeout(() => setAlertEntityId(null), 600);
           return;
@@ -1273,18 +1313,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       setSelectedItemTypes([]); setSelectedEntityId(null);
 
           if (entity.reward) {
-            const entityX = entity.roamClass ? 50 : entity.x;
-            setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: entity.y, zIndex: 60 });
+            const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
+            setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: targetY, zIndex: 60 });
             setTimeout(() => {
               setInventory(prev => [...prev, entity.reward]);
               setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
-              handlePostActionAir(entity.y);
+              handlePostActionAir(targetY);
               if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
             }, 800);
           } else { 
               setIsAnimatingLoot(false); 
               setTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), 800); 
-              handlePostActionAir(entity.y);
+              handlePostActionAir(targetY);
               if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory(); 
           }
 
@@ -1629,20 +1669,22 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                              <div className={`text-5xl animate-spin-slow ${isAlerting ? 'animate-troll-mad text-red-500' : 'text-cyan-400'}`}>🌀</div>
                            ) : (
                              <div className={`${ent.filterClass || ''} ${ent.isRight ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
-                               {isAlerting && !ent.isPreset ? '😡' : 
+                               {isAlerting && !ent.isPreset ? (ent.id.startsWith('mermaid') ? '🥺' : '😡') : 
                                 isAlerting ? '🚫' : 
                                 level.id === 'underwater' ? (
+                                  ent.id === 'sea_witch' ? (
+                                    <div className="relative flex flex-col items-center">
+                                      <div className="absolute inset-0 bg-purple-600 blur-2xl opacity-60 rounded-full scale-150 animate-pulse -z-10" />
+                                      <span className="text-4xl sm:text-6xl z-10">{ent.emoji}</span>
+                                      <div className="absolute -bottom-8 bg-black/60 rounded px-2 whitespace-nowrap text-sm border border-purple-500 shadow-[0_0_10px_purple] z-20">🧑 ➡️ 🧜‍♂️</div>
+                                    </div>
+                                  ) :
                                   ent.id.startsWith('mermaid') ? (
                                     <div className={`w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center text-6xl sm:text-7xl font-sans drop-shadow-2xl ${!isAnimating ? 'animate-mermaid-swim' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
                                       {ent.emoji}
                                     </div>
                                   ) :
-                                  ent.id.startsWith('octopus') ? (
-                                    <div className="relative">
-                                      <span className="text-4xl sm:text-6xl">{ent.emoji}</span>
-                                      {alertEntityId === `ink_${ent.id}` && <div className="absolute inset-0 bg-black/80 rounded-full blur-3xl animate-ping pointer-events-none -z-10" />}
-                                    </div>
-                                  ) :
+                                  ent.id.startsWith('clam') ? <GiantClamSVG isDefeated={isCurrent} isAlerting={isAlerting} rewardEmoji={isCurrent ? rewardItem?.emoji : null} /> :
                                   isDigger ? <GiantClamSVG isDefeated={!isBuried} isAlerting={isAlerting} rewardEmoji={isDefeated ? null : rewardItem?.emoji} /> :
                                   ent.isVent ? <BubbleVentSVG /> :
                                   ent.emoji
@@ -1683,9 +1725,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           </div>
         )}
       </div>
-
       <div className="w-full max-w-4xl mt-4 bg-stone-800 p-4 rounded-2xl border-4 border-stone-700 shadow-2xl flex items-center justify-center gap-4 h-28 relative z-[150]">
-        <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || historyStack.length === 0} className="bg-rose-700 p-3 sm:p-4 rounded-xl text-xl sm:text-2xl hover:bg-rose-600 border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
+        <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || isRefillingAir || historyStack.length === 0} className="bg-rose-700 p-3 sm:p-4 rounded-xl text-xl sm:text-2xl hover:bg-rose-600 border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
         <div className="flex gap-2 sm:gap-4 bg-stone-900/50 p-2 sm:p-3 rounded-xl border-2 border-stone-900">
           {[0, 1, 2, 3].map((slotIdx) => {
             const itemId = uniqueInventoryItems[slotIdx]; 
@@ -1766,7 +1807,7 @@ const App = () => {
         .animate-bob { animation: bob 3s ease-in-out infinite; }
         @keyframes spinSlow { 100% { transform: rotate(360deg); } }
         .animate-spin-slow { animation: spinSlow 4s linear infinite; }
-        @keyframes mermaidSwim { 0%, 100% { transform: rotate(-8deg) translateX(-5px) translateY(0); } 50% { transform: rotate(8deg) translateX(5px) translateY(-5px); } }
+        @keyframes mermaidSwim { 0% { transform: translate(0px, 0px) rotate(-5deg); } 25% { transform: translate(12px, -20px) rotate(0deg); } 50% { transform: translate(0px, -40px) rotate(5deg); } 75% { transform: translate(-12px, -20px) rotate(0deg); } 100% { transform: translate(0px, 0px) rotate(-5deg); } }
         .animate-mermaid-swim { animation: mermaidSwim 5s ease-in-out infinite; }
         @keyframes floatUp { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-50%, -60%); } }
         .emoji-shadow { text-shadow: 0px 0px 3px rgba(0,0,0,0.8), 0px 0px 8px rgba(0,0,0,0.4); }
