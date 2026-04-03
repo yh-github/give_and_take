@@ -89,13 +89,13 @@ const UNDERGROUND_ENTITIES = [
 ];
 
 const UNDERWATER_ENTITIES = [
-  { id: 'mermaid_teal', name: 'Teal Mermaid', emoji: '🧜‍♀️', color: '#2dd4bf', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
-  { id: 'mermaid_red', name: 'Red Mermaid', emoji: '🧜‍♀️', color: '#fb7185', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
-  { id: 'mermaid_purple', name: 'Purple Mermaid', emoji: '🧜‍♀️', color: '#a855f7', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
-  { id: 'mermaid_green', name: 'Green Mermaid', emoji: '🧜‍♀️', color: '#4ade80', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
+  { id: 'mermaid_teal', name: 'Teal Mermaid', emoji: '🧜‍♀️', color: '#2dd4bf', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
+  { id: 'mermaid_red', name: 'Red Mermaid', emoji: '🧜‍♀️', color: '#fb7185', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
+  { id: 'mermaid_purple', name: 'Purple Mermaid', emoji: '🧜‍♀️', color: '#a855f7', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
+  { id: 'mermaid_green', name: 'Green Mermaid', emoji: '🧜‍♀️', color: '#4ade80', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
   { id: 'octopus', name: 'Octopus', emoji: '🐙', allowedReqs: ['trident', 'pearl', 'starfish', 'locket'] },
   { id: 'crab', name: 'Crab', emoji: '🦀', allowedReqs: ['shell', 'pearl', 'boot', 'comb'] },
-  { id: 'dolphin', name: 'Dolphin', emoji: '🐬', allowedReqs: ['starfish', 'pearl', 'comb', 'locket'] },
+  { id: 'dolphin', name: 'Dolphin', emoji: '🐬', allowedReqs: ['fish', 'gold_fish'], roamClass: 'elevator' },
   { id: 'clam', name: 'Giant Clam', emoji: '🐚', allowedReqs: ['pearl', 'shell', 'starfish', 'comb', 'mirror'] },
   { id: 'sea_witch', name: 'Sea Witch', emoji: '😈', allowedReqs: ['pearl', 'locket', 'trident'] }
 ];
@@ -159,28 +159,61 @@ const UnderwaterBackground = () => (
         <polygon points="50,-10 90,110 40,110" fill="url(#beamGrad)" />
         <polygon points="80,-10 110,110 80,110" fill="url(#beamGrad)" />
         {[...Array(30)].map((_, i) => (
-            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*1} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${i*0.4}s`, animationDuration: `${4 + Math.random()*8}s` }} />
+            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*1} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${i*0.4}s`, animationDuration: `${6 + Math.random()*8}s` }} />
+        ))}
+      </svg>
+      {/* Deep Sea Sharks */}
+      <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+        {[...Array(3)].map((_, i) => (
+            <svg key={`shark-${i}`} viewBox="0 0 100 100" className="absolute animate-[swimRight_25s_linear_infinite]" style={{ 
+              top: `${40 + i * 15}%`, left: '-20%', width: '15%', height: '15%', animationDelay: `${i*7}s`, opacity: 0.6 
+            }}>
+              <path d="M 10 50 Q 30 30 50 50 T 90 50 L 95 45 L 85 55 L 95 65 L 90 60 Q 70 70 50 50 T 10 50 Z" fill="#475569" />
+              <path d="M 40 45 L 35 30 L 50 45 Z" fill="#334155" />
+              <path d="M 45 60 L 40 75 L 55 60 Z" fill="#334155" />
+              <circle cx="25" cy="48" r="1.5" fill="black" />
+            </svg>
         ))}
       </svg>
     </div>
 
-    {/* Sandy Seabed - WOW visuals */}
-    <svg className="absolute bottom-0 w-full h-[25%] z-20" preserveAspectRatio="none" viewBox="0 0 100 100">
+    {/* Isometric Seabed - Massive chunky structure taking a huge portion of bottom screen! */}
+    <svg className="absolute bottom-0 w-full h-[35%] z-20" preserveAspectRatio="none" viewBox="0 0 100 100">
       <defs>
-        <linearGradient id="sandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style={{ stopColor: '#fde68a', stopOpacity: 1 }} />
-          <stop offset="100%" style={{ stopColor: '#d97706', stopOpacity: 1 }} />
-        </linearGradient>
         <filter id="shadow">
           <feDropShadow dx="0" dy="2" stdDeviation="1" floodColor="#000" floodOpacity="0.5"/>
         </filter>
+        <linearGradient id="sandTop" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fde68a" />
+          <stop offset="100%" stopColor="#fcd34d" />
+        </linearGradient>
       </defs>
-      <path d="M 0 100 Q 25 85 50 100 T 100 100 L 100 100 L 0 100 Z" fill="url(#sandGrad)" />
-      <path d="M 0 100 Q 25 75 50 100 T 100 100 L 100 100 L 0 100 Z" fill="#b45309" opacity="0.4" />
-      {/* Rocks and mounds */}
-      <path d="M 15 98 Q 20 90 25 98" fill="#78350f" filter="url(#shadow)" />
-      <path d="M 75 99 Q 80 88 85 99" fill="#78350f" filter="url(#shadow)" opacity="0.8" />
-      <path d="M 50 97 Q 55 92 60 97" fill="#78350f" filter="url(#shadow)" opacity="0.6" />
+      
+      {/* Background Deep Trench fading */}
+      <path d="M 0 15 L 50 -5 L 100 15 L 50 35 Z" fill="#1e3a8a" opacity="0.4" />
+      
+      {/* Top Face of the Isometric Seabed Platform */}
+      <path d="M 0 45 L 50 25 L 100 45 L 50 65 Z" fill="url(#sandTop)" filter="url(#shadow)" />
+      
+      {/* Left Face of Platform */}
+      <path d="M 0 45 L 50 65 L 50 110 L 0 110 Z" fill="#d97706" />
+      
+      {/* Right Face of Platform */}
+      <path d="M 50 65 L 100 45 L 100 110 L 50 110 Z" fill="#b45309" />
+      
+      {/* Stepped secondary platform on the left */}
+      <path d="M -10 65 L 20 50 L 50 65 L 20 80 Z" fill="#fde047" opacity="0.9" />
+      <path d="M -10 65 L 20 80 L 20 110 L -10 110 Z" fill="#ca8a04" opacity="0.9" />
+      <path d="M 20 80 L 50 65 L 50 110 L 20 110 Z" fill="#a16207" opacity="0.9" />
+      
+      {/* Small scattered isometric rock blocks */}
+      <path d="M 75 40 L 80 37 L 85 40 L 80 43 Z" fill="#78350f" filter="url(#shadow)" />
+      <path d="M 75 40 L 80 43 L 80 48 L 75 45 Z" fill="#451a03" />
+      <path d="M 80 43 L 85 40 L 85 45 L 80 48 Z" fill="#581c87" />
+
+      <path d="M 30 50 L 35 48 L 40 50 L 35 52 Z" fill="#78350f" filter="url(#shadow)" opacity="0.8" />
+      <path d="M 30 50 L 35 52 L 35 55 L 30 53 Z" fill="#451a03" opacity="0.8" />
+      <path d="M 35 52 L 40 50 L 40 53 L 35 55 Z" fill="#581c87" opacity="0.8" />
     </svg>
   </div>
 );
@@ -340,24 +373,27 @@ const LEVEL_DICTIONARY = {
   underwater: {
     id: 'underwater', name: 'Under the Sea',
     items: UNDERWATER_ITEMS, entities: UNDERWATER_ENTITIES,
-    campPos: { x: 50, y: 19, depth: 3 }, 
+    campPos: { x: 50, y: 22, depth: 3 }, 
     mechanics: { 
         hasFish: true, 
         hasSchoolsOfFish: true, 
         hasAir: true, 
         heroBobs: true, 
         isVertical: true, 
-        screens: 2.4 
+        screens: 3.5 
     },
     mapNodes: [
-        { x: 30, y: 28, zone: 1 }, { x: 70, y: 28, zone: 1 },
-        { x: 30, y: 28, zone: 2 }, { x: 70, y: 28, zone: 2 }, { x: 50, y: 40, zone: 2 },
-        { x: 40, y: 52, zone: 1, isPreset: 'bubble_vent', isVent: true },
-        { x: 60, y: 52, zone: 1, isPreset: 'bubble_vent', isVent: true },
-        { x: 50, y: 65, zone: 2, id: 'sea_witch', isGatekeeper: true },
-        { x: 50, y: 78, zone: 3 },
-        { x: 35, y: 84, zone: 3 }, { x: 65, y: 84, zone: 3 },
-        { x: 20, y: 90, zone: 3 }, { x: 50, y: 90, zone: 3 }, { x: 80, y: 90, zone: 3 }
+        /* Zone 1: Surface & Near Surface -> Dolphins and Vents */
+        { x: 30, y: 32, zone: 1 }, { x: 70, y: 32, zone: 1 }, { x: 50, y: 40, zone: 1 },
+        { x: 35, y: 46, zone: 1, isPreset: 'bubble_vent', isVent: true },
+        { x: 65, y: 46, zone: 1, isPreset: 'bubble_vent', isVent: true },
+        /* Zone 2: Deep Sea -> Mermaids and Witch */
+        { x: 30, y: 56, zone: 2 }, { x: 70, y: 56, zone: 2 }, { x: 50, y: 65, zone: 2 },
+        { x: 50, y: 74, zone: 2, id: 'sea_witch', isGatekeeper: true },
+        /* Zone 3: The Trench -> Clams and Crabs */
+        { x: 50, y: 84, zone: 3 },
+        { x: 35, y: 90, zone: 3 }, { x: 65, y: 90, zone: 3 },
+        { x: 20, y: 95, zone: 3 }, { x: 50, y: 95, zone: 3 }, { x: 80, y: 95, zone: 3 }
     ],
     sceneryNodes: [
       { x: 10, y: 27, e: '🪸', s: 'text-4xl', z: 20 }, { x: 88, y: 32, e: '🪸', s: 'text-5xl', z: 20 },
@@ -509,8 +545,18 @@ function generateUnderwaterPuzzle(level) {
   const startItems = [];
   let puzzleEntities = [];
 
+  const z1Nodes = level.mapNodes.filter(n => n.zone === 1 && !n.isGatekeeper && !n.isPreset);
   const z2Nodes = level.mapNodes.filter(n => n.zone === 2 && !n.isGatekeeper && !n.isPreset && n.id !== 'sea_witch');
   const z3Nodes = level.mapNodes.filter(n => n.zone === 3 && !n.isGatekeeper && !n.isPreset);
+
+  const dolphinTpl = level.entities.find(e => e.id === 'dolphin');
+  if (z1Nodes.length >= 2) {
+      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_1', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: 'shell', x: z1Nodes[0].x, y: z1Nodes[0].y, zone: z1Nodes[0].zone, isGatekeeper: false });
+      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_2', emoji: '🐬', requires: ['gold_fish'], reqType: 'OR', reward: 'pearl', x: z1Nodes[1].x, y: z1Nodes[1].y, zone: z1Nodes[1].zone, isGatekeeper: false });
+      if (z1Nodes.length >= 3) {
+          puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_3', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: 'starfish', x: z1Nodes[2].x, y: z1Nodes[2].y, zone: z1Nodes[2].zone, isGatekeeper: false });
+      }
+  }
 
   const mermaidTpl = level.entities.find(e => e.id.startsWith('mermaid'));
   const mermaidEmojis = ['🧜‍♀️', '🧜🏻‍♀️', '🧜🏼‍♀️', '🧜🏽‍♀️', '🧜🏾‍♀️'];
@@ -1193,7 +1239,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         return [...prev, ...newPath];
     });
 
-    if (entity.id.startsWith('mermaid')) setAttachedEntityId(entity.id);
+    if (entity.roamClass?.includes('elevator')) setAttachedEntityId(entity.id);
 
     if (defeated.includes(entity.id)) { 
         handlePostActionAir(targetY, entity.isVent); 
@@ -1464,7 +1510,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           let playerVisualY = displayPlayerPos.y;
           if (attachedEntityId) {
               const attachedEnt = puzzle.puzzleEntities.find(e => e.id === attachedEntityId);
-              if (attachedEnt && attachedEnt.id.startsWith('mermaid')) {
+              if (attachedEnt && attachedEnt.roamClass?.includes('elevator')) {
                   playerVisualY += Math.sin(gameTime * 1.5 + (attachedEnt.id.length * 0.7)) * 20;
               }
           }
@@ -1653,9 +1699,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             
             const isBuried = isDigger && buriedEntities.includes(ent.id);
             const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
-            const isMermaid = ent.id.startsWith('mermaid');
+            const isElevator = ent.roamClass?.includes('elevator');
             let visualY = ent.y;
-            if (isMermaid) {
+            if (isElevator) {
                 // Large vertical swim range for "elevators"
                 visualY += Math.sin(gameTime * 1.5 + (ent.id.length * 0.7)) * 20;
             }
@@ -1737,7 +1783,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                                       <div className="absolute -bottom-8 bg-black/60 rounded px-2 whitespace-nowrap text-sm border border-purple-500 shadow-[0_0_10px_purple] z-20">🧑 ➡️ 🧜‍♂️</div>
                                     </div>
                                   ) :
-                                  ent.id.startsWith('mermaid') ? (
+                                  isElevator ? (
                                     <div className={`w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center text-6xl sm:text-7xl font-sans drop-shadow-2xl ${!isAnimating ? 'animate-mermaid-swim' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
                                       {ent.emoji}
                                     </div>
@@ -1853,8 +1899,8 @@ const App = () => {
         .animate-star-burst-infinite { animation: starBurstInfinite 2.5s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
         @keyframes fishSwim { 0% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 12% { left: 25%; top: 48%; transform: translate(-50%, -50%) scaleX(-1); } 22% { left: 50%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 34% { left: 75%; top: 58%; transform: translate(-50%, -50%) scaleX(-1); } 45% { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 50% { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 62% { left: 75%; top: 58%; transform: translate(-50%, -50%) scaleX(1); } 72% { left: 50%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 84% { left: 25%; top: 48%; transform: translate(-50%, -50%) scaleX(1); } 95% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 100% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } }
         .animate-fish-swim { animation: fishSwim 18s linear infinite; }
-        @keyframes bubble { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.5; } 100% { transform: translateY(-100px); opacity: 0; } }
-        .animate-bubble { animation: bubble 4s linear infinite; }
+        @keyframes bubble { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.5; } 100% { transform: translateY(-150px); opacity: 0; } }
+        .animate-bubble { animation: bubble 8s linear infinite; }
         @keyframes sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
         .animate-sway { animation: sway 4s ease-in-out infinite; transform-origin: bottom; }
         @keyframes swaySlow { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
