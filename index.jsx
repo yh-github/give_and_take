@@ -105,9 +105,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       timeoutIds.push(tId);
     };
     if (level.id === 'underwater') {
-        for(let i=0; i<6; i++) spawnFish(true);
+        for(let i=0; i<3; i++) spawnFish(true);
     }
-    const intervalId = setInterval(() => spawnFish(false), 1500);
+    const intervalId = setInterval(() => {
+        spawnFish(false);
+        if (Math.random() > 0.3) spawnFish(false);
+    }, 1200);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.mechanics.hasSchoolsOfFish, level.id]);
 
@@ -805,17 +808,17 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             if (level.id !== 'underwater') return null;
             if (ent.id === 'dolphin_1') {
               const t = gameTime * 0.8;
-              let y = 47 + Math.sin(t) * 23; // From 24 to 70
-              let x = 50 + Math.sin(t * 1.5) * 15; // Gentle swaying
+              const n = 6; // Squircle flatness
+              const cosT = Math.cos(t);
+              const sinT = Math.sin(t);
+              const normX = Math.sign(cosT) * Math.pow(Math.abs(cosT), 2/n);
+              const normY = Math.sign(sinT) * Math.pow(Math.abs(sinT), 2/n);
+              
+              let x = 50 + normX * 10; // Narrow horizontal
+              let y = 47 + normY * 23; // Long vertical
               
               let rotate = 0;
-              let flip = Math.cos(t * 1.5) < 0;
-
-              // Top somersault
-              const topDiff = Math.abs(24 - y);
-              if (topDiff < 2) {
-                 rotate = (1 - (topDiff / 2)) * 360 * (flip ? -1 : 1);
-              }
+              let flip = sinT > 0; // Flip when moving left
 
               return { x, y, rotate, flip };
             }
