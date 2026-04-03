@@ -912,10 +912,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
           <div onClick={handleCampClick} className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${selectedItemTypes.length > 0 ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]' : (!selectedItemTypes.length && level.mechanics.hasAir ? 'cursor-pointer hover:scale-110' : '')}`} style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 10 }}>
             <div className="relative">
-                {level.id === 'river_crossing' ? <div className="text-6xl drop-shadow-lg -translate-y-4">🛶</div> : 
-                level.id === 'underground' && level.GatekeeperPropComponent ? <level.GatekeeperPropComponent isDefeated={false} /> : 
-                level.id === 'underwater' ? <div className="-translate-y-1"><BoatSVG /></div> :
-                <div className="text-6xl drop-shadow-lg scale-x-[-1] animate-flicker">🔥</div>}
+                {level.CampIcon ? <level.CampIcon /> : <div className="text-6xl drop-shadow-lg scale-x-[-1] animate-flicker">🔥</div>}
                 {selectedItemTypes.length > 0 && (
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white text-stone-900 text-xs font-black px-2 py-1 rounded-xl shadow-xl animate-bounce whitespace-nowrap border-2 border-stone-800">
                         ⬇️ Drop Item
