@@ -33,5 +33,5 @@ export const CaveEntranceProp = () => (
 );
 
 export const CampIcon = () => (
-  <div className="text-6xl drop-shadow-lg -translate-y-4">🛶</div>
+  <div className="text-6xl drop-shadow-lg -translate-y-4">⛺</div>
 );

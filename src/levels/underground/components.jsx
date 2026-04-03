@@ -11,4 +11,6 @@ export const CaveBackground = () => (
   </div>
 );
 
-export const CampIcon = () => null; // Underground uses the GatekeeperPropComponent for camp
+export const CampIcon = () => (
+  <div className="text-6xl drop-shadow-lg -translate-y-4">⛺</div>
+);
