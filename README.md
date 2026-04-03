@@ -17,7 +17,7 @@ A procedurally generated puzzle-trading adventure built with React, Vite, and Ta
 
 ## 🏗️ The Code
 
-The application is structured as a modern React single-page application focused on performance and visual "wow" factor.
+The application is structured as a modern React single-page application focused on performance and visual "wow" factor. For a detailed breakdown of the codebase, see [PROJECT_STRUCTURE.md](file:///home/yoavh/code/antigravity/give_and_take/docs/PROJECT_STRUCTURE.md).
 
 ### Technical Stack
 - **Framework**: [React 19](https://react.dev/)
