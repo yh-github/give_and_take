@@ -133,10 +133,10 @@ const CaveBackground = () => (
 const UnderwaterBackground = () => (
   <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
     {/* Sky section */}
-    <div className="absolute top-0 left-0 w-full h-[20%] bg-gradient-to-b from-sky-400 via-sky-200 to-sky-100 z-0" />
+    <div className="absolute top-0 left-0 w-full h-[12%] bg-gradient-to-b from-sky-400 via-sky-200 to-sky-100 z-0" />
     
     {/* Surface waves - Layered for WOW factor */}
-    <div className="absolute top-[20%] left-0 w-full h-[8%] z-10 overflow-hidden">
+    <div className="absolute top-[12%] left-0 w-full h-[6%] z-10 overflow-hidden">
       {[...Array(4)].map((_, i) => (
         <svg key={`wave-${i}`} className="absolute w-[300%] h-full -translate-x-1/3 animate-river-flow" style={{ animationDuration: `${8 + i * 4}s`, opacity: 0.4 - i * 0.1, top: `${i * 2}px` }} preserveAspectRatio="none" viewBox="0 0 1000 100">
            <path d="M 0 50 Q 250 30 500 50 T 1000 50 L 1000 100 L 0 100 Z" fill="#38bdf8" />
@@ -145,7 +145,7 @@ const UnderwaterBackground = () => (
     </div>
 
     {/* Deep Sea Gradient */}
-    <div className="absolute top-[20%] left-0 w-full h-[80%] bg-gradient-to-b from-cyan-500 via-blue-700 to-blue-950 z-0">
+    <div className="absolute top-[12%] left-0 w-full h-[88%] bg-gradient-to-b from-cyan-500 via-blue-700 to-blue-950 z-0">
       <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2) 0%, transparent 50%)' }} />
       {/* Sunlight Beams & Bubbles */}
       <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -159,7 +159,7 @@ const UnderwaterBackground = () => (
         <polygon points="50,-10 90,110 40,110" fill="url(#beamGrad)" />
         <polygon points="80,-10 110,110 80,110" fill="url(#beamGrad)" />
         {[...Array(30)].map((_, i) => (
-            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*1} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${i*0.4}s`, animationDuration: `${6 + Math.random()*8}s` }} />
+            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*1} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${i*0.6}s`, animationDuration: `${12 + Math.random()*10}s` }} />
         ))}
       </svg>
       {/* Deep Sea Sharks */}
@@ -373,7 +373,7 @@ const LEVEL_DICTIONARY = {
   underwater: {
     id: 'underwater', name: 'Under the Sea',
     items: UNDERWATER_ITEMS, entities: UNDERWATER_ENTITIES,
-    campPos: { x: 50, y: 22, depth: 3 }, 
+    campPos: { x: 50, y: 14, depth: 3 }, 
     mechanics: { 
         hasFish: true, 
         hasSchoolsOfFish: true, 
@@ -383,23 +383,23 @@ const LEVEL_DICTIONARY = {
         screens: 3.5 
     },
     mapNodes: [
-        /* Zone 1: Surface & Near Surface -> Dolphins and Vents */
-        { x: 30, y: 32, zone: 1 }, { x: 70, y: 32, zone: 1 }, { x: 50, y: 40, zone: 1 },
-        { x: 35, y: 46, zone: 1, isPreset: 'bubble_vent', isVent: true },
-        { x: 65, y: 46, zone: 1, isPreset: 'bubble_vent', isVent: true },
-        /* Zone 2: Deep Sea -> Mermaids and Witch */
-        { x: 30, y: 56, zone: 2 }, { x: 70, y: 56, zone: 2 }, { x: 50, y: 65, zone: 2 },
-        { x: 50, y: 74, zone: 2, id: 'sea_witch', isGatekeeper: true },
-        /* Zone 3: The Trench -> Clams and Crabs */
-        { x: 50, y: 84, zone: 3 },
-        { x: 35, y: 90, zone: 3 }, { x: 65, y: 90, zone: 3 },
-        { x: 20, y: 95, zone: 3 }, { x: 50, y: 95, zone: 3 }, { x: 80, y: 95, zone: 3 }
+        /* Zone 1: Surface & Near Surface -> Dolphins + free fish + Vents */
+        { x: 40, y: 24, zone: 1 }, { x: 60, y: 24, zone: 1 }, { x: 50, y: 34, zone: 1 },
+        { x: 35, y: 42, zone: 1, isPreset: 'bubble_vent', isVent: true },
+        { x: 65, y: 42, zone: 1, isPreset: 'bubble_vent', isVent: true },
+        /* Zone 2: Deep Sea -> Mermaids (trade items) and Sea Witch (transformation) */
+        { x: 40, y: 52, zone: 2 }, { x: 60, y: 52, zone: 2 }, { x: 50, y: 60, zone: 2 },
+        { x: 50, y: 70, zone: 2, id: 'sea_witch', isGatekeeper: true },
+        /* Zone 3: The Trench / Seabed -> 3 Clams (items hidden inside) + Crabs */
+        { x: 50, y: 80, zone: 3 },
+        { x: 35, y: 86, zone: 3 }, { x: 65, y: 86, zone: 3 },
+        { x: 25, y: 92, zone: 3 }, { x: 50, y: 92, zone: 3 }, { x: 75, y: 92, zone: 3 }
     ],
     sceneryNodes: [
-      { x: 10, y: 27, e: '🪸', s: 'text-4xl', z: 20 }, { x: 88, y: 32, e: '🪸', s: 'text-5xl', z: 20 },
-      { x: 8, y: 52, e: '🌿', s: 'text-5xl', z: 20 }, { x: 90, y: 58, e: '🌿', s: 'text-4xl', z: 20 },
-      { x: 12, y: 70, e: '🪸', s: 'text-3xl', z: 20 }, { x: 88, y: 74, e: '🌿', s: 'text-3xl', z: 20 },
-      { x: 25, y: 92, e: '🚢', s: 'text-6xl brightness-50', z: 10 }, // Shipwreck!
+      { x: 10, y: 22, e: '🪸', s: 'text-4xl', z: 20 }, { x: 88, y: 28, e: '🪸', s: 'text-5xl', z: 20 },
+      { x: 8, y: 48, e: '🌿', s: 'text-5xl', z: 20 }, { x: 90, y: 54, e: '🌿', s: 'text-4xl', z: 20 },
+      { x: 12, y: 66, e: '🪸', s: 'text-3xl', z: 20 }, { x: 88, y: 70, e: '🌿', s: 'text-3xl', z: 20 },
+      { x: 25, y: 88, e: '🚢', s: 'text-6xl brightness-50', z: 10 }, // Shipwreck!
     ],
     BackgroundComponent: UnderwaterBackground, GatekeeperPropComponent: () => null
   }
@@ -549,12 +549,13 @@ function generateUnderwaterPuzzle(level) {
   const z2Nodes = level.mapNodes.filter(n => n.zone === 2 && !n.isGatekeeper && !n.isPreset && n.id !== 'sea_witch');
   const z3Nodes = level.mapNodes.filter(n => n.zone === 3 && !n.isGatekeeper && !n.isPreset);
 
+  // Dolphins are transport-only elevators: trade a fish to hitch a ride (no item reward)
   const dolphinTpl = level.entities.find(e => e.id === 'dolphin');
   if (z1Nodes.length >= 2) {
-      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_1', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: 'shell', x: z1Nodes[0].x, y: z1Nodes[0].y, zone: z1Nodes[0].zone, isGatekeeper: false });
-      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_2', emoji: '🐬', requires: ['gold_fish'], reqType: 'OR', reward: 'pearl', x: z1Nodes[1].x, y: z1Nodes[1].y, zone: z1Nodes[1].zone, isGatekeeper: false });
+      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_1', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: null, x: z1Nodes[0].x, y: z1Nodes[0].y, zone: z1Nodes[0].zone, isGatekeeper: false });
+      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_2', emoji: '🐬', requires: ['gold_fish'], reqType: 'OR', reward: null, x: z1Nodes[1].x, y: z1Nodes[1].y, zone: z1Nodes[1].zone, isGatekeeper: false });
       if (z1Nodes.length >= 3) {
-          puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_3', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: 'starfish', x: z1Nodes[2].x, y: z1Nodes[2].y, zone: z1Nodes[2].zone, isGatekeeper: false });
+          puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_3', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: null, x: z1Nodes[2].x, y: z1Nodes[2].y, zone: z1Nodes[2].zone, isGatekeeper: false });
       }
   }
 
@@ -1012,6 +1013,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             setPathHistory(prev => [...prev, ...returnPath]);
             setTimeout(() => { 
                 setIsAnimatingLoot(false);
+                setAlertEntityId(null);
                 setIsRefillingAir(true);
             }, 2000); 
         }, 800);
@@ -1196,11 +1198,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     
     const isElevator = entity.roamClass?.includes('elevator');
     let targetY = entity.y;
-    if (isElevator && mapRef.current) {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const mapRect = mapRef.current.getBoundingClientRect();
-        targetY = ((rect.top + rect.height/2 - mapRect.top) / mapRect.height) * 100;
-    }
 
     if (level.id !== 'underwater' && !unlockedZones.includes(entity.zone) && !isReverseAccess) {
        setSelectedItemTypes([]); setSelectedEntityId(null); setIsAnimatingLoot(true); 
@@ -1229,8 +1226,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
        return;
     }
 
-    const targetX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
-    const newPath = navigateTo(targetX, targetY, entity.zone, entity.depth || 3, !entity.roamClass);
+    const targetX = entity.x;
+    const newPath = navigateTo(targetX, targetY, entity.zone, entity.depth || 3, true);
     const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
     
@@ -1608,7 +1605,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           `}</style>
           {roamingBoats.map(b => {
              return (
-               <div key={b.id} onClick={(e) => handleBoatTrade(e, b)} className={`absolute cursor-pointer z-[120] hover:scale-110 drop-shadow-xl ${b.isRight ? 'animate-boat-glide-right' : 'animate-boat-glide-left'}`} style={{ top: '19%' }}>
+               <div key={b.id} onClick={(e) => handleBoatTrade(e, b)} className={`absolute cursor-pointer z-[120] hover:scale-110 drop-shadow-xl ${b.isRight ? 'animate-boat-glide-right' : 'animate-boat-glide-left'}`} style={{ top: '11%' }}>
                  <BoatSVG />
                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/90 border-2 border-amber-600 rounded-full p-2 flex items-center gap-1 shadow-lg animate-bounce">
                     <span className="text-xl">🐟</span>
@@ -1687,7 +1684,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             const entZ = isSelected ? 150 : ( (inLight && !inFog) ? 105 : (isRock ? 99 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5)) );
 
             const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 scale-50 transition-all duration-1000' : (isDefeated && !ent.isGatekeeper) || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
-            const wrapperClasses = `absolute flex flex-col items-center p-4 -m-4 transition-all duration-300 ${ent.roamClass ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
+            const wrapperClasses = `absolute flex flex-col items-center p-4 -m-4 transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
             const isNearLeft = !ent.roamClass && ent.x <= 20;
             const isNearRight = !ent.roamClass && ent.x >= 80;
@@ -1705,7 +1702,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 // Large vertical swim range for "elevators"
                 visualY += Math.sin(gameTime * 1.5 + (ent.id.length * 0.7)) * 20;
             }
-            const entityStyle = ent.roamClass ? { top: `${visualY}%`, zIndex: entZ } : { left: `${ent.x}%`, top: `${visualY}%`, zIndex: entZ };
+            const entityStyle = { left: `${ent.x}%`, top: `${visualY}%`, zIndex: entZ };
 
             return (
               <div key={ent.id} onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
@@ -1743,16 +1740,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                       <div className={`relative transition-all duration-700 ease-in-out ${(!isRock && !isCurrent && ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (!isRock && !isCurrent && ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : (!isRock && !isCurrent && isDefeated) ? 'opacity-50 grayscale' : ''}`}>
                         
                         {!isGoal && !ent.isRepeatable && !ent.isPreset && (
-                          (isBuried && level.id === 'underwater') ? (
-                            // Closed underwater clam: item is INSIDE the SVG, not shown here
+                          level.id === 'underwater' ? (
+                            // Underwater: all items hidden inside entities (clams, etc.) — no external reward display
                             null
                           ) : (!isDefeated && rewardItem && isBuried) ? (
                             <>
                               <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
                               <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-16' : 'translate-x-16'} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : `${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-0 opacity-0 -z-10`}`}>❓</div>
                             </>
-                          ) : (!isDefeated && rewardItem && level.id !== 'underwater') ? (
-                            <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-8' : 'translate-x-8'} translate-y-0 rotate-0 scale-90 opacity-90 -z-10 animate-bob`}`}>{rewardItem.emoji}</div>
                           ) : (!isDefeated && rewardItem && !isDigger) ? (
                              <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-8' : 'translate-x-8'} translate-y-0 rotate-0 scale-90 opacity-90 -z-10 animate-bob`}`}>{rewardItem.emoji}</div>
                           ) : null
@@ -1899,8 +1894,8 @@ const App = () => {
         .animate-star-burst-infinite { animation: starBurstInfinite 2.5s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
         @keyframes fishSwim { 0% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 12% { left: 25%; top: 48%; transform: translate(-50%, -50%) scaleX(-1); } 22% { left: 50%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 34% { left: 75%; top: 58%; transform: translate(-50%, -50%) scaleX(-1); } 45% { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } 50% { left: 110%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 62% { left: 75%; top: 58%; transform: translate(-50%, -50%) scaleX(1); } 72% { left: 50%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 84% { left: 25%; top: 48%; transform: translate(-50%, -50%) scaleX(1); } 95% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(1); } 100% { left: -10%; top: 53%; transform: translate(-50%, -50%) scaleX(-1); } }
         .animate-fish-swim { animation: fishSwim 18s linear infinite; }
-        @keyframes bubble { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.5; } 100% { transform: translateY(-150px); opacity: 0; } }
-        .animate-bubble { animation: bubble 8s linear infinite; }
+        @keyframes bubble { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.4; } 100% { transform: translateY(-200px); opacity: 0; } }
+        .animate-bubble { animation: bubble 14s linear infinite; }
         @keyframes sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
         .animate-sway { animation: sway 4s ease-in-out infinite; transform-origin: bottom; }
         @keyframes swaySlow { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
