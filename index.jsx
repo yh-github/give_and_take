@@ -93,19 +93,23 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   useEffect(() => {
     if (!level.mechanics.hasSchoolsOfFish) return;
     let timeoutIds = [];
-    const spawnFish = () => {
+    const spawnFish = (isInitial = false) => {
       if (isDemoRef.current || isVicRef.current) return;
       const id = Date.now() + Math.random();
       const type = Math.random() > 0.6 && level.id === 'underwater' ? 'gold_fish' : 'fish';
-      const depth = Math.floor(Math.random() * 3) + 1; const yPos = 30 + depth * 10 + Math.random() * 30; 
+      const depth = Math.floor(Math.random() * 3) + 1; 
+      const yPos = isInitial ? (15 + Math.random() * 20) : (20 + Math.random() * 70); 
       const isRight = Math.random() > 0.5;
-      setSchoolsOfFish(prev => [...prev, { id, type, y: yPos, depth, isRight }]);
-      const tId = setTimeout(() => { setSchoolsOfFish(prev => prev.filter(f => f.id !== id)); }, 10000); 
+      setSchoolsOfFish(prev => [...prev, { id, type, y: yPos, depth, isRight, speed: 8 + Math.random() * 10 }]);
+      const tId = setTimeout(() => { setSchoolsOfFish(prev => prev.filter(f => f.id !== id)); }, 12000); 
       timeoutIds.push(tId);
     };
-    const intervalId = setInterval(spawnFish, 1200);
+    if (level.id === 'underwater') {
+        for(let i=0; i<6; i++) spawnFish(true);
+    }
+    const intervalId = setInterval(() => spawnFish(false), 1500);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
-  }, [level.mechanics.hasSchoolsOfFish]);
+  }, [level.mechanics.hasSchoolsOfFish, level.id]);
 
   useEffect(() => {
     if (level.id !== 'underwater') return;
@@ -338,7 +342,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const rect = mapRef.current.getBoundingClientRect();
     saveHistory(); setIsAnimatingLoot(true);
     const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
-    setPathHistory(prev => [...prev, { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100, depth: fishObj.depth, zone: currentZone }]);
+    const targetX = ((e.clientX - rect.left) / rect.width) * 100;
+    const targetY = fishObj.y;
+    setPathHistory(prev => [...prev, { x: targetX, y: targetY, depth: fishObj.depth, zone: currentZone }]);
     setTimeout(() => {
       setSchoolsOfFish(currentFish => {
         if (currentFish.some(f => f.id === fishObj.id)) { setInventory(prev => [...prev, fishObj.type]); return currentFish.filter(f => f.id !== fishObj.id); }
@@ -521,9 +527,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         return [...prev, ...newPath];
     });
 
-    if (entity.roamClass?.includes('elevator')) setAttachedEntityId(entity.id);
-
     if (defeated.includes(entity.id)) { 
+        // If it's a tamed elevator, we can attach to it without needing more items
+        if (entity.roamClass?.includes('elevator')) setAttachedEntityId(entity.id);
         handlePostActionAir(targetY, entity.isVent); 
         return; 
     }
@@ -655,12 +661,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
       setDefeated(prev => {
           if (entity.id === 'sea_witch') return prev; // Witch doesn't disappear
+          if (entity.id === 'dolphin_1') return [...prev, entity.id]; // Don't remove it, but record it
           const newDef = [...prev, entity.id];
           if (entity.isGatekeeper && entity.unlocksZones) {
               setUnlockedZones(uz => [...new Set([...uz, ...(entity.unlocksZones || []), entity.zone])]);
           }
           return newDef;
       });
+      
+      // Attach to elevator once defeated via items
+      if (entity.roamClass?.includes('elevator')) {
+          setAttachedEntityId(entity.id);
+      }
       
       setSelectedItemTypes([]); setSelectedEntityId(null);
 
@@ -789,11 +801,52 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const playerTransition = isDrowning ? 'duration-[3000ms] ease-linear' : 'duration-700 ease-in-out';
   const GatekeeperProp = level.GatekeeperPropComponent;
 
+          const getCustomEntityMovement = (ent) => {
+            if (level.id !== 'underwater') return null;
+            if (ent.id === 'dolphin_1') {
+              const t = gameTime * 0.8;
+              let y = 47 + Math.sin(t) * 23; // From 24 to 70
+              let x = 50 + Math.sin(t * 1.5) * 15; // Gentle swaying
+              
+              let rotate = 0;
+              let flip = Math.cos(t * 1.5) < 0;
+
+              // Top somersault
+              const topDiff = Math.abs(24 - y);
+              if (topDiff < 2) {
+                 rotate = (1 - (topDiff / 2)) * 360 * (flip ? -1 : 1);
+              }
+
+              return { x, y, rotate, flip };
+            }
+            if (ent.id.startsWith('mermaid')) {
+              const idx = parseInt(ent.id.split('_')[1]) || 0;
+              const t = gameTime * 0.4 + (idx * Math.PI * 2 / 3);
+              return {
+                x: 50 + Math.cos(t) * 25,
+                y: 70 + Math.sin(t) * 12,
+                rotate: Math.sin(t) * 10,
+                flip: Math.cos(t) > 0
+              };
+            }
+            return null;
+          };
+
+          let playerVisualX = displayPlayerPos.x;
           let playerVisualY = displayPlayerPos.y;
+          let playerRotation = 0;
+
           if (attachedEntityId) {
               const attachedEnt = puzzle.puzzleEntities.find(e => e.id === attachedEntityId);
-              if (attachedEnt && attachedEnt.roamClass?.includes('elevator')) {
-                  playerVisualY += Math.sin(gameTime * 1.5 + (attachedEnt.id.length * 0.7)) * 20;
+              if (attachedEnt) {
+                  const custom = getCustomEntityMovement(attachedEnt);
+                  if (custom) {
+                      playerVisualX = custom.x;
+                      playerVisualY = custom.y;
+                      playerRotation = custom.rotate;
+                  } else if (attachedEnt.roamClass?.includes('elevator')) {
+                      playerVisualY += Math.sin(gameTime * 1.5 + (attachedEnt.id.length * 0.7)) * 20;
+                  }
               }
           }
 
@@ -805,7 +858,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                   <div className="relative w-full h-full">
                     {[...Array(40)].map((_, i) => (
                       <div key={i} className="absolute text-4xl animate-magic-particle" style={{ 
-                        left: `${displayPlayerPos.x}%`, 
+                        left: `${playerVisualX}%`, 
                         top: `${playerVisualY}%`,
                         '--dx': `${(Math.random() - 0.5) * 600}px`,
                         '--dy': `${(Math.random() - 0.5) * 600}px`,
@@ -866,11 +919,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           {level.mechanics.hasFish && envItemState === 'active' && ( <div className="absolute cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform" style={{zIndex: 25}} onClick={handleCatchRiverFish}>🐟</div> )}
           {level.mechanics.hasFish && envItemState === 'caught' && ( <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}><span className="text-3xl">🐟</span></div> )}
 
-          {schoolsOfFish.map(f => {
+           {schoolsOfFish.map(f => {
              const fScale = f.depth === 1 ? 'scale-50' : f.depth === 2 ? 'scale-75' : 'scale-100';
              const fFilter = f.depth === 1 ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : f.depth === 2 ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
+             const animName = f.isRight ? 'swimRight' : 'swimLeft';
+             const duration = f.speed ? `${f.speed}s` : '10s';
              return (
-               <div key={f.id} onClick={(e) => handleCatchSchoolFish(e, f)} className={`absolute cursor-pointer text-4xl transition-transform hover:brightness-150 ${f.isRight ? 'animate-[swimRight_10s_linear_forwards]' : 'animate-[swimLeft_10s_linear_forwards]'}`} style={{ top: `${f.y}%`, zIndex: f.depth * 10 + 5 }}>
+               <div key={f.id} onClick={(e) => handleCatchSchoolFish(e, f)} className="absolute cursor-pointer text-4xl transition-transform hover:brightness-150" style={{ top: `${f.y}%`, zIndex: f.depth * 10 + 5, left: '-20%', animation: `${animName} ${duration} linear forwards` }}>
                  <div className={`inline-block ${f.isRight ? 'scale-x-[-1]' : ''} ${fScale} ${fFilter}`}>{level.items.find(i => i.id === f.type)?.emoji || '🐟'}</div>
                </div>
              );
@@ -955,7 +1010,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             const inLight = eDist < 28;
             const entZ = isSelected ? 150 : ( (inLight && !inFog) ? 105 : (isRock ? 99 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5)) );
 
-            const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 scale-50 transition-all duration-1000' : (isDefeated && !ent.isGatekeeper) || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+            const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 scale-50 transition-all duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
             const wrapperClasses = `absolute flex flex-col items-center p-4 -m-4 transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
             const isNearLeft = !ent.roamClass && ent.x <= 20;
@@ -968,13 +1023,23 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             
             const isBuried = isDigger && buriedEntities.includes(ent.id);
             const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
+            const customMove = getCustomEntityMovement(ent);
             const isElevator = ent.roamClass?.includes('elevator');
+            let visualX = ent.x;
             let visualY = ent.y;
-            if (isElevator) {
+            let visualRotation = 0;
+            let isFlipped = ent.isRight;
+
+            if (customMove) {
+                visualX = customMove.x;
+                visualY = customMove.y;
+                visualRotation = customMove.rotate;
+                isFlipped = customMove.flip;
+            } else if (isElevator) {
                 // Large vertical swim range for "elevators"
                 visualY += Math.sin(gameTime * 1.5 + (ent.id.length * 0.7)) * 20;
             }
-            const entityStyle = { left: `${ent.x}%`, top: `${visualY}%`, zIndex: entZ };
+            const entityStyle = { left: `${visualX}%`, top: `${visualY}%`, zIndex: entZ, transform: `translate(-50%, -50%) rotate(${visualRotation}deg)` };
 
             return (
               <div key={ent.id} onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
@@ -1009,7 +1074,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                     <div className="relative">
                       {ent.isGatekeeper && !isRock && !isCurrent && GatekeeperProp && <GatekeeperProp />}
                       
-                      <div className={`relative transition-all duration-700 ease-in-out ${(!isRock && !isCurrent && ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (!isRock && !isCurrent && ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : (!isRock && !isCurrent && isDefeated) ? 'opacity-50 grayscale' : ''}`}>
+                      <div className={`relative transition-all duration-700 ease-in-out ${(!isRock && !isCurrent && ent.isGatekeeper && isDefeated) ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' : (!isRock && !isCurrent && ent.isGatekeeper && isSelected) ? 'translate-x-8 translate-y-2 rotate-3' : (!isRock && !isCurrent && isDefeated && ent.id !== 'dolphin_1') ? 'opacity-50 grayscale' : ''}`}>
                         
                         {!isGoal && !ent.isRepeatable && !ent.isPreset && (
                           level.id === 'underwater' ? (
@@ -1039,7 +1104,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                            ) : isCurrent && !isDefeated ? (
                              <div className={`text-5xl animate-spin-slow ${isAlerting ? 'animate-troll-mad text-red-500' : 'text-cyan-400'}`}>🌀</div>
                            ) : (
-                             <div className={`${ent.filterClass || ''} ${ent.isRight ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
+                             <div className={`${ent.filterClass || ''} ${isFlipped ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
                                {isAlerting && !ent.isPreset ? (ent.id.startsWith('mermaid') ? '🥺' : '😡') : 
                                 isAlerting ? '🚫' : 
                                 level.id === 'underwater' ? (
@@ -1072,7 +1137,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             );
           })}
 
-          <div className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} style={{ left: `${displayPlayerPos.x}%`, top: `${playerVisualY}%`, zIndex: Math.max(playerZ, 130) }}>
+          <div className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} style={{ left: `${playerVisualX}%`, top: `${playerVisualY}%`, zIndex: Math.max(playerZ, 130), transform: `translate(-50%, -50%) rotate(${playerRotation}deg)` }}>
             <div className={`text-white w-10 h-10 rounded-full flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.8)] text-2xl relative ${isTransformed ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' : (level.mechanics.hasAir ? 'bg-cyan-600 border-2 border-cyan-200' : 'bg-blue-600 border-2 border-white')} ${level.mechanics.heroBobs && !isDrowning ? 'animate-bob' : ''}`}>
               {heroFace}
               {level.mechanics.darknessType === 'radial' && <div className="absolute -right-3 -bottom-2 text-xl z-50 drop-shadow-[0_0_10px_rgba(251,191,36,1)]">🕯️</div>}

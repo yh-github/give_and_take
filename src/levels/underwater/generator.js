@@ -17,12 +17,8 @@ export function generateUnderwaterPuzzle(level) {
 
   // Dolphins are transport-only elevators: trade a fish to hitch a ride (no item reward)
   const dolphinTpl = level.entities.find(e => e.id === 'dolphin');
-  if (z1Nodes.length >= 2) {
-      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_1', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: null, x: z1Nodes[0].x, y: z1Nodes[0].y, zone: z1Nodes[0].zone, isGatekeeper: false });
-      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_2', emoji: '🐬', requires: ['gold_fish'], reqType: 'OR', reward: null, x: z1Nodes[1].x, y: z1Nodes[1].y, zone: z1Nodes[1].zone, isGatekeeper: false });
-      if (z1Nodes.length >= 3) {
-          puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_3', emoji: '🐬', requires: ['fish'], reqType: 'OR', reward: null, x: z1Nodes[2].x, y: z1Nodes[2].y, zone: z1Nodes[2].zone, isGatekeeper: false });
-      }
+  if (z1Nodes.length >= 1) {
+      puzzleEntities.push({ ...dolphinTpl, id: 'dolphin_1', emoji: '🐬', requires: ['fish', 'gold_fish'], reqType: 'OR', reward: null, x: z1Nodes[0].x, y: z1Nodes[0].y, zone: z1Nodes[0].zone, isGatekeeper: false });
   }
 
   const mermaidTpl = level.entities.find(e => e.id.startsWith('mermaid'));
