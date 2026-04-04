@@ -40,7 +40,8 @@ export const mapNodes = [
 // === Underwater: Scenery ===
 export const sceneryNodes = [
   { x: 10, y: 22, e: '🪸', s: 'text-4xl', z: 20 }, { x: 88, y: 28, e: '🪸', s: 'text-5xl', z: 20 },
-  { x: 8, y: 48, e: '🌿', s: 'text-5xl', z: 20 }, { x: 90, y: 54, e: '🌿', s: 'text-4xl', z: 20 },
-  { x: 12, y: 66, e: '🪸', s: 'text-3xl', z: 20 }, { x: 88, y: 70, e: '🌿', s: 'text-3xl', z: 20 },
+  { x: 6, y: 48, e: '🪸', s: 'text-5xl', z: 20 }, { x: 92, y: 54, e: '🪸', s: 'text-4xl', z: 20 },
+  { x: 12, y: 66, e: '🪸', s: 'text-3xl', z: 20 }, { x: 88, y: 70, e: '🪸', s: 'text-3xl', z: 20 },
+  { x: 4, y: 55, e: '🌱', s: 'text-3xl', z: 20 }, { x: 94, y: 62, e: '🌱', s: 'text-3xl', z: 20 },
   { x: 25, y: 88, e: '🚢', s: 'text-6xl brightness-50', z: 10 }, // Shipwreck!
 ];

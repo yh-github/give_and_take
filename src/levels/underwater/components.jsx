@@ -5,32 +5,64 @@ export const UnderwaterBackground = () => (
     {/* Sky section */}
     <div className="absolute top-0 left-0 w-full h-[12%] bg-gradient-to-b from-sky-400 via-sky-200 to-sky-100 z-0" />
     
-    {/* Surface waves - Layered for WOW factor */}
-    <div className="absolute top-[12%] left-0 w-full h-[6%] z-10 overflow-hidden">
-      {[...Array(4)].map((_, i) => (
-        <svg key={`wave-${i}`} className="absolute w-[300%] h-full -translate-x-1/3 animate-river-flow" style={{ animationDuration: `${8 + i * 4}s`, opacity: 0.4 - i * 0.1, top: `${i * 2}px` }} preserveAspectRatio="none" viewBox="0 0 1000 100">
-           <path d="M 0 50 Q 250 30 500 50 T 1000 50 L 1000 100 L 0 100 Z" fill="#38bdf8" />
+    {/* === Isometric Water Surface === */}
+    <div className="absolute top-[12%] left-0 w-full h-[8%] z-10 overflow-visible">
+      {/* Base water fill underneath */}
+      <div className="absolute inset-0 bg-cyan-500" />
+      {/* Isometric top-face of water — a wide diamond/parallelogram stretching off-screen */}
+      <svg className="absolute w-full overflow-visible" style={{ top: '-60%', height: '200%' }} viewBox="0 0 100 60" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="waterTopGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.7" />
+          </linearGradient>
+          {/* Animated ripple pattern */}
+          <pattern id="ripple" x="0" y="0" width="20" height="6" patternUnits="userSpaceOnUse">
+            <ellipse cx="10" cy="3" rx="8" ry="1.2" fill="none" stroke="#bae6fd" strokeWidth="0.4" opacity="0.5"/>
+          </pattern>
+        </defs>
+        {/* The isometric top face — parallelogram with perspective tilt */}
+        <path d="M -10 45 L 50 25 L 110 45 L 50 65 Z" fill="url(#waterTopGrad)" />
+        {/* Ripples on the top face */}
+        <path d="M -10 45 L 50 25 L 110 45 L 50 65 Z" fill="url(#ripple)" opacity="0.6" />
+        {/* Foam/highlight at top edge */}
+        <path d="M -10 45 L 50 25 L 110 45" fill="none" stroke="#e0f2fe" strokeWidth="0.8" opacity="0.8" />
+        {/* Animated wave glints */}
+        {[10, 28, 46, 64, 82].map((x, i) => (
+          <ellipse key={i} cx={x} cy={35 + (i % 2) * 4} rx="4" ry="0.6"
+            fill="none" stroke="#bae6fd" strokeWidth="0.5" opacity="0.6"
+            style={{ animation: `waveGlint ${2 + i * 0.4}s ease-in-out infinite`, animationDelay: `${i * 0.3}s` }}
+          />
+        ))}
+      </svg>
+      {/* Layered animated waves flowing across the water face */}
+      {[...Array(3)].map((_, i) => (
+        <svg key={`wave-${i}`} className="absolute w-[300%] h-full -translate-x-1/3 animate-river-flow" style={{ animationDuration: `${8 + i * 4}s`, opacity: 0.25 - i * 0.05, top: `${i * 20}%` }} preserveAspectRatio="none" viewBox="0 0 1000 100">
+          <path d="M 0 50 Q 250 30 500 50 T 1000 50 L 1000 100 L 0 100 Z" fill="#38bdf8" />
         </svg>
       ))}
     </div>
 
     {/* Deep Sea Gradient */}
-    <div className="absolute top-[12%] left-0 w-full h-[88%] bg-gradient-to-b from-cyan-500 via-blue-700 to-blue-950 z-0">
+    <div className="absolute top-[20%] left-0 w-full h-[80%] bg-gradient-to-b from-cyan-500 via-blue-700 to-blue-950 z-0">
       <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2) 0%, transparent 50%)' }} />
       {/* Sunlight Beams & Bubbles */}
       <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
             <linearGradient id="beamGrad" x1="0%" y1="0%" x2="40%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#fff', stopOpacity: 0.15 }} />
+                <stop offset="0%" style={{ stopColor: '#fff', stopOpacity: 0.12 }} />
                 <stop offset="100%" style={{ stopColor: '#fff', stopOpacity: 0 }} />
             </linearGradient>
         </defs>
         <polygon points="10,-10 40,110 0,110" fill="url(#beamGrad)" />
         <polygon points="50,-10 90,110 40,110" fill="url(#beamGrad)" />
         <polygon points="80,-10 110,110 80,110" fill="url(#beamGrad)" />
-        {[...Array(30)].map((_, i) => (
-            <circle key={i} cx={Math.random()*100} cy="100" r={0.2 + Math.random()*1} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${i*0.6}s`, animationDuration: `${12 + Math.random()*10}s` }} />
-        ))}
+        {[...Array(28)].map((_, i) => {
+            const cx = (i * 37 + 13) % 100;
+            return (
+                <circle key={i} cx={cx} cy="100" r={0.2 + (i % 5) * 0.2} fill="white" opacity="0.3" className="animate-bubble" style={{ animationDelay: `${i*0.6}s`, animationDuration: `${12 + (i % 5) * 2}s` }} />
+            );
+        })}
       </svg>
       {/* Deep Sea Sharks */}
       <svg style={{ width: '100%', height: '100%', position: 'absolute' }} viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -47,43 +79,48 @@ export const UnderwaterBackground = () => (
       </svg>
     </div>
 
-    {/* Isometric Seabed */}
-    <svg className="absolute bottom-0 w-full h-[35%] z-20" preserveAspectRatio="none" viewBox="0 0 100 100">
+    {/* === Sandy Seabed — rounded dunes, no boxes === */}
+    <svg className="absolute bottom-0 w-full h-[32%] z-20" preserveAspectRatio="none" viewBox="0 0 200 100">
       <defs>
-        <filter id="shadow">
-          <feDropShadow dx="0" dy="2" stdDeviation="1" floodColor="#000" floodOpacity="0.5"/>
-        </filter>
-        <linearGradient id="sandTop" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#fde68a" />
-          <stop offset="100%" stopColor="#fcd34d" />
+        <linearGradient id="sandDuneGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fcd34d" />
+          <stop offset="50%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#d97706" />
         </linearGradient>
+        <linearGradient id="sandRippleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#fde68a" stopOpacity="0.7"/>
+          <stop offset="100%" stopColor="#fcd34d" stopOpacity="0"/>
+        </linearGradient>
+        <filter id="duneShadow">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+          <feOffset dx="0" dy="2"/>
+          <feComposite in2="SourceGraphic"/>
+        </filter>
       </defs>
-      
-      {/* Background Deep Trench fading */}
-      <path d="M 0 15 L 50 -5 L 100 15 L 50 35 Z" fill="#1e3a8a" opacity="0.4" />
-      
-      {/* Top Face of the Isometric Seabed Platform */}
-      <path d="M 0 45 L 50 25 L 100 45 L 50 65 Z" fill="url(#sandTop)" filter="url(#shadow)" />
-      
-      {/* Left Face of Platform */}
-      <path d="M 0 45 L 50 65 L 50 110 L 0 110 Z" fill="#d97706" />
-      
-      {/* Right Face of Platform */}
-      <path d="M 50 65 L 100 45 L 100 110 L 50 110 Z" fill="#b45309" />
-      
-      {/* Stepped secondary platform on the left */}
-      <path d="M -10 65 L 20 50 L 50 65 L 20 80 Z" fill="#fde047" opacity="0.9" />
-      <path d="M -10 65 L 20 80 L 20 110 L -10 110 Z" fill="#ca8a04" opacity="0.9" />
-      <path d="M 20 80 L 50 65 L 50 110 L 20 110 Z" fill="#a16207" opacity="0.9" />
-      
-      {/* Small scattered isometric rock blocks */}
-      <path d="M 75 40 L 80 37 L 85 40 L 80 43 Z" fill="#78350f" filter="url(#shadow)" />
-      <path d="M 75 40 L 80 43 L 80 48 L 75 45 Z" fill="#451a03" />
-      <path d="M 80 43 L 85 40 L 85 45 L 80 48 Z" fill="#581c87" />
 
-      <path d="M 30 50 L 35 48 L 40 50 L 35 52 Z" fill="#78350f" filter="url(#shadow)" opacity="0.8" />
-      <path d="M 30 50 L 35 52 L 35 55 L 30 53 Z" fill="#451a03" opacity="0.8" />
-      <path d="M 35 52 L 40 50 L 40 53 L 35 55 Z" fill="#581c87" opacity="0.8" />
+      {/* Back dune —  wide gentle hill */}
+      <path d="M -10 70 Q 30 45 70 55 Q 110 65 150 48 Q 180 38 210 55 L 210 110 L -10 110 Z"
+        fill="#d97706" opacity="0.5" />
+
+      {/* Main sand floor — large smooth dunes */}
+      <path d="M -10 80 Q 20 60 55 68 Q 90 75 120 58 Q 150 44 180 62 Q 195 70 210 65 L 210 110 L -10 110 Z"
+        fill="url(#sandDuneGrad)" />
+
+      {/* Surface highlight ripples baked on top */}
+      <path d="M 10 68 Q 40 60 75 67 Q 110 73 140 60 Q 165 50 195 64"
+        fill="none" stroke="#fde68a" strokeWidth="1.2" opacity="0.5" strokeLinecap="round"/>
+      <path d="M 5 75 Q 35 68 65 73 Q 100 79 130 67 Q 160 56 200 70"
+        fill="none" stroke="#fde68a" strokeWidth="0.8" opacity="0.35" strokeLinecap="round"/>
+
+      {/* Foreground smaller ripple dune (bottom) */}
+      <path d="M -10 88 Q 25 78 60 83 Q 95 88 130 78 Q 160 70 210 80 L 210 110 L -10 110 Z"
+        fill="#e8a020" opacity="0.6" />
+
+      {/* Sandy surface shimmer dots */}
+      {[12, 35, 58, 82, 110, 140, 168].map((x, i) => (
+        <ellipse key={i} cx={x} cy={68 + (i % 3) * 4} rx={2 + (i % 2)} ry="0.7"
+          fill="#fde68a" opacity="0.35" />
+      ))}
     </svg>
   </div>
 );
