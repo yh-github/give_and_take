@@ -6,7 +6,7 @@ export const UnderwaterBackground = () => (
     <div className="absolute top-0 left-0 w-full h-[12%] bg-gradient-to-b from-sky-400 via-sky-200 to-sky-100 z-0" />
     
     {/* === Isometric Water Surface === */}
-    <div className="absolute top-[12%] left-0 w-full h-[8%] z-10 overflow-visible">
+    <div className="absolute top-[12%] left-0 w-full h-[8%] z-10 overflow-visible animate-tide-surface">
       {/* Base water fill underneath */}
       <div className="absolute inset-0 bg-cyan-500" />
       {/* Isometric top-face of water — a wide diamond/parallelogram stretching off-screen */}
