@@ -58,6 +58,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [attachedEntityId, setAttachedEntityId] = useState(null);
   const [isMagicAnimating, setIsMagicAnimating] = useState(false);
 
+  const [dolphinZone, setDolphinZone] = useState(1);
+  const [dolphinYPos, setDolphinYPos] = useState(31);
+  const dolphinZoneRef = useRef(1);
+  useEffect(() => { dolphinZoneRef.current = dolphinZone; }, [dolphinZone]);
+
   const airRef = useRef(air); airRef.current = air;
   const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
   const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
@@ -84,6 +89,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     let frameId;
     const update = (time) => {
       setGameTime(time / 1000);
+      setDolphinYPos(prev => {
+          const target = dolphinZoneRef.current === 1 ? 31 : 55;
+          if (Math.abs(prev - target) < 0.1) return target;
+          return prev + (target - prev) * 0.04;
+      });
       frameId = requestAnimationFrame(update);
     };
     frameId = requestAnimationFrame(update);
@@ -493,6 +503,20 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const isElevator = entity.roamClass?.includes('elevator');
     let targetY = entity.y;
 
+    // For the dolphin (custom-movement entity), use its current visual Y so navigation
+    // places the hero at the dolphin's actual on-screen location.
+    if (level.id === 'underwater' && entity.id === 'dolphin_1' && puzzle) {
+      const cm = (() => {
+        const t = (Date.now() / 1000) * 0.9;
+        const n = 6;
+        const cosT = Math.cos(t); const sinT = Math.sin(t);
+        const normX = Math.sign(cosT) * Math.pow(Math.abs(cosT), 2/n);
+        const normY = Math.sign(sinT) * Math.pow(Math.abs(sinT), 2/n);
+        return { x: 50 + normX * 12, y: dolphinYPos + normY * (dolphinZone === 1 ? 7 : 3) };
+      })();
+      targetY = cm.y;
+    }
+
     if (level.id !== 'underwater' && !unlockedZones.includes(entity.zone) && !isReverseAccess) {
        setSelectedItemTypes([]); setSelectedEntityId(null); setIsAnimatingLoot(true); 
        
@@ -531,8 +555,23 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     });
 
     if (defeated.includes(entity.id)) { 
-        // If it's a tamed elevator, we can attach to it without needing more items
-        if (entity.roamClass?.includes('elevator')) setAttachedEntityId(entity.id);
+        // If it's a tamed elevator/dolphin, re-attach so it carries the hero
+        if (entity.roamClass?.includes('elevator')) {
+            setAttachedEntityId(entity.id);
+            if (entity.id === 'dolphin_1') {
+                const newDolphinZone = dolphinZone === 1 ? 2 : 1;
+                setDolphinZone(newDolphinZone);
+                // Dolphin: dive or rise to the new zone
+                setTimeout(() => {
+                    const finalDst = { x: 50, y: newDolphinZone === 1 ? 31 : 55, zone: newDolphinZone };
+                    setPathHistory(prev => [...prev, finalDst]);
+                    setAttachedEntityId(null);
+                    setIsAnimatingLoot(false);
+                }, 1800);
+                setIsAnimatingLoot(true);
+                return;
+            }
+        }
         handlePostActionAir(targetY, entity.isVent); 
         return; 
     }
@@ -664,16 +703,32 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
       setDefeated(prev => {
           if (entity.id === 'sea_witch') return prev; // Witch doesn't disappear
-          if (entity.id === 'dolphin_1') return [...prev, entity.id]; // Don't remove it, but record it
+          if (entity.id === 'dolphin_1') return [...prev, entity.id]; // record taming but keep it alive
           const newDef = [...prev, entity.id];
           if (entity.isGatekeeper && entity.unlocksZones) {
               setUnlockedZones(uz => [...new Set([...uz, ...(entity.unlocksZones || []), entity.zone])]);
           }
           return newDef;
       });
-      
-      // Attach to elevator once defeated via items
-      if (entity.roamClass?.includes('elevator')) {
+
+      // When dolphin is tamed with fish: show the dive animation then deposit hero into zone 2
+      if (entity.id === 'dolphin_1') {
+          setAttachedEntityId('dolphin_1');
+          
+          const newDolphinZone = dolphinZone === 1 ? 2 : 1;
+          setDolphinZone(newDolphinZone);
+          
+          // After showing the ride, release at the new zone
+          setTimeout(() => {
+              const finalDst = { x: 50, y: newDolphinZone === 1 ? 31 : 55, zone: newDolphinZone };
+              setPathHistory(prev => [...prev, finalDst]);
+              setAttachedEntityId(null);
+              setIsAnimatingLoot(false);
+          }, 1800);
+          // Don't fall through to the normal reward/isAnimatingLoot clear below
+          setSelectedItemTypes([]); setSelectedEntityId(null);
+          return;
+      } else if (entity.roamClass?.includes('elevator')) {
           setAttachedEntityId(entity.id);
       }
       
@@ -791,11 +846,28 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   let mapTranslateY = '0%';
   if (level.mechanics.isVertical) {
-      const screenPct = 100 / level.mechanics.screens; 
-      const maxScrollPct = 100 - screenPct; 
-      let targetScroll = displayPlayerPos.y - (screenPct / 2); 
-      if (targetScroll < 0) targetScroll = 0; 
-      if (targetScroll > maxScrollPct) targetScroll = maxScrollPct; 
+      const screenPct = 100 / level.mechanics.screens;
+      const maxScrollPct = 100 - screenPct;
+      // Use playerVisualY (which tracks attached entity) for camera so camera follows dolphin/drowning correctly.
+      // We compute it early here for the camera, then recompute for rendering below.
+      const _attachedEnt = puzzle ? puzzle.puzzleEntities.find(e => e.id === attachedEntityId) : null;
+      let _scrollY = displayPlayerPos.y;
+      if (_attachedEnt) {
+          // Mirror the squircle y so camera tracks the dolphin
+          if (_attachedEnt.id === 'dolphin_1') {
+              const _t = gameTime * 0.8;
+              const _n = 6;
+              const _sinT = Math.sin(_t);
+              const _normY = Math.sign(_sinT) * Math.pow(Math.abs(_sinT), 2 / _n);
+              const yRange = dolphinZone === 1 ? 7 : 3;
+              _scrollY = dolphinYPos + _normY * yRange;
+          } else if (_attachedEnt.roamClass?.includes('elevator')) {
+              _scrollY = displayPlayerPos.y + Math.sin(gameTime * 1.5 + (_attachedEnt.id.length * 0.7)) * 20;
+          }
+      }
+      let targetScroll = _scrollY - (screenPct / 2);
+      if (targetScroll < 0) targetScroll = 0;
+      if (targetScroll > maxScrollPct) targetScroll = maxScrollPct;
       mapTranslateY = `-${targetScroll}%`;
   }
 
@@ -807,20 +879,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           const getCustomEntityMovement = (ent) => {
             if (level.id !== 'underwater') return null;
             if (ent.id === 'dolphin_1') {
-              const t = gameTime * 0.8;
-              const n = 6; // Squircle flatness
+              // Dolphin patrols surface or deep zone, toggling on interact
+              const t = gameTime * 0.9;
+              const n = 6;
               const cosT = Math.cos(t);
               const sinT = Math.sin(t);
               const normX = Math.sign(cosT) * Math.pow(Math.abs(cosT), 2/n);
               const normY = Math.sign(sinT) * Math.pow(Math.abs(sinT), 2/n);
-              
-              let x = 50 + normX * 10; // Narrow horizontal
-              let y = 47 + normY * 23; // Long vertical
-              
-              let rotate = 0;
-              let flip = sinT > 0; // Flip when moving left
-
-              return { x, y, rotate, flip };
+              const x = 50 + normX * 12; // narrow side-to-side
+              const yRange = dolphinZoneRef.current === 1 ? 7 : 3;
+              const y = dolphinYPos + normY * yRange;
+              const flip = cosT < 0;
+              return { x, y, rotate: 0, flip };
             }
             if (ent.id.startsWith('mermaid')) {
               const idx = parseInt(ent.id.split('_')[1]) || 0;
@@ -878,7 +948,23 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               <div ref={mapRef} className="relative w-full max-w-4xl h-[70vh] sm:h-[75vh] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-8 border-amber-900/80 ring-4 ring-stone-950">
         
         {level.mechanics.hasAir && !isTransformed && (
-           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-1 z-[150] bg-blue-900/60 p-2 sm:p-3 rounded-full border-2 border-blue-400 backdrop-blur-md shadow-lg">
+           <div
+             title="Swim back to boat"
+             onClick={(e) => {
+               e.stopPropagation();
+               if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+               // Only useful if hero is not already at surface
+               const curY = pathHistory[pathHistory.length - 1].y;
+               if (curY <= level.campPos.y + 2) return;
+               setAttachedEntityId(null);
+               saveHistory();
+               setIsAnimatingLoot(true);
+               const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
+               setPathHistory(prev => [...prev, ...returnPath]);
+               setTimeout(() => { setIsAnimatingLoot(false); setAir(MAX_AIR); }, 800);
+             }}
+             className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-1 z-[150] bg-blue-900/60 p-2 sm:p-3 rounded-full border-2 border-blue-400 backdrop-blur-md shadow-lg cursor-pointer hover:bg-blue-700/80 hover:border-blue-300 transition-colors select-none"
+           >
              {[...Array(MAX_AIR)].map((_, i) => (
                 <div key={i} className={`text-xl sm:text-2xl transition-all duration-300 ${i < air ? 'opacity-100 scale-100' : 'opacity-30 scale-75 drop-shadow-none grayscale'}`}>🫧</div>
              ))}
