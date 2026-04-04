@@ -947,7 +947,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 </div>
               )}
 
-              <div ref={mapRef} className="relative w-full max-w-4xl h-[70vh] sm:h-[75vh] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-8 border-amber-900/80 ring-4 ring-stone-950">
+              <div className="flex flex-col items-center w-full" style={{ maxWidth: 'min(100%, calc(80vh * 0.8), 672px)' }}>
+              <div ref={mapRef} className="relative w-full aspect-[4/5] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-4 sm:border-8 border-amber-900/80 ring-2 sm:ring-4 ring-stone-950">
         
         {level.mechanics.hasAir && !isTransformed && (
            <div
@@ -1252,9 +1253,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           </div>
         )}
       </div>
-      <div className="w-full max-w-4xl mt-4 bg-stone-800 p-4 rounded-2xl border-4 border-stone-700 shadow-2xl flex items-center justify-center gap-4 h-28 relative z-[150]">
-        <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || isRefillingAir || historyStack.length === 0} className="bg-rose-700 p-3 sm:p-4 rounded-xl text-xl sm:text-2xl hover:bg-rose-600 border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
-        <div className="flex gap-2 sm:gap-4 bg-stone-900/50 p-2 sm:p-3 rounded-xl border-2 border-stone-900">
+      <div className="w-full mt-2 sm:mt-4 bg-stone-800 p-2 sm:p-4 rounded-2xl border-2 sm:border-4 border-stone-700 shadow-2xl flex items-center justify-center gap-2 sm:gap-4 h-20 sm:h-28 relative z-[150]">
+        <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || isRefillingAir || historyStack.length === 0} className="bg-rose-700 p-2 sm:p-4 rounded-xl text-lg sm:text-2xl hover:bg-rose-600 border-2 sm:border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
+        <div className="flex gap-1.5 sm:gap-4 bg-stone-900/50 p-1.5 sm:p-3 rounded-xl border-2 border-stone-900">
           {[0, 1, 2, 3].map((slotIdx) => {
             const itemId = uniqueInventoryItems[slotIdx]; 
             let item = itemId ? level.items.find(x => x.id === itemId) : null;
@@ -1265,13 +1266,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             const count = itemId ? inventory.filter(i => i === itemId).length : 0;
             const isSelected = item && selectedItemTypes.includes(itemId);
             return (
-              <button key={`slot-${slotIdx}`} onClick={() => item && toggleInventoryType(itemId)} disabled={!item} className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl relative flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' : item ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'} ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}>
+              <button key={`slot-${slotIdx}`} onClick={() => item && toggleInventoryType(itemId)} disabled={!item} className={`w-12 h-12 sm:w-20 sm:h-20 rounded-xl relative flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' : item ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'} ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}>
                 <span className="text-2xl sm:text-4xl drop-shadow-md emoji-shadow">{item ? item.emoji : ''}</span>
                 {count > 1 && <div className="absolute -bottom-2 -right-2 bg-blue-700 text-white text-xs sm:text-sm font-black rounded-full px-2 py-0.5 border-2 border-blue-400 shadow-md">{count}</div>}
               </button>
             );
           })}
         </div>
+      </div>
       </div>
 
       {renderMenu()}
