@@ -32,9 +32,9 @@ export const mapNodes = [
   { x: 40, y: 52, zone: 2 }, { x: 60, y: 52, zone: 2 }, { x: 50, y: 60, zone: 2 },
   { x: 50, y: 70, zone: 2, id: 'sea_witch', isGatekeeper: true },
   /* Zone 3: The Trench / Seabed -> 3 Clams (items hidden inside) + Crabs */
-  { x: 50, y: 80, zone: 3 },
-  { x: 35, y: 86, zone: 3 }, { x: 65, y: 86, zone: 3 },
-  { x: 25, y: 92, zone: 3 }, { x: 50, y: 92, zone: 3 }, { x: 75, y: 92, zone: 3 }
+  { x: 50, y: 82, zone: 3 },
+  { x: 35, y: 88, zone: 3 }, { x: 65, y: 88, zone: 3 },
+  { x: 25, y: 96, zone: 3 }, { x: 50, y: 98, zone: 3 }, { x: 75, y: 96, zone: 3 }
 ];
 
 // === Underwater: Scenery ===

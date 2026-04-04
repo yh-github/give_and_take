@@ -59,7 +59,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [isMagicAnimating, setIsMagicAnimating] = useState(false);
 
   const [dolphinZone, setDolphinZone] = useState(1);
-  const [dolphinYPos, setDolphinYPos] = useState(31);
+  const [dolphinYPos, setDolphinYPos] = useState(16);
   const dolphinZoneRef = useRef(1);
   useEffect(() => { dolphinZoneRef.current = dolphinZone; }, [dolphinZone]);
 
@@ -90,7 +90,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const update = (time) => {
       setGameTime(time / 1000);
       setDolphinYPos(prev => {
-          const target = dolphinZoneRef.current === 1 ? 31 : 55;
+          const target = dolphinZoneRef.current === 1 ? 16 : 60;
           if (Math.abs(prev - target) < 0.1) return target;
           return prev + (target - prev) * 0.04;
       });
@@ -317,7 +317,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 setIsAnimatingLoot(false);
                 setAlertEntityId(null);
                 setIsRefillingAir(true);
-            }, 2000); 
+            }, 3000); // 3000ms to match the CSS ascent animation duration
         }, 800);
     } else setAir(a => a - 1);
   }, [level.id, level.mechanics.hasAir, level.campPos, navigateTo, isTransformed]);
@@ -512,7 +512,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         const cosT = Math.cos(t); const sinT = Math.sin(t);
         const normX = Math.sign(cosT) * Math.pow(Math.abs(cosT), 2/n);
         const normY = Math.sign(sinT) * Math.pow(Math.abs(sinT), 2/n);
-        return { x: 50 + normX * 12, y: dolphinYPos + normY * (dolphinZone === 1 ? 7 : 3) };
+        return { x: 50 + normX * 12, y: dolphinYPos + normY * (dolphinZone === 1 ? 5 : 3) };
       })();
       targetY = cm.y;
     }
@@ -563,7 +563,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 setDolphinZone(newDolphinZone);
                 // Dolphin: dive or rise to the new zone
                 setTimeout(() => {
-                    const finalDst = { x: 50, y: newDolphinZone === 1 ? 31 : 55, zone: newDolphinZone };
+                    const finalDst = { x: 50, y: newDolphinZone === 1 ? 16 : 60, zone: newDolphinZone };
                     setPathHistory(prev => [...prev, finalDst]);
                     setAttachedEntityId(null);
                     setIsAnimatingLoot(false);
@@ -693,7 +693,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       }
 
       setIsAnimatingLoot(true); saveHistory();
-      setAnimatingEntities(prev => [...prev, entity.id]);
+      if (!entity.roamClass?.includes('elevator')) {
+          setAnimatingEntities(prev => [...prev, entity.id]);
+      }
       
       setInventory(prev => {
           let newInv = [...prev];
@@ -720,7 +722,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           
           // After showing the ride, release at the new zone
           setTimeout(() => {
-              const finalDst = { x: 50, y: newDolphinZone === 1 ? 31 : 55, zone: newDolphinZone };
+              const finalDst = { x: 50, y: newDolphinZone === 1 ? 16 : 60, zone: newDolphinZone };
               setPathHistory(prev => [...prev, finalDst]);
               setAttachedEntityId(null);
               setIsAnimatingLoot(false);
