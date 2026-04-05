@@ -947,8 +947,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 </div>
               )}
 
-              <div className="flex flex-col w-full h-full sm:w-auto sm:h-[90dvh] sm:aspect-[9/19.5] sm:rounded-3xl shadow-2xl relative ring-0 sm:ring-8 ring-stone-950 overflow-hidden">
-              <div ref={mapRef} className="relative w-full flex-1 bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden">
+              <div className="flex flex-col w-full h-[100dvh] sm:w-auto sm:h-[95dvh] sm:aspect-[9/19.5] sm:max-w-[45dvh] sm:rounded-3xl shadow-2xl relative ring-0 sm:ring-8 ring-stone-950 overflow-hidden mx-auto" style={{ containerType: 'inline-size', containerName: 'game' }}>
+              <div ref={mapRef} className="@container relative w-full flex-1 bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden">
         
         {level.mechanics.hasAir && !isTransformed && (
            <div
@@ -1170,37 +1170,36 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                         
                         {!isGoal && !ent.isRepeatable && !ent.isPreset && (
                           level.id === 'underwater' ? (
-                            // Underwater: all items hidden inside entities (clams, etc.) — no external reward display
                             null
                           ) : (!isDefeated && rewardItem && isBuried) ? (
                             <>
-                              <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
-                              <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-16' : 'translate-x-16'} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : `${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-0 opacity-0 -z-10`}`}>❓</div>
+                              <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
+                              <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-16' : 'translate-x-16'} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : `${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-0 opacity-0 -z-10`}`}>❓</div>
                             </>
                           ) : (!isDefeated && rewardItem && !isBuried) ? (
-                             <div className={`absolute top-0 left-0 text-4xl drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-8' : 'translate-x-8'} translate-y-0 rotate-0 scale-90 opacity-90 -z-10 animate-bob`}`}>{rewardItem.emoji}</div>
+                             <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-8' : 'translate-x-8'} translate-y-0 rotate-0 scale-90 opacity-90 -z-10 animate-bob`}`}>{rewardItem.emoji}</div>
                           ) : null
                         )}
                         
-                        <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-6xl' : 'text-4xl'}`}>
+                        <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                            {isRock && !isDefeated ? (
-                             <div className={`text-4xl flex gap-x-1 justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                               <span className="scale-75 translate-x-3 -rotate-12 opacity-80 decoration-transparent">🪨</span>
-                               <span className="scale-90 rotate-6 translate-x-1 cursor-pointer">🪨</span>
-                               <span className="scale-110 -translate-y-2 -rotate-6 z-10 drop-shadow-md cursor-pointer text-[2.5rem]">🪨</span>
-                               <span className="scale-95 rotate-12 -translate-x-1 cursor-pointer text-[2.2rem]">🪨</span>
-                               <span className="scale-75 -translate-x-3 rotate-6 opacity-80 cursor-pointer">🪨</span>
+                             <div className={`flex justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ gap: '0.4cqw' }}>
+                               <span className="scale-[0.8] opacity-80" style={{ transform: 'translateX(2.5cqw) rotate(-12deg)' }}>🪨</span>
+                               <span className="scale-[0.9]" style={{ transform: 'translateX(0.8cqw) rotate(6deg)' }}>🪨</span>
+                               <span className="scale-[1.1] -translate-y-[1cqw] -rotate-6 z-10 drop-shadow-md text-[11cqw]">🪨</span>
+                               <span className="scale-[0.95]" style={{ transform: 'translateX(-0.8cqw) rotate(12deg)' }}>🪨</span>
+                               <span className="scale-[0.8] opacity-80" style={{ transform: 'translateX(-2.5cqw) rotate(6deg)' }}>🪨</span>
                              </div>
                            ) : isRock && isDefeated ? (
-                             <div className="relative group text-3xl flex gap-1 translate-y-4 cursor-pointer z-50 animate-rock-shatter">
-                               <span className="scale-75 -translate-x-4 -rotate-45 opacity-0 transition-all duration-1000">🪨</span>
-                               <span className="scale-90 -translate-y-8 opacity-0 transition-all duration-1000">🪨</span>
-                               <span className="scale-75 translate-x-4 rotate-45 opacity-0 transition-all duration-1000">🪨</span>
+                             <div className="relative group text-[7.5cqw] flex justify-center translate-y-4 cursor-pointer z-50 animate-rock-shatter" style={{ gap: '1cqw' }}>
+                               <span className="scale-75 opacity-0 transition-all duration-1000" style={{ transform: 'translateX(-4cqw) rotate(-45deg)' }}>🪨</span>
+                               <span className="scale-90 opacity-0 transition-all duration-1000" style={{ transform: 'translateY(-8cqw)' }}>🪨</span>
+                               <span className="scale-75 opacity-0 transition-all duration-1000" style={{ transform: 'translateX(4cqw) rotate(45deg)' }}>🪨</span>
                              </div>
                            ) : isCurrent && isDefeated ? (
-                             <div className="text-4xl opacity-0 scale-0 transition-all duration-500">🌀</div>
+                             <div className="text-[9cqw] opacity-0 scale-0 transition-all duration-500">🌀</div>
                            ) : isCurrent && !isDefeated ? (
-                             <div className={`text-5xl animate-spin-slow ${isAlerting ? 'animate-troll-mad text-red-500' : 'text-cyan-400'}`}>🌀</div>
+                             <div className={`text-[12cqw] animate-spin-slow ${isAlerting ? 'animate-troll-mad text-red-500' : 'text-cyan-400'}`}>🌀</div>
                            ) : (
                              <div className={`${ent.filterClass || ''} ${isFlipped ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
                                {isAlerting && !ent.isPreset ? (ent.id.startsWith('mermaid') ? '🥺' : '😡') : 
@@ -1209,12 +1208,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                                   ent.id === 'sea_witch' ? (
                                     <div className="relative flex flex-col items-center">
                                       <div className="absolute inset-0 bg-purple-600 blur-2xl opacity-60 rounded-full scale-150 animate-pulse -z-10" />
-                                      <span className="text-4xl sm:text-6xl z-10">{ent.emoji}</span>
-                                      <div className="absolute -bottom-8 bg-black/60 rounded px-2 whitespace-nowrap text-sm border border-purple-500 shadow-[0_0_10px_purple] z-20">🧑 ➡️ 🧜‍♂️</div>
+                                      <span className="text-[10cqw] z-10">{ent.emoji}</span>
+                                      <div className="absolute -bottom-8 bg-black/60 rounded px-2 whitespace-nowrap text-[2.5cqw] border border-purple-500 shadow-[0_0_10px_purple] z-20">🧑 ➡️ 🧜‍♂️</div>
                                     </div>
                                   ) :
                                   isElevator ? (
-                                    <div className={`w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center text-6xl sm:text-7xl font-sans drop-shadow-2xl ${!isAnimating ? 'animate-mermaid-swim' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                                    <div className={`w-[24cqw] h-[24cqw] flex items-center justify-center text-[15cqw] font-sans drop-shadow-2xl ${!isAnimating ? 'animate-mermaid-swim' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
                                       {ent.emoji}
                                     </div>
                                   ) :
@@ -1236,7 +1235,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           })}
 
           <div className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} style={{ left: `${playerVisualX}%`, top: `${playerVisualY}%`, zIndex: Math.max(playerZ, 130), transform: `translate(-50%, -50%) rotate(${playerRotation}deg)` }}>
-            <div className={`text-white w-10 h-10 rounded-full flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.8)] text-2xl relative ${isTransformed ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' : (level.mechanics.hasAir ? 'bg-cyan-600 border-2 border-cyan-200' : 'bg-blue-600 border-2 border-white')} ${level.mechanics.heroBobs && !isDrowning ? 'animate-bob' : ''}`}>
+            <div className={`text-white w-[10cqw] h-[10cqw] rounded-full flex items-center justify-center shadow-[0_1cqw_2cqw_rgba(0,0,0,0.8)] text-[6cqw] relative ${isTransformed ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' : (level.mechanics.hasAir ? 'bg-cyan-600 border-2 border-cyan-200' : 'bg-blue-600 border-2 border-white')} ${level.mechanics.heroBobs && !isDrowning ? 'animate-bob' : ''}`}>
               {heroFace}
               {level.mechanics.darknessType === 'radial' && <div className="absolute -right-3 -bottom-2 text-xl z-50 drop-shadow-[0_0_10px_rgba(251,191,36,1)]">🕯️</div>}
             </div>
@@ -1259,22 +1258,21 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           </div>
         )}
       </div>
-      <div className="w-full shrink-0 bg-stone-800 p-2 sm:p-4 border-t-2 border-stone-700 sm:border-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-[150] h-24 sm:h-28 flex items-center justify-center gap-2 sm:gap-4 relative">
-        <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || isRefillingAir || historyStack.length === 0} className="bg-rose-700 p-2 sm:p-4 rounded-xl text-lg sm:text-2xl hover:bg-rose-600 border-2 sm:border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
-        <div className="flex gap-1.5 sm:gap-4 bg-stone-900/50 p-1.5 sm:p-3 rounded-xl border-2 border-stone-900">
+      <div className="w-full shrink-0 bg-stone-800 border-t-2 border-stone-700 sm:border-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-[150] h-[12dvh] flex items-center justify-center relative px-[2cqw]">
+        <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || isRefillingAir || historyStack.length === 0} className="bg-rose-700 p-[1.5cqw] rounded-[2cqw] text-[6cqw] hover:bg-rose-600 border-[0.5cqw] border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50 mr-[2cqw]">↩️</button>
+        <div className="flex gap-[2cqw] bg-stone-900/50 p-[1.5cqw] rounded-[3cqw] border-[0.5cqw] border-stone-900">
           {[0, 1, 2, 3].map((slotIdx) => {
             const itemId = uniqueInventoryItems[slotIdx]; 
             let item = itemId ? level.items.find(x => x.id === itemId) : null;
-            // Fallback for fish item logic to ensure emoji renders even if find fails due to weird scoping
             if (itemId === 'fish' && !item) {
               item = { id: 'fish', name: dict.items.fish, emoji: '🐟' };
             }
             const count = itemId ? inventory.filter(i => i === itemId).length : 0;
             const isSelected = item && selectedItemTypes.includes(itemId);
             return (
-              <button key={`slot-${slotIdx}`} onClick={() => item && toggleInventoryType(itemId)} disabled={!item} className={`w-12 h-12 sm:w-20 sm:h-20 rounded-xl relative flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-amber-400 border-4 border-amber-200 scale-110 shadow-[0_0_20px_rgba(251,191,36,0.6)] z-10' : item ? 'bg-stone-600 border-4 border-stone-500 hover:bg-stone-500 cursor-pointer' : 'bg-stone-700/50 border-4 border-stone-700 border-dashed cursor-default'} ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}>
-                <span className="text-2xl sm:text-4xl drop-shadow-md emoji-shadow">{item ? item.emoji : ''}</span>
-                {count > 1 && <div className="absolute -bottom-2 -right-2 bg-blue-700 text-white text-xs sm:text-sm font-black rounded-full px-2 py-0.5 border-2 border-blue-400 shadow-md">{count}</div>}
+              <button key={`slot-${slotIdx}`} onClick={() => item && toggleInventoryType(itemId)} disabled={!item} className={`w-[14cqw] h-[14cqw] rounded-[2.5cqw] relative flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-amber-400 border-[0.8cqw] border-amber-200 scale-105 shadow-[0_0_15px_rgba(251,191,36,0.6)] z-10' : item ? 'bg-stone-600 border-[0.8cqw] border-stone-500 hover:bg-stone-500 cursor-pointer' : 'bg-stone-700/50 border-[0.8cqw] border-stone-700 border-dashed cursor-default'} ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}>
+                <span className="text-[7cqw] drop-shadow-md emoji-shadow">{item ? item.emoji : ''}</span>
+                {count > 1 && <div className="absolute -bottom-[1cqw] -right-[1cqw] bg-blue-700 text-white text-[3cqw] font-black rounded-full px-[1.5cqw] py-0 border-[0.4cqw] border-blue-400 shadow-md">{count}</div>}
               </button>
             );
           })}
