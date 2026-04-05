@@ -50,13 +50,4 @@ export const mapNodes = [
 
 // === Underground: Scenery ===
 export const sceneryNodes = [
-  { x: 15, y: 20, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 }, { x: 22, y: 20, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
-  { x: 78, y: 20, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 85, y: 20, e: '🪨', s: 'text-6xl brightness-50', z: 90 },
-  { x: 15, y: 44, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 }, { x: 22, y: 44, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
-  { x: 78, y: 44, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 85, y: 44, e: '🪨', s: 'text-6xl brightness-50', z: 90 },
-  { x: 28, y: 66, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 }, { x: 34, y: 66, e: '🪨', s: 'text-5xl brightness-50', z: 90 },
-  { x: 72, y: 66, e: '🪨', s: 'text-5xl brightness-[0.4]', z: 90 }, { x: 66, y: 66, e: '🪨', s: 'text-6xl brightness-50', z: 90 },
-  { x: 34, y: 78, e: '🪨', s: 'text-6xl brightness-50', z: 90 }, { x: 66, y: 78, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 },
-  { x: 34, y: 88, e: '🪨', s: 'text-6xl brightness-50', z: 90 }, { x: 66, y: 88, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 },
-  { x: 34, y: 95, e: '🪨', s: 'text-6xl brightness-50', z: 90 }, { x: 66, y: 95, e: '🪨', s: 'text-6xl brightness-[0.4]', z: 90 },
 ];

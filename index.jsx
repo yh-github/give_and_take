@@ -926,7 +926,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           }
 
           return (
-            <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center p-2 sm:p-4 font-serif select-none overflow-hidden relative">
+            <div className="h-[100dvh] w-full bg-stone-900 flex flex-col items-center justify-center p-0 sm:p-4 font-serif select-none overflow-hidden relative">
               {isMagicAnimating && (
                 <div className="fixed inset-0 z-[500] pointer-events-none flex items-center justify-center">
                   <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] animate-pulse" />
@@ -947,8 +947,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 </div>
               )}
 
-              <div className="flex flex-col items-center w-full" style={{ maxWidth: 'min(100%, calc(80vh * 0.8), 672px)' }}>
-              <div ref={mapRef} className="relative w-full aspect-[4/5] bg-[#dcb27b] rounded-2xl shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden border-4 sm:border-8 border-amber-900/80 ring-2 sm:ring-4 ring-stone-950">
+              <div className="flex flex-col w-full h-full sm:w-auto sm:h-[90dvh] sm:aspect-[9/19.5] sm:rounded-3xl shadow-2xl relative ring-0 sm:ring-8 ring-stone-950 overflow-hidden">
+              <div ref={mapRef} className="relative w-full flex-1 bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden">
         
         {level.mechanics.hasAir && !isTransformed && (
            <div
@@ -1184,12 +1184,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                         
                         <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-6xl' : 'text-4xl'}`}>
                            {isRock && !isDefeated ? (
-                             <div className={`text-4xl flex gap-1 justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                               <span className="scale-90 rotate-6">🪨</span><span className="scale-110 -translate-y-2 -rotate-6 z-10">🪨</span><span className="scale-95 rotate-12">🪨</span>
+                             <div className={`text-4xl flex gap-x-1 justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                               <span className="scale-75 translate-x-3 -rotate-12 opacity-80 decoration-transparent">🪨</span>
+                               <span className="scale-90 rotate-6 translate-x-1 cursor-pointer">🪨</span>
+                               <span className="scale-110 -translate-y-2 -rotate-6 z-10 drop-shadow-md cursor-pointer text-[2.5rem]">🪨</span>
+                               <span className="scale-95 rotate-12 -translate-x-1 cursor-pointer text-[2.2rem]">🪨</span>
+                               <span className="scale-75 -translate-x-3 rotate-6 opacity-80 cursor-pointer">🪨</span>
                              </div>
                            ) : isRock && isDefeated ? (
                              <div className="relative group text-3xl flex gap-1 translate-y-4 cursor-pointer z-50 animate-rock-shatter">
-                               <span className="scale-75 -rotate-12">🪨</span><span className="scale-50 translate-y-2 rotate-45 z-10">🪨</span><span className="scale-75 rotate-12">🪨</span>
+                               <span className="scale-75 -translate-x-4 -rotate-45 opacity-0 transition-all duration-1000">🪨</span>
+                               <span className="scale-90 -translate-y-8 opacity-0 transition-all duration-1000">🪨</span>
+                               <span className="scale-75 translate-x-4 rotate-45 opacity-0 transition-all duration-1000">🪨</span>
                              </div>
                            ) : isCurrent && isDefeated ? (
                              <div className="text-4xl opacity-0 scale-0 transition-all duration-500">🌀</div>
@@ -1253,7 +1259,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           </div>
         )}
       </div>
-      <div className="w-full mt-2 sm:mt-4 bg-stone-800 p-2 sm:p-4 rounded-2xl border-2 sm:border-4 border-stone-700 shadow-2xl flex items-center justify-center gap-2 sm:gap-4 h-20 sm:h-28 relative z-[150]">
+      <div className="w-full shrink-0 bg-stone-800 p-2 sm:p-4 border-t-2 border-stone-700 sm:border-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-[150] h-24 sm:h-28 flex items-center justify-center gap-2 sm:gap-4 relative">
         <button onClick={handleUndo} disabled={isDemonstrating || isAnimatingLoot || isRefillingAir || historyStack.length === 0} className="bg-rose-700 p-2 sm:p-4 rounded-xl text-lg sm:text-2xl hover:bg-rose-600 border-2 sm:border-4 border-rose-600 hover:border-rose-500 transition-all shadow-lg text-white disabled:opacity-50">↩️</button>
         <div className="flex gap-1.5 sm:gap-4 bg-stone-900/50 p-1.5 sm:p-3 rounded-xl border-2 border-stone-900">
           {[0, 1, 2, 3].map((slotIdx) => {
@@ -1284,7 +1290,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
 
 const App = () => {
-  const [activeSettings, setActiveSettings] = useState({ levelId: 'underwater', steps: 5, diggers: 1 });
+  const [activeSettings, setActiveSettings] = useState({ levelId: 'underground', steps: 5, diggers: 1 });
   const [gameKey, setGameKey] = useState(0);
   const [lang, setLang] = useState('he');
 
