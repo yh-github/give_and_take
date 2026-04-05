@@ -85,6 +85,15 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
     
     let puzzleEntities = [...activeGatekeepers, ...presetEntities];
     
+    // Ensure all gatekeepers from zone 1 are always included for visual symmetry in vertical levels
+    if (level.mechanics.isVertical) {
+        level.mapNodes.forEach(n => {
+            if (n.isGatekeeper && n.zone === 1 && !puzzleEntities.find(p => p.id === n.id)) {
+                puzzleEntities.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'AND', id: n.id });
+            }
+        });
+    }
+    
     const standardItems = level.items.filter(i => i.id !== 'fish' && i.id !== 'pickaxe' && i.id !== 'key');
     const startItems = [ standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id ];
     
