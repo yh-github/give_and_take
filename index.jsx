@@ -1183,18 +1183,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                         
                         <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                            {isRock && !isDefeated ? (
-                             <div className={`flex justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ gap: '0.4cqw' }}>
-                               <span className="scale-[0.8] opacity-80" style={{ transform: 'translateX(2.5cqw) rotate(-12deg)' }}>🪨</span>
-                               <span className="scale-[0.9]" style={{ transform: 'translateX(0.8cqw) rotate(6deg)' }}>🪨</span>
-                               <span className="scale-[1.1] -translate-y-[1cqw] -rotate-6 z-10 drop-shadow-md text-[11cqw]">🪨</span>
-                               <span className="scale-[0.95]" style={{ transform: 'translateX(-0.8cqw) rotate(12deg)' }}>🪨</span>
-                               <span className="scale-[0.8] opacity-80" style={{ transform: 'translateX(-2.5cqw) rotate(6deg)' }}>🪨</span>
+                             <div className={`flex justify-between items-end group-hover:scale-110 transition-transform cursor-pointer w-[40cqw] max-w-[150px] ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                               <span className="scale-[0.8] opacity-80 -rotate-12">🪨</span>
+                               <span className="scale-[0.9] rotate-6">🪨</span>
+                               <span className="scale-[1.15] -translate-y-1 -rotate-6 z-10 drop-shadow-md text-[1.3em]">🪨</span>
+                               <span className="scale-[0.95] rotate-12">🪨</span>
+                               <span className="scale-[0.8] opacity-80 rotate-6">🪨</span>
                              </div>
                            ) : isRock && isDefeated ? (
-                             <div className="relative group text-[7.5cqw] flex justify-center translate-y-4 cursor-pointer z-50 animate-rock-shatter" style={{ gap: '1cqw' }}>
-                               <span className="scale-75 opacity-0 transition-all duration-1000" style={{ transform: 'translateX(-4cqw) rotate(-45deg)' }}>🪨</span>
-                               <span className="scale-90 opacity-0 transition-all duration-1000" style={{ transform: 'translateY(-8cqw)' }}>🪨</span>
-                               <span className="scale-75 opacity-0 transition-all duration-1000" style={{ transform: 'translateX(4cqw) rotate(45deg)' }}>🪨</span>
+                             <div className="relative group text-[0.8em] flex justify-center gap-2 translate-y-4 cursor-pointer z-50 animate-rock-shatter w-[40cqw] max-w-[150px]">
+                               <span className="scale-75 -translate-x-4 -rotate-45 opacity-0 transition-all duration-1000">🪨</span>
+                               <span className="scale-90 -translate-y-8 opacity-0 transition-all duration-1000">🪨</span>
+                               <span className="scale-75 translate-x-4 rotate-45 opacity-0 transition-all duration-1000">🪨</span>
                              </div>
                            ) : isCurrent && isDefeated ? (
                              <div className="text-[9cqw] opacity-0 scale-0 transition-all duration-500">🌀</div>
