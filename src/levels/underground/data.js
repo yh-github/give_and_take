@@ -21,15 +21,15 @@ export const entities = [
 
 // === Underground: Map Layout ===
 export const mapNodes = [
-  { x: 50, y: 6, zone: 1, isPreset: 'mushroom' }, { x: 26, y: 14, zone: 1 }, { x: 74, y: 14, zone: 1 },
-  { x: 26, y: 22, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
-  { x: 74, y: 22, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
+  { x: 50, y: 6, zone: 1, isPreset: 'mushroom' }, { x: 30, y: 14, zone: 1 }, { x: 70, y: 14, zone: 1 },
+  { x: 30, y: 22, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
+  { x: 70, y: 22, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
   { x: 20, y: 28, zone: 2, isPreset: 'pickaxe' },
   { x: 28, y: 32, zone: 2 }, { x: 24, y: 38, zone: 2 },
   { x: 72, y: 32, zone: 3 }, { x: 76, y: 38, zone: 3 },
   { x: 80, y: 40, zone: 3, isPreset: 'pickaxe' },
-  { x: 26, y: 46, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
-  { x: 74, y: 46, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
+  { x: 30, y: 46, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
+  { x: 70, y: 46, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
   { x: 25, y: 54, zone: 4 }, { x: 28, y: 60, zone: 4, isPreset: 'mushroom' },
   { x: 75, y: 54, zone: 5 }, { x: 72, y: 60, zone: 5 },
   { x: 50, y: 62, zone: 1, isPreset: 'pickaxe' },
