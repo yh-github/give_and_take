@@ -1080,6 +1080,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             </div>
           )}
 
+          {console.log('Rendering puzzleEntities:', puzzle.puzzleEntities.map(p => p.id))}
           {puzzle.puzzleEntities.map(ent => {
             const isDefeated = defeated.includes(ent.id);
             if (ent.isPreset && isDefeated) return null;
@@ -1103,7 +1104,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             const entZ = isSelected ? 150 : ( (inLight && !inFog) ? 105 : (isRock ? 99 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5)) );
 
             const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 scale-50 transition-all duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
-            const wrapperClasses = `absolute flex flex-col items-center p-4 -m-4 transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
+            const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
             const isNearLeft = !ent.roamClass && ent.x <= 20;
             const isNearRight = !ent.roamClass && ent.x >= 80;
@@ -1183,15 +1184,15 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                         
                         <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                            {isRock && !isDefeated ? (
-                             <div className={`flex justify-between items-end group-hover:scale-110 transition-transform cursor-pointer w-[40cqw] max-w-[150px] ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                               <span className="scale-[0.8] opacity-80 -rotate-12">🪨</span>
-                               <span className="scale-[0.9] rotate-6">🪨</span>
-                               <span className="scale-[1.15] -translate-y-1 -rotate-6 z-10 drop-shadow-md text-[1.3em]">🪨</span>
-                               <span className="scale-[0.95] rotate-12">🪨</span>
-                               <span className="scale-[0.8] opacity-80 rotate-6">🪨</span>
+                             <div className={`flex justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                               <span className="scale-[0.8] opacity-80 -rotate-12 -mr-[2cqw] translate-y-[1cqw]">🪨</span>
+                               <span className="scale-[0.9] rotate-6 -mr-[2cqw] translate-y-[0.5cqw]">🪨</span>
+                               <span className="scale-[1.1] -translate-y-[0.5cqw] -rotate-6 z-10 drop-shadow-md text-[1.2em]">🪨</span>
+                               <span className="scale-[0.95] rotate-12 -ml-[2cqw]">🪨</span>
+                               <span className="scale-[0.8] opacity-80 rotate-6 -ml-[2cqw] translate-y-[1cqw]">🪨</span>
                              </div>
                            ) : isRock && isDefeated ? (
-                             <div className="relative group text-[0.8em] flex justify-center gap-2 translate-y-4 cursor-pointer z-50 animate-rock-shatter w-[40cqw] max-w-[150px]">
+                             <div className="relative group text-[0.8em] flex justify-center translate-y-4 cursor-pointer z-50 animate-rock-shatter">
                                <span className="scale-75 -translate-x-4 -rotate-45 opacity-0 transition-all duration-1000">🪨</span>
                                <span className="scale-90 -translate-y-8 opacity-0 transition-all duration-1000">🪨</span>
                                <span className="scale-75 translate-x-4 rotate-45 opacity-0 transition-all duration-1000">🪨</span>
