@@ -49,23 +49,23 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
     }
 
     if (level.mechanics.hasTransformation) {
-        // Sea Witch is mandatory for transformation levels
-        const witchEnt = level.entities.find(e => e.id === 'sea_witch');
-        const witchNode = level.mapNodes.find(n => n.id === 'sea_witch');
-        const reqs = ['pearl', 'locket', 'trident'].sort(() => Math.random() - 0.5).slice(0, 2);
-        activeGatekeepers.push({ ...witchEnt, ...witchNode, requires: reqs, reqType: 'AND', reward: null, id: 'sea_witch' });
+      // Sea Witch is mandatory for transformation levels
+      const witchEnt = level.entities.find(e => e.id === 'sea_witch');
+      const witchNode = level.mapNodes.find(n => n.id === 'sea_witch');
+      const reqs = ['pearl', 'locket', 'trident'].sort(() => Math.random() - 0.5).slice(0, 2);
+      activeGatekeepers.push({ ...witchEnt, ...witchNode, requires: reqs, reqType: 'AND', reward: null, id: 'sea_witch' });
     }
 
     const availableNodes = level.mapNodes.filter(n => !n.isGatekeeper && !n.isGoal && !n.isPreset && n.id !== 'sea_witch');
-    let goalTemplate = { id: 'vault_rock' }; 
+    let goalTemplate = { id: 'vault_rock' };
     if (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) {
       if (level.id === 'river_crossing') {
-         const baseTroll = level.entities.find(e => e.id === 'troll');
-         goalTemplate = { ...baseTroll, id: 'cave_troll_exit', name: 'Cave Boss' };
+        const baseTroll = level.entities.find(e => e.id === 'troll');
+        goalTemplate = { ...baseTroll, id: 'cave_troll_exit', name: 'Cave Boss' };
       } else {
-         goalTemplate = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate).sort(() => Math.random() - 0.5)[0];
+        goalTemplate = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate).sort(() => Math.random() - 0.5);
       }
-      
+
       const goalNode = level.mapNodes.find(n => n.isGoal);
       if (goalNode) {
         const availableReqs = goalTemplate.allowedReqs.filter(req => req !== 'pickaxe');
@@ -74,36 +74,43 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
         activeGatekeepers.push({ ...goalTemplate, requires: reqs, reqType: (level.mechanics.hasTransformation ? 'OR' : 'AND'), reward: null, x: goalNode.x, y: goalNode.y, zone: goalNode.zone, isGatekeeper: false, isGoal: true, id: goalTemplate.id });
       }
     }
-    
+
     const diggerTemplate = level.entities.find(e => e.id === level.specialEntityTemplate);
     const otherTemplates = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate);
-    
-    let selectedOthers = Array.from({length: numDiggers}).map((_, i) => ({...diggerTemplate, id: `${level.specialEntityTemplate}_${i}`}));
+
+    let selectedOthers = Array.from({ length: numDiggers }).map((_, i) => ({ ...diggerTemplate, id: `${level.specialEntityTemplate}_${i}` }));
     let pool = [...otherTemplates].sort(() => Math.random() - 0.5);
     while (pool.length < availableNodes.length) { pool = [...pool, ...otherTemplates].sort(() => Math.random() - 0.5); }
-    selectedOthers = [...selectedOthers, ...pool].slice(0, availableNodes.length).map((e, idx) => ({...e, id: `${e.id}_${idx}`})).sort(() => Math.random() - 0.5);
-    
-    let puzzleEntities = [...activeGatekeepers, ...presetEntities];
-    
+    selectedOthers = [...selectedOthers, ...pool].slice(0, availableNodes.length).map((e, idx) => ({ ...e, id: `${e.id}_${idx}` })).sort(() => Math.random() - 0.5);
 
-    
+    let puzzleEntities = [...activeGatekeepers, ...presetEntities];
+
+    // Ensure all gatekeepers from zone 1 are always included for visual symmetry in vertical levels
+    if (level.mechanics.isVertical) {
+      level.mapNodes.forEach(n => {
+        if (n.isGatekeeper && n.zone === 1 && !puzzleEntities.find(p => p.id === n.id)) {
+          puzzleEntities.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'AND', id: n.id });
+        }
+      });
+    }
+
     const standardItems = level.items.filter(i => i.id !== 'fish' && i.id !== 'pickaxe' && i.id !== 'key');
-    const startItems = [ standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id ];
-    
+    const startItems = [standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id];
+
     selectedOthers.forEach((e, idx) => {
-      const pos = availableNodes[idx]; 
+      const pos = availableNodes[idx];
       let reward = standardItems[Math.floor(Math.random() * standardItems.length)].id;
       const availableReqs = e.allowedReqs.filter(req => req !== reward && req !== 'pickaxe' && req !== 'key');
-      const numReqs = Math.random() > 0.4 && availableReqs.length >= 2 ? 2 : 1; 
+      const numReqs = Math.random() > 0.4 && availableReqs.length >= 2 ? 2 : 1;
       const reqs = [...availableReqs].sort(() => Math.random() - 0.5).slice(0, numReqs);
-      
+
       // Mermaid color variation
       let color = e.color || "#2dd4bf";
       if (e.id.startsWith('mermaid')) {
-          if (!e.color) {
-            const colors = ["#2dd4bf", "#f43f5e", "#f59e0b", "#a855f7"];
-            color = colors[Math.floor(Math.random() * colors.length)];
-          }
+        if (!e.color) {
+          const colors = ["#2dd4bf", "#f43f5e", "#f59e0b", "#a855f7"];
+          color = colors[Math.floor(Math.random() * colors.length)];
+        }
       }
 
       puzzleEntities.push({ ...e, requires: reqs, reqType: 'OR', reward, x: pos.x, y: pos.y, zone: pos.zone, isGatekeeper: false, color });
@@ -111,35 +118,31 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
 
     const firstStepEnt = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && !e.isPreset);
     if (firstStepEnt) {
-       firstStepEnt.requires = [startItems[0]];
-       firstStepEnt.reqType = 'OR';
-       if (level.mechanics.hasPickaxe) firstStepEnt.reward = 'pickaxe'; 
+      firstStepEnt.requires = [startItems];
+      firstStepEnt.reqType = 'OR';
+      if (level.mechanics.hasPickaxe) firstStepEnt.reward = 'pickaxe';
     }
 
     if (level.mechanics.isVertical && level.mechanics.hasPickaxe) {
       const nonGoalNodes = puzzleEntities.filter(e => !e.isGatekeeper && !e.isTreasure && !e.isPreset && e.reward !== 'pickaxe');
       const shuffled = [...nonGoalNodes].sort(() => Math.random() - 0.5);
-      for(let i=0; i<5; i++) { if(shuffled[i]) shuffled[i].reward = 'pickaxe'; }
+      for (let i = 0; i < 5; i++) { if (shuffled[i]) shuffled[i].reward = 'pickaxe'; }
     } else if (level.mechanics.hasPickaxe) {
       const z1NonGoal = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && e.id !== goalTemplate.id && e.id !== firstStepEnt?.id);
       if (z1NonGoal) z1NonGoal.reward = 'pickaxe';
     }
 
     const targetGoalId = (level.mechanics.isVertical && level.mechanics.hasPickaxe) ? 'vault_rock' : goalTemplate.id;
-    const currentState = solvePuzzle(startItems, puzzleEntities, targetGoalId, level);
+
+    // FIX: Pass a deep copy of puzzleEntities so the solver's pruning doesn't mutate our visual data
+    const simulationEntities = JSON.parse(JSON.stringify(puzzleEntities));
+    const currentState = solvePuzzle(startItems, simulationEntities, targetGoalId, level);
+
     if (currentState) {
       const solutionPath = currentState.path;
       const solutionSteps = currentState.steps;
 
-      // Ensure all gatekeepers from zone 1 are always included for visual symmetry in vertical levels
-      if (level.mechanics.isVertical) {
-          level.mapNodes.forEach(n => {
-              if (n.isGatekeeper && n.zone === 1 && !puzzleEntities.find(p => p.id === n.id)) {
-                  puzzleEntities.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'AND', id: n.id });
-              }
-          });
-      }
-
+      // We return the ORIGINAL puzzleEntities here, retaining all visual symmetry components
       if (solutionSteps >= targetSteps) return { startItems, puzzleEntities, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps };
       if (solutionSteps > maxSteps) { bestPuzzle = { startItems, puzzleEntities, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps }; maxSteps = solutionSteps; }
     }
