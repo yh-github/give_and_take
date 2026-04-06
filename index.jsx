@@ -1185,11 +1185,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                         <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                            {isRock && !isDefeated ? (
                              <div className={`flex justify-center items-end group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                               <span className="scale-[0.8] opacity-80 -rotate-12 -mr-[2cqw] translate-y-[1cqw]">🪨</span>
-                               <span className="scale-[0.9] rotate-6 -mr-[2cqw] translate-y-[0.5cqw]">🪨</span>
+                               <span className="scale-[0.8] opacity-80 -rotate-12 -mr-[4cqw] translate-y-[1cqw]">🪨</span>
+                               <span className="scale-[0.9] rotate-6 -mr-[4cqw] translate-y-[0.5cqw]">🪨</span>
                                <span className="scale-[1.1] -translate-y-[0.5cqw] -rotate-6 z-10 drop-shadow-md text-[1.2em]">🪨</span>
-                               <span className="scale-[0.95] rotate-12 -ml-[2cqw]">🪨</span>
-                               <span className="scale-[0.8] opacity-80 rotate-6 -ml-[2cqw] translate-y-[1cqw]">🪨</span>
+                               <span className="scale-[0.95] rotate-12 -ml-[4cqw]">🪨</span>
+                               <span className="scale-[0.8] opacity-80 rotate-6 -ml-[4cqw] translate-y-[1cqw]">🪨</span>
                              </div>
                            ) : isRock && isDefeated ? (
                              <div className="relative group text-[0.8em] flex justify-center translate-y-4 cursor-pointer z-50 animate-rock-shatter">
