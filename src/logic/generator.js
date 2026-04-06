@@ -2,18 +2,7 @@ import { MAX_UNIQUE_ITEMS, SOLVER_TIME_LIMIT_MS, GENERATOR_MAX_ATTEMPTS } from '
 import { solvePuzzle } from './solver.js';
 import { uniqueCount } from './navigation.js';
 
-/**
- * Generate a puzzle for a given level. If the level provides a custom
- * generator (e.g., underwater), delegate to it. Otherwise, use the
- * shared procedural generation framework.
- *
- * @param {Object} level - Level definition
- * @param {number} targetSteps - Minimum solution steps desired
- * @param {number} numDiggers - Number of "digger" (memory) entities
- * @returns {Object|null} Generated puzzle or null if generation failed
- */
 export function generateLevelPuzzle(level, targetSteps, numDiggers) {
-  // Delegate to custom generator if the level provides one
   if (level.generatePuzzle) return level.generatePuzzle(level);
 
   let bestPuzzle = null;
@@ -26,6 +15,7 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
     let activeGatekeepers = [];
     let presetEntities = [];
 
+    // 1. Gather all your hardcoded, manually placed entities
     if (level.mechanics.gatekeeperId) {
       const gkEnt = level.entities.find(e => e.id === level.mechanics.gatekeeperId);
       const gkNode = level.mapNodes.find(n => n.isGatekeeper);
@@ -49,12 +39,14 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
     }
 
     if (level.mechanics.hasTransformation) {
-      // Sea Witch is mandatory for transformation levels
       const witchEnt = level.entities.find(e => e.id === 'sea_witch');
       const witchNode = level.mapNodes.find(n => n.id === 'sea_witch');
       const reqs = ['pearl', 'locket', 'trident'].sort(() => Math.random() - 0.5).slice(0, 2);
       activeGatekeepers.push({ ...witchEnt, ...witchNode, requires: reqs, reqType: 'AND', reward: null, id: 'sea_witch' });
     }
+
+    // --- SNAPSHOT: Save exactly how you placed them in data.js ---
+    const hardcodedLayout = [...activeGatekeepers, ...presetEntities].map(e => ({ ...e }));
 
     const availableNodes = level.mapNodes.filter(n => !n.isGatekeeper && !n.isGoal && !n.isPreset && n.id !== 'sea_witch');
     let goalTemplate = { id: 'vault_rock' };
@@ -85,15 +77,6 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
 
     let puzzleEntities = [...activeGatekeepers, ...presetEntities];
 
-    // Ensure all gatekeepers from zone 1 are always included for visual symmetry in vertical levels
-    if (level.mechanics.isVertical) {
-      level.mapNodes.forEach(n => {
-        if (n.isGatekeeper && n.zone === 1 && !puzzleEntities.find(p => p.id === n.id)) {
-          puzzleEntities.push({ ...n, name: 'Rock', requires: ['pickaxe'], reqType: 'AND', id: n.id });
-        }
-      });
-    }
-
     const standardItems = level.items.filter(i => i.id !== 'fish' && i.id !== 'pickaxe' && i.id !== 'key');
     const startItems = [standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id, standardItems[Math.floor(Math.random() * standardItems.length)].id];
 
@@ -104,7 +87,6 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
       const numReqs = Math.random() > 0.4 && availableReqs.length >= 2 ? 2 : 1;
       const reqs = [...availableReqs].sort(() => Math.random() - 0.5).slice(0, numReqs);
 
-      // Mermaid color variation
       let color = e.color || "#2dd4bf";
       if (e.id.startsWith('mermaid')) {
         if (!e.color) {
@@ -134,15 +116,21 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
 
     const targetGoalId = (level.mechanics.isVertical && level.mechanics.hasPickaxe) ? 'vault_rock' : goalTemplate.id;
 
-    // FIX: Pass a deep copy of puzzleEntities so the solver's pruning doesn't mutate our visual data
-    const simulationEntities = JSON.parse(JSON.stringify(puzzleEntities));
-    const currentState = solvePuzzle(startItems, simulationEntities, targetGoalId, level);
+    // 2. The solver runs and deletes unused stuff.
+    const currentState = solvePuzzle(startItems, puzzleEntities, targetGoalId, level);
 
     if (currentState) {
       const solutionPath = currentState.path;
       const solutionSteps = currentState.steps;
 
-      // We return the ORIGINAL puzzleEntities here, retaining all visual symmetry components
+      // 3. FORCE RESTORE: Any hardcoded entity that the solver deleted gets added back 
+      // with its original pristine coordinates and data.
+      hardcodedLayout.forEach(originalEntity => {
+        if (!puzzleEntities.find(p => p.id === originalEntity.id)) {
+          puzzleEntities.push(originalEntity);
+        }
+      });
+
       if (solutionSteps >= targetSteps) return { startItems, puzzleEntities, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps };
       if (solutionSteps > maxSteps) { bestPuzzle = { startItems, puzzleEntities, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps }; maxSteps = solutionSteps; }
     }
