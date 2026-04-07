@@ -106,9 +106,10 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
     }
 
     if (level.mechanics.isVertical && level.mechanics.hasPickaxe) {
-      const nonGoalNodes = puzzleEntities.filter(e => !e.isGatekeeper && !e.isTreasure && !e.isPreset && e.reward !== 'pickaxe');
+      const nonGoalNodes = puzzleEntities.filter(e => !e.isGatekeeper && !e.isTreasure && !e.isPreset && e.reward !== 'pickaxe' && !e.id?.includes('scenery'));
       const shuffled = [...nonGoalNodes].sort(() => Math.random() - 0.5);
-      for (let i = 0; i < 5; i++) { if (shuffled[i]) shuffled[i].reward = 'pickaxe'; }
+      // Increase budget to 8 to ensure level is siempre solvable
+      for (let i = 0; i < 8; i++) { if (shuffled[i]) shuffled[i].reward = 'pickaxe'; }
     } else if (level.mechanics.hasPickaxe) {
       const z1NonGoal = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && e.id !== goalTemplate.id && e.id !== firstStepEnt?.id);
       if (z1NonGoal) z1NonGoal.reward = 'pickaxe';
