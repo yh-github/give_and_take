@@ -1,58 +1,65 @@
-import React, { useMemo } from 'react';
-import { getVisibilityPolygon } from '../../logic/visibility.js';
-import { CAVE_WALL_VERTICES } from './components.jsx';
+import React from 'react';
 
-const CaveVisibility = ({ heroPos, mapNodes, unlockedZones, defeated, gameTime, radius = 28, screens = 2.5 }) => {
-  const polygon = useMemo(() => 
-    getVisibilityPolygon(heroPos, mapNodes, CAVE_WALL_VERTICES, unlockedZones, defeated, radius, screens),
-    [heroPos.x, heroPos.y, mapNodes, unlockedZones, defeated, radius, screens]
-  );
+const CaveVisibility = ({ heroPos, polygon, gameTime, radius = 45, screens = 2.5 }) => {
+  // Hero Y must be scaled to match the SVG viewBox (0-250 for screens=2.5)
+  const scaledHeroY = heroPos.y * screens;
   
-  // Torch flicker: subtle radius and position oscillation
-  const flicker = Math.sin(gameTime * 10) * 0.5 + Math.sin(gameTime * 7) * 0.3;
+  // Torch flicker
+  const flicker = Math.sin(gameTime * 10) * 0.8 + Math.sin(gameTime * 7) * 0.5;
   const currentRadius = radius + flicker;
   
   return (
     <svg 
-      className="absolute inset-0 w-full h-full pointer-events-none z-[98]" 
+      className="absolute inset-0 w-full h-full pointer-events-none z-[150]" 
       viewBox={`0 0 100 ${screens * 100}`} 
       preserveAspectRatio="none"
     >
       <defs>
         <filter id="visibilityBlur">
-          <feGaussianBlur stdDeviation="1.5" />
+          <feGaussianBlur stdDeviation="2" />
         </filter>
         
-        <radialGradient id="torchGrad" cx={`${heroPos.x}%`} cy={`${heroPos.y}%`} gradientUnits="userSpaceOnUse" r={`${currentRadius}%`}>
-          <stop offset="0%" stopColor="white" stopOpacity="1" />
-          <stop offset="40%" stopColor="white" stopOpacity="0.9" />
-          <stop offset="70%" stopColor="white" stopOpacity="0.4" />
+        {/* Gradient for the mask hole: BLACK at center = hide darkness = LIT, fading to WHITE at edges = show darkness = DARK */}
+        <radialGradient id="torchMaskGrad" cx={heroPos.x} cy={scaledHeroY} gradientUnits="userSpaceOnUse" r={currentRadius}>
+          <stop offset="0%" stopColor="black" stopOpacity="1" />
+          <stop offset="35%" stopColor="black" stopOpacity="0.95" />
+          <stop offset="60%" stopColor="#333" stopOpacity="0.7" />
+          <stop offset="80%" stopColor="#999" stopOpacity="0.3" />
+          <stop offset="95%" stopColor="white" stopOpacity="0.1" />
           <stop offset="100%" stopColor="white" stopOpacity="0" />
         </radialGradient>
 
         <mask id="caveMask">
-          {/* Base: hide everything */}
-          <rect x="0" y="0" width="100" height={screens * 100} fill="black" />
+          {/* Base: show darkness everywhere */}
+          <rect x="0" y="0" width="100" height={screens * 100} fill="white" />
           
-          {/* Visible area: the raycasted polygon */}
+          {/* Cut a hole where the hero's torch lights up — raycasted polygon */}
           {polygon && (
             <polygon 
               points={polygon} 
-              fill="url(#torchGrad)" 
+              fill="url(#torchMaskGrad)" 
               filter="url(#visibilityBlur)"
             />
           )}
         </mask>
       </defs>
 
-      {/* The actual darkness layer */}
+      {/* Darkness layer — visible everywhere EXCEPT the torch hole */}
       <rect 
         x="0" y="0" 
         width="100" height={screens * 100} 
-        fill="#000" 
+        fill="#080604" 
         mask="url(#caveMask)"
-        opacity="0.98"
+        opacity="0.95"
       />
+
+      {/* Warm ambient tint inside the lit area — very subtle golden torch glow */}
+      {polygon && (
+        <polygon 
+          points={polygon} 
+          fill="rgba(255, 170, 60, 0.06)"
+        />
+      )}
     </svg>
   );
 };
