@@ -8,6 +8,9 @@ import { computeWaypoints, uniqueCount } from './src/logic/navigation.js';
 import ErrorBoundary from './src/components/ErrorBoundary.jsx';
 import { BoatSVG, GiantClamSVG, BubbleVentSVG, CrabSVG, OctopusSVG, SeahorseSVG } from './src/levels/underwater/components.jsx';
 import { CaveEntranceProp } from './src/levels/river_crossing/components.jsx';
+import CaveVisibility from './src/levels/underground/CaveVisibility.jsx';
+import { getVisibilityPolygon } from './src/logic/visibility.js';
+import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
@@ -69,6 +72,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const stateRefs = useRef({});
   stateRefs.current = { inventory, defeated, pathHistory, envItemState, unlockedZones, campItems, buriedEntities, air, isTransformed, hasDeepTreasure, inkFogEntities, attachedEntityId };
   const activeDigTimers = useRef({});
+
+  const polyPoints = useMemo(() => {
+    if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return null;
+    const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
+    if (!pPos) return null;
+    return getVisibilityPolygon(pPos, puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, 45, level.mechanics.screens || 1);
+  }, [tempPlayerPos, pathHistory[pathHistory.length - 1], puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens]);
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
@@ -980,25 +990,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           <div className="absolute inset-x-0 top-0 transition-transform duration-1000 ease-in-out pointer-events-auto animate-map-appear" style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}>
             <Background />
 
-            {level.mechanics.hasDarkness && level.mechanics.darknessType === 'horizontal' && (
-              <>
-                <div className={`absolute inset-y-0 left-0 w-1/2 bg-black transition-all duration-1000 z-[90] pointer-events-none ${unlockedZones.includes(1) ? 'opacity-0' : 'opacity-100 pointer-events-auto'}`} />
-                <div className={`absolute inset-y-0 right-0 w-1/2 bg-black transition-all duration-1000 z-[90] pointer-events-none ${unlockedZones.includes(2) ? 'opacity-0' : 'opacity-100 pointer-events-auto'}`} />
-              </>
-            )}
-
-            {level.id === 'underground' && level.mechanics.hasFog && (
-              <div className="absolute inset-0 pointer-events-none z-[150]">
-                {!unlockedZones.includes(2) && <div className="absolute left-0 w-[55%] bg-gradient-radial from-[#110c08]/80 via-[#110c08] to-[#110c08] backdrop-blur-md transition-opacity duration-1000 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]" style={{ top: '22%', height: '24%' }} />}
-                {!unlockedZones.includes(3) && <div className="absolute right-0 w-[55%] bg-gradient-radial from-[#110c08]/80 via-[#110c08] to-[#110c08] backdrop-blur-md transition-opacity duration-1000 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]" style={{ top: '25%', height: '18%' }} />}
-                {!unlockedZones.includes(4) && <div className="absolute left-0 w-[55%] bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '46%', height: '22%' }} />}
-                {!unlockedZones.includes(5) && <div className="absolute right-0 w-[55%] bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '43%', height: '28%' }} />}
-                {!unlockedZones.includes(6) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '68%', height: '10%' }} />}
-                {!unlockedZones.includes(7) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '78%', height: '10%' }} />}
-                {!unlockedZones.includes(8) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '88%', height: '7%' }} />}
-                {!unlockedZones.includes(9) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '95%', height: '5%' }} />}
-              </div>
-            )}
             {level.id !== 'underground' && level.mechanics.hasFog && (
               <div className="absolute inset-0 pointer-events-none z-[120]">
                 {!unlockedZones.includes(2) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
@@ -1013,7 +1004,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             )}
 
             {level.mechanics.hasDarkness && level.mechanics.darknessType === 'radial' && (
-              <div className="absolute inset-0 pointer-events-none z-[98] transition-all duration-300 ease-linear animate-torch-flicker" style={{ background: `radial-gradient(ellipse 80vw 100vh at ${displayPlayerPos.x}% ${displayPlayerPos.y}%, transparent 0%, transparent 30%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.95) 80%, #000 100%)` }} />
+              <CaveVisibility
+                heroPos={displayPlayerPos}
+                polygon={polyPoints}
+                gameTime={gameTime}
+                screens={level.mechanics.screens || 1}
+              />
             )}
 
             {level.sceneryNodes?.map((sc, i) => {
@@ -1115,7 +1111,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
               const eDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(ent.x - displayPlayerPos.x, 2) + Math.pow(ent.y - displayPlayerPos.y, 2)) : 100;
               const inLight = eDist < 28;
-              const entZ = isSelected ? 200 : ((inLight && !inFog) ? 140 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
+              const entZ = isSelected ? 200 : ((inLight && !inFog) ? 170 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
 
               const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
               const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
@@ -1243,7 +1239,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               );
             })}
 
-            <div className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} style={{ left: `${playerVisualX}%`, top: `${playerVisualY}%`, zIndex: Math.max(playerZ, 130), transform: `translate(-50%, -50%) rotate(${playerRotation}deg)` }}>
+            <div className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} style={{ left: `${playerVisualX}%`, top: `${playerVisualY}%`, zIndex: Math.max(playerZ, 160), transform: `translate(-50%, -50%) rotate(${playerRotation}deg)` }}>
               <div className={`text-white w-[10cqw] h-[10cqw] rounded-full flex items-center justify-center shadow-[0_1cqw_2cqw_rgba(0,0,0,0.8)] text-[6cqw] relative ${isTransformed ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' : (level.mechanics.hasAir ? 'bg-cyan-600 border-2 border-cyan-200' : 'bg-blue-600 border-2 border-white')} ${level.mechanics.heroBobs && !isDrowning ? 'animate-bob' : ''}`}>
                 {heroFace}
                 {level.mechanics.darknessType === 'radial' && <div className="absolute -right-3 -bottom-2 text-xl z-50 drop-shadow-[0_0_10px_rgba(251,191,36,1)]">🕯️</div>}

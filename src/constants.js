@@ -8,7 +8,7 @@ export const SOLVER_TIME_LIMIT_MS = 1200;
 export const GENERATOR_MAX_ATTEMPTS = 5000;
 
 // === Navigation & Layout ===
-export const NAV_OFFSET = 3.5;
+export const NAV_OFFSET = 6.0;
 
 // === Timing (milliseconds) ===
 export const FISH_SPAWN_INTERVAL_MS = 1200;

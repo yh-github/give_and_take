@@ -49,9 +49,9 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
           const sizeX = node.isExtraRock ? 2.5 : 4;
           const sizeY = node.isExtraRock ? 1.5 : 2;
           const x = node.x;
-          const y = node.y;
+          const y = node.y * screens; // Scale rock y to match wall space
 
-          // Rectangle around rock
+          // Rectangle around rock (approx 8x4 relative to screens)
           segments.push({ a: { x: x - sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y - sizeY } });
           segments.push({ a: { x: x + sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y + sizeY } });
           segments.push({ a: { x: x + sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y + sizeY } });
@@ -73,7 +73,7 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
   // add segments specifically where we want to block sight into dark areas.
   // Given Option A, the "rocks" are the main occluders. 
   // For the plan's "Zone boundary walls", we add horizontal lines for locked paths.
-  if (!unlockedZones.includes(2)) segments.push({ a: { x: 20, y: 20 * screens }, b: { x: 50, y: 20 * screens } });
+  if (!unlockedZones.includes(2)) segments.push({ a: { x: 20, y: 20 * screens }, b: { x: 45, y: 20 * screens } });
   if (!unlockedZones.includes(3)) segments.push({ a: { x: 50, y: 23 * screens }, b: { x: 80, y: 23 * screens } });
 
   return segments;
@@ -201,8 +201,12 @@ export function castRays(origin, segments, radius = 30) {
  * Returns SVG points string for visibility polygon.
  */
 export function getVisibilityPolygon(heroPos, mapNodes, caveWallVertices, unlockedZones, defeated, radius = 30, screens = 2.5) {
+    const scaledHeroPos = { 
+        x: heroPos.x, 
+        y: heroPos.y * screens // HERO MUST BE SCALED TO MATCH SEGMENT SPACE
+    };
     const segments = getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, defeated, screens);
-    const intersects = castRays(heroPos, segments, radius);
+    const intersects = castRays(scaledHeroPos, segments, radius);
     return intersects.map(p => `${p.x},${p.y}`).join(' ');
 }
 
