@@ -1182,7 +1182,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               const inDarkness = !isVisible;
               const entZ = isSelected ? 200 : ((inLightRadius && !inFog && !inDarkness) ? 170 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
 
-              const interactableHover = (inFog || inDarkness) ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+              // Rocks should stay visible even in darkness so the player sees what blocks the light, 
+              // but creatures/items should be hidden. Both are non-interactable if in fog.
+              // Rocks remain clickable in the dark so you can move to them and mine them.
+              const hideInDarkness = inDarkness && !isRock && !ent.isGatekeeper;
+              const isInteractable = !inFog && (!inDarkness || isRock || ent.isGatekeeper);
+              const interactableHover = !isInteractable ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (inDarkness) ? 'cursor-pointer opacity-60 grayscale' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
               const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
               const isNearLeft = !ent.roamClass && ent.x <= 20;
