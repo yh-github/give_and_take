@@ -43,7 +43,7 @@ The application is structured as a modern React single-page application focused 
     - **Fishing**: You can catch fish in the river to use as trading fodder.
 - **Goal**: Cross the final bridge to reach the Cave Entrance or defeat the Cave Boss.
 
-### 2. The Deep Chasm
+### 2. The Cave
 *A vertical descent into the dark depths of the earth.*
 - **Theme**: Underground Mine & Caverns.
 - **Unique Mechanics**:

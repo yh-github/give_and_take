@@ -55,7 +55,7 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
         const baseTroll = level.entities.find(e => e.id === 'troll');
         goalTemplate = { ...baseTroll, id: 'cave_troll_exit', name: 'Cave Boss' };
       } else {
-        goalTemplate = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate).sort(() => Math.random() - 0.5);
+        goalTemplate = level.entities.filter(e => e.id !== level.mechanics.gatekeeperId && e.id !== level.specialEntityTemplate).sort(() => Math.random() - 0.5)[0];
       }
 
       const goalNode = level.mapNodes.find(n => n.isGoal);
@@ -100,7 +100,7 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
 
     const firstStepEnt = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && !e.isPreset);
     if (firstStepEnt) {
-      firstStepEnt.requires = [startItems];
+      firstStepEnt.requires = [startItems[0]];
       firstStepEnt.reqType = 'OR';
       if (level.mechanics.hasPickaxe) firstStepEnt.reward = 'pickaxe';
     }
