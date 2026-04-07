@@ -1,5 +1,33 @@
 import React from 'react';
 
+export const CAVE_WALL_VERTICES = {
+  leftWall: [
+    {x:0,y:0}, {x:20,y:0}, 
+    {x:18,y:4}, {x:20,y:8}, {x:18,y:12}, {x:14,y:16}, {x:16,y:20}, 
+    {x:20,y:22}, {x:17,y:25}, 
+    {x:20,y:30}, {x:18,y:36}, {x:21,y:42}, 
+    {x:20,y:46}, {x:18,y:52}, 
+    {x:22,y:60}, {x:19,y:65}, 
+    {x:20,y:68}, {x:17,y:72}, {x:20,y:76}, {x:18,y:80}, {x:20,y:84}, {x:14,y:88}, {x:12,y:92}, {x:14,y:96}, {x:12,y:100}, {x:0,y:100}
+  ],
+  rightWall: [
+    {x:100,y:0}, {x:80,y:0}, 
+    {x:82,y:4}, {x:80,y:8}, {x:82,y:12}, {x:86,y:16}, {x:84,y:20}, 
+    {x:80,y:25}, {x:83,y:28}, 
+    {x:80,y:32}, {x:82,y:38}, {x:79,y:41}, 
+    {x:80,y:43}, {x:82,y:50}, 
+    {x:78,y:60}, {x:81,y:65}, 
+    {x:80,y:71}, {x:83,y:75}, {x:80,y:79}, {x:82,y:83}, {x:80,y:86}, {x:86,y:90}, {x:88,y:94}, {x:85,y:97}, {x:88,y:100}, {x:100,y:100}
+  ],
+  centralPillar: [
+    {x:50,y:20}, 
+    {x:52,y:22}, {x:53,y:25}, {x:50,y:30}, {x:47,y:38}, {x:52,y:46}, {x:49,y:52}, 
+    {x:53,y:60}, {x:51,y:65}, {x:55,y:68}, {x:52,y:75}, 
+    {x:48,y:76}, {x:45,y:71}, {x:49,y:66}, {x:47,y:61}, 
+    {x:51,y:51}, {x:48,y:43}, {x:53,y:36}, {x:50,y:31}, {x:47,y:25}, {x:48,y:22}
+  ]
+};
+
 export const CaveBackground = () => (
   <div className="absolute inset-0 bg-[#2b221d] pointer-events-none z-0 overflow-hidden">
     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#1a1512 2px, transparent 2px)', backgroundSize: '40px 40px' }} />
