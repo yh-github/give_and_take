@@ -1184,12 +1184,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                         
                         <div className={`drop-shadow-xl relative z-10 ${ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                            {isRock && !isDefeated ? (
-                             <div className={`flex justify-center items-center group-hover:scale-110 transition-transform cursor-pointer ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                               <span className="text-[1.2em] drop-shadow-md">🪨</span>
+                             <div className={`flex justify-center items-center transition-transform cursor-pointer`}>
+                               {level.RockComponent ? <level.RockComponent isDefeated={false} isAlerting={isAlerting} seed={ent.id} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
                              </div>
                            ) : isRock && isDefeated ? (
                              <div className="relative group text-[0.8em] flex justify-center cursor-pointer z-50 animate-rock-shatter">
-                               <span className="text-[1.2em] drop-shadow-md">🪨</span>
+                               {level.RockComponent ? <level.RockComponent isDefeated={true} isAlerting={false} seed={ent.id} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
                              </div>
                            ) : isCurrent && isDefeated ? (
                              <div className="text-[9cqw] opacity-0 scale-0 transition-all duration-500">🌀</div>

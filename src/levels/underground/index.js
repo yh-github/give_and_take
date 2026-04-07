@@ -1,5 +1,5 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.js';
-import { CaveBackground, CampIcon } from './components.jsx';
+import { CaveBackground, CampIcon, RockSVG } from './components.jsx';
 
 const underground = {
   id: 'underground',
@@ -19,6 +19,7 @@ const underground = {
   },
   specialEntityTemplate: 'mole',
   BackgroundComponent: CaveBackground,
+  RockComponent: RockSVG,
   GatekeeperPropComponent: () => null,
   CampIcon,
 };
