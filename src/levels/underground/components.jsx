@@ -109,7 +109,7 @@ export const RockSVG = ({ isDefeated, isAlerting, seed = 0, size = 'large' }) =>
 
   return (
     <div className={`relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})` }}>
-      <svg viewBox="0 0 120 70" className="w-[40cqw] h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
+      <svg viewBox="0 0 120 70" className="w-[26cqw] h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
         <defs>
           <linearGradient id={`rockGrad-${variant}-${size}`} x1={`${variant * 20}%`} y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="#8a847e" />
