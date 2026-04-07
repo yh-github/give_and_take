@@ -985,8 +985,20 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             </>
           )}
 
-          {level.mechanics.hasFog && (
-            <div className="absolute inset-0 pointer-events-none z-[100]">
+          {level.id === 'underground' && level.mechanics.hasFog && (
+            <div className="absolute inset-0 pointer-events-none z-[150]">
+              {!unlockedZones.includes(2) && <div className="absolute left-0 w-[55%] bg-gradient-radial from-[#110c08]/80 via-[#110c08] to-[#110c08] backdrop-blur-md transition-opacity duration-1000 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]" style={{ top: '22%', height: '24%' }} />}
+              {!unlockedZones.includes(3) && <div className="absolute right-0 w-[55%] bg-gradient-radial from-[#110c08]/80 via-[#110c08] to-[#110c08] backdrop-blur-md transition-opacity duration-1000 shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]" style={{ top: '25%', height: '18%' }} />}
+              {!unlockedZones.includes(4) && <div className="absolute left-0 w-[55%] bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '46%', height: '22%' }} />}
+              {!unlockedZones.includes(5) && <div className="absolute right-0 w-[55%] bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '43%', height: '28%' }} />}
+              {!unlockedZones.includes(6) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '68%', height: '10%' }} />}
+              {!unlockedZones.includes(7) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '78%', height: '10%' }} />}
+              {!unlockedZones.includes(8) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '88%', height: '7%' }} />}
+              {!unlockedZones.includes(9) && <div className="absolute left-0 right-0 w-full bg-[#110c08] transition-opacity duration-1000 shadow-2xl" style={{ top: '95%', height: '5%' }} />}
+            </div>
+          )}
+          {level.id !== 'underground' && level.mechanics.hasFog && (
+            <div className="absolute inset-0 pointer-events-none z-[120]">
               {!unlockedZones.includes(2) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
               {!unlockedZones.includes(3) && <div className="absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
               {!unlockedZones.includes(4) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '45%', height: '20%' }} />}
@@ -1101,9 +1113,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
             const eDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(ent.x - displayPlayerPos.x, 2) + Math.pow(ent.y - displayPlayerPos.y, 2)) : 100;
             const inLight = eDist < 28;
-            const entZ = isSelected ? 150 : ( (inLight && !inFog) ? 105 : (isRock ? 99 : (ent.isGatekeeper ? 95 : (ent.depth || 3) * 10 + 5)) );
+            const entZ = isSelected ? 200 : ( (inLight && !inFog) ? 140 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)) );
 
-            const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 scale-50 transition-all duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+            const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
             const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
             const isNearLeft = !ent.roamClass && ent.x <= 20;
