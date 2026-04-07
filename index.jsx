@@ -9,7 +9,7 @@ import ErrorBoundary from './src/components/ErrorBoundary.jsx';
 import { BoatSVG, GiantClamSVG, BubbleVentSVG, CrabSVG, OctopusSVG, SeahorseSVG } from './src/levels/underwater/components.jsx';
 import { CaveEntranceProp } from './src/levels/river_crossing/components.jsx';
 import CaveVisibility from './src/levels/underground/CaveVisibility.jsx';
-import { getVisibilityPolygon } from './src/logic/visibility.js';
+import { getVisibilityPolygon, getObstacleSegments, isPointInVisibilityPolygon } from './src/logic/visibility.js';
 import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
@@ -60,6 +60,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [gameTime, setGameTime] = useState(0);
   const [attachedEntityId, setAttachedEntityId] = useState(null);
   const [isMagicAnimating, setIsMagicAnimating] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
 
   const [dolphinZone, setDolphinZone] = useState(1);
   const [dolphinYPos, setDolphinYPos] = useState(16);
@@ -79,6 +80,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (!pPos) return null;
     return getVisibilityPolygon(pPos, puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, 45, level.mechanics.screens || 1);
   }, [tempPlayerPos, pathHistory[pathHistory.length - 1], puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens]);
+
+  const debugSegments = useMemo(() => {
+    if (!debugMode || !puzzle || level.id !== 'underground') return [];
+    return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, level.mechanics.screens || 1);
+  }, [debugMode, puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens]);
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
@@ -1003,6 +1009,67 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               </div>
             )}
 
+            {debugMode && level.mechanics.hasDarkness && (
+              <div className="absolute inset-0 pointer-events-none z-[160]">
+                <svg className="w-full h-full" viewBox={`0 0 100 ${100 * (level.mechanics.screens || 1)}`} preserveAspectRatio="none">
+                  {/* Draw the polygon */}
+                  {polyPoints && (
+                    <polygon
+                      points={polyPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="rgba(255, 0, 255, 0.15)"
+                      stroke="#ff00ff"
+                      strokeWidth="0.4"
+                    />
+                  )}
+                  {/* Draw the light origin */}
+                  {displayPlayerPos && (
+                    <circle
+                      cx={displayPlayerPos.x}
+                      cy={displayPlayerPos.y * (level.mechanics.screens || 1)}
+                      r="1.2"
+                      fill="#ff00ff"
+                      className="animate-pulse"
+                    />
+                  )}
+                  {/* Draw the rays (what allows seeing the gaps) */}
+                  {debugMode && polyPoints && displayPlayerPos && polyPoints.map((p, i) => (
+                    <line
+                      key={`ray_${i}`}
+                      x1={displayPlayerPos.x}
+                      y1={displayPlayerPos.y * (level.mechanics.screens || 1)}
+                      x2={p.x}
+                      y2={p.y}
+                      stroke="#ff00ff"
+                      strokeWidth="0.1"
+                      opacity="0.4"
+                    />
+                  ))}
+                  {/* Draw hit points */}
+                  {debugMode && polyPoints && polyPoints.map((p, i) => (
+                    <circle
+                      key={`hit_${i}`}
+                      cx={p.x}
+                      cy={p.y}
+                      r="0.35"
+                      fill="#ff00ff"
+                    />
+                  ))}
+                  {/* Draw the obstacles (segments) */}
+                  {debugSegments && debugSegments.map((s, i) => (
+                    <line
+                      key={i}
+                      x1={s.a.x} y1={s.a.y}
+                      x2={s.b.x} y2={s.b.y}
+                      stroke="#ff00ff"
+                      strokeWidth="0.75"
+                      strokeDasharray="2,1"
+                      opacity="0.8"
+                    />
+                  ))}
+                </svg>
+              </div>
+            )}
+
             {level.mechanics.hasDarkness && level.mechanics.darknessType === 'radial' && (
               <CaveVisibility
                 heroPos={displayPlayerPos}
@@ -1110,10 +1177,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               const inFog = (level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)))) || inkFogEntities.has(ent.id);
 
               const eDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(ent.x - displayPlayerPos.x, 2) + Math.pow(ent.y - displayPlayerPos.y, 2)) : 100;
-              const inLight = eDist < 28;
-              const entZ = isSelected ? 200 : ((inLight && !inFog) ? 170 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
+              const inLightRadius = eDist < 28;
+              const isVisible = level.mechanics.darknessType !== 'radial' || (polyPoints && isPointInVisibilityPolygon({ x: ent.x, y: ent.y * (level.mechanics.screens || 1) }, polyPoints));
+              const inDarkness = !isVisible;
+              const entZ = isSelected ? 200 : ((inLightRadius && !inFog && !inDarkness) ? 170 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
 
-              const interactableHover = inFog ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+              const interactableHover = (inFog || inDarkness) ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
               const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
               const isNearLeft = !ent.roamClass && ent.x <= 20;
@@ -1253,6 +1322,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           <div className="absolute top-4 left-4 z-[150] flex gap-2">
             <button onClick={(e) => { e.stopPropagation(); setLang('he'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'he' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇮🇱</button>
             <button onClick={(e) => { e.stopPropagation(); setLang('en'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'en' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇺🇸</button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setDebugMode(!debugMode); }} 
+              className={`w-10 h-10 rounded-full border-2 ${debugMode ? 'border-magenta-500 bg-magenta-900/40 text-magenta-500 scale-110 shadow-lg' : 'border-stone-600 opacity-50 text-stone-400'} flex items-center justify-center bg-stone-800 transition-all font-bold`}
+              title="Toggle Debug View"
+              style={debugMode ? { borderColor: '#ff00ff', color: '#ff00ff', boxShadow: '0 0 10px #ff00ff' } : {}}
+            >
+              👁️
+            </button>
           </div>
           <button onClick={(e) => { e.stopPropagation(); setMenuView('main'); setIsMenuOpen(true); }} className="absolute top-4 right-4 z-[150] bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"><span className="text-xl pt-0.5">⚙️</span></button>
 

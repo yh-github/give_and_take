@@ -21,16 +21,16 @@ export const computeWaypoints = (fromZone, toZone) => {
 
   if ((leftZones.includes(fromZone) && rightZones.includes(toZone)) ||
       (rightZones.includes(fromZone) && leftZones.includes(toZone))) {
-      if (Math.min(fromZone, toZone) >= 4) waypoints.push({ x: 50, y: 69, depth: 3, zone: 6 });
-      else waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
+      if (Math.max(fromZone, toZone) >= 6) waypoints.push({ x: 50, y: 76, depth: 3, zone: 6 });
+      else waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
   } else if (fromZone === 1 && (leftZones.includes(toZone) || rightZones.includes(toZone))) {
-      waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
+      waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
   } else if (toZone === 1 && (leftZones.includes(fromZone) || rightZones.includes(fromZone))) {
-      waypoints.push({ x: 50, y: 22, depth: 3, zone: 1 });
+      waypoints.push({ x: 50, y: 18, depth: 3, zone: 1 });
   } else if (fromZone >= 6 && (leftZones.includes(toZone) || rightZones.includes(toZone))) {
-      waypoints.push({ x: 50, y: 69, depth: 3, zone: 6 });
+      waypoints.push({ x: 50, y: 76, depth: 3, zone: 6 });
   } else if (toZone >= 6 && (leftZones.includes(fromZone) || rightZones.includes(fromZone))) {
-      waypoints.push({ x: 50, y: 69, depth: 3, zone: 6 });
+      waypoints.push({ x: 50, y: 76, depth: 3, zone: 6 });
   }
   return waypoints;
 };

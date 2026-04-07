@@ -45,13 +45,21 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
   // 3. Rocks (Gatekeepers and Extra)
   if (mapNodes) {
     mapNodes.forEach(node => {
-      if ((node.isGatekeeper || node.isExtraRock) && !defeated.includes(node.id)) {
-          const sizeX = node.isExtraRock ? 2.5 : 4;
-          const sizeY = node.isExtraRock ? 1.5 : 2;
+      // gatekeeper rocks should be wide enough to block most of the corridor (wall to pillar)
+      if (node.isGatekeeper && !defeated.includes(node.id)) {
+          const sizeX = 12;
+          const sizeY = 2;
           const x = node.x;
-          const y = node.y * screens; // Scale rock y to match wall space
-
-          // Rectangle around rock (approx 8x4 relative to screens)
+          const y = node.y * screens;
+          segments.push({ a: { x: x - sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y - sizeY } });
+          segments.push({ a: { x: x + sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y + sizeY } });
+          segments.push({ a: { x: x + sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y + sizeY } });
+          segments.push({ a: { x: x - sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y - sizeY } });
+      } else if (node.isExtraRock && !defeated.includes(node.id)) {
+          const sizeX = 2.5;
+          const sizeY = 1.5;
+          const x = node.x;
+          const y = node.y * screens;
           segments.push({ a: { x: x - sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y - sizeY } });
           segments.push({ a: { x: x + sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y + sizeY } });
           segments.push({ a: { x: x + sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y + sizeY } });
@@ -72,10 +80,7 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
   // For simplicity, we can treat locked zones as large black rectangles later or 
   // add segments specifically where we want to block sight into dark areas.
   // Given Option A, the "rocks" are the main occluders. 
-  // For the plan's "Zone boundary walls", we add horizontal lines for locked paths.
-  if (!unlockedZones.includes(2)) segments.push({ a: { x: 20, y: 20 * screens }, b: { x: 45, y: 20 * screens } });
-  if (!unlockedZones.includes(3)) segments.push({ a: { x: 50, y: 23 * screens }, b: { x: 80, y: 23 * screens } });
-
+  
   return segments;
 }
 
@@ -92,29 +97,16 @@ function getIntersection(ray, segment) {
     const r_py = ray.a.y;
     const r_dx = ray.b.x - ray.a.x;
     const r_dy = ray.b.y - ray.a.y;
-
     const s_px = segment.a.x;
     const s_py = segment.a.y;
     const s_dx = segment.b.x - segment.a.x;
     const s_dy = segment.b.y - segment.a.y;
 
-    // Solve for T2 (segment parameter)
-    // r_px + r_dx * T1 = s_px + s_dx * T2
-    // r_py + r_dy * T1 = s_py + s_dy * T2
-    
     const det = s_dx * r_dy - s_dy * r_dx;
-    if (Math.abs(det) < 1e-6) return null; // Parallel
+    if (Math.abs(det) < 1e-10) return null; // Parallel or nearly so
 
     const T2 = (r_dx * (s_py - r_py) + r_dy * (r_px - s_px)) / det;
-    
-    // Solve for T1 (ray parameter)
-    // If r_dx is non-zero, use it. Otherwise use r_dy (it won't both be zero for a ray).
-    let T1;
-    if (Math.abs(r_dx) > 1e-6) {
-        T1 = (s_px + s_dx * T2 - r_px) / r_dx;
-    } else {
-        T1 = (s_py + s_dy * T2 - r_py) / r_dy;
-    }
+    const T1 = (Math.abs(r_dx) > 1e-10) ? (s_px + s_dx * T2 - r_px) / r_dx : (s_py + s_dy * T2 - r_py) / r_dy;
 
     if (T1 < 0) return null;
     if (T2 < 0 || T2 > 1) return null;
@@ -207,7 +199,7 @@ export function getVisibilityPolygon(heroPos, mapNodes, caveWallVertices, unlock
     };
     const segments = getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, defeated, screens);
     const intersects = castRays(scaledHeroPos, segments, radius);
-    return intersects.map(p => `${p.x},${p.y}`).join(' ');
+    return intersects;
 }
 
 /**
