@@ -3,7 +3,7 @@ import { CaveBackground, CampIcon } from './components.jsx';
 
 const underground = {
   id: 'underground',
-  name: 'The Deep Chasm',
+  name: 'The Cave',
   items,
   entities,
   mapNodes,
