@@ -21,31 +21,46 @@ export const entities = [
 
 // === Underground: Map Layout ===
 export const mapNodes = [
-  { x: 50, y: 6, zone: 1, isPreset: 'mushroom' }, { x: 36, y: 14, zone: 1 }, { x: 71, y: 14, zone: 1 },
-  { x: 36, y: 22, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
-  { x: 71, y: 22, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
-  { x: 20, y: 28, zone: 2, isPreset: 'pickaxe' },
-  { x: 28, y: 32, zone: 2 }, { x: 24, y: 38, zone: 2 },
-  { x: 72, y: 32, zone: 3 }, { x: 76, y: 38, zone: 3 },
-  { x: 80, y: 40, zone: 3, isPreset: 'pickaxe' },
-  { x: 36, y: 46, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
-  { x: 71, y: 46, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
-  { x: 25, y: 54, zone: 4 }, { x: 28, y: 60, zone: 4, isPreset: 'mushroom' },
-  { x: 75, y: 54, zone: 5 }, { x: 72, y: 60, zone: 5 },
-  { x: 50, y: 62, zone: 1, isPreset: 'pickaxe' },
-  { x: 36, y: 68, zone: 4, isGatekeeper: true, id: 'rock_left_3', emoji: '🪨', unlocksZones: [6] },
-  { x: 71, y: 68, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
-  { x: 50, y: 72, zone: 6, isPreset: 'mushroom' }, 
-  { x: 50, y: 78, zone: 6, isGatekeeper: true, id: 'rock_final_1', emoji: '🪨', unlocksZones: [7] },
-  { x: 50, y: 84, zone: 7 }, 
-  { x: 50, y: 88, zone: 7, isGatekeeper: true, id: 'rock_final_2', emoji: '🪨', unlocksZones: [8] },
-  { x: 50, y: 92, zone: 8 }, 
-  { x: 50, y: 95, zone: 8, isGatekeeper: true, id: 'vault_rock', emoji: '🪨', unlocksZones: [9] },
-  { x: 42, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
-  { x: 46, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
-  { x: 50, y: 98, zone: 9, isGoal: true, isPreset: 'treasure', isTreasure: true },
-  { x: 54, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
-  { x: 58, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true }
+  { x: 53, y: 6, zone: 1, isPreset: 'mushroom' }, { x: 39, y: 14, zone: 1 }, { x: 77, y: 14, zone: 1 },
+  // Path 1 (Leftish)
+  { x: 39, y: 22, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
+  { x: 23, y: 28, zone: 2, isPreset: 'pickaxe' },
+  { x: 31, y: 32, zone: 2 }, { x: 27, y: 38, zone: 2 },
+  { x: 39, y: 46, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
+  { x: 28, y: 54, zone: 4 }, { x: 31, y: 60, zone: 4, isPreset: 'mushroom' },
+  { x: 39, y: 68, zone: 4, isGatekeeper: true, id: 'rock_left_3', emoji: '🪨', unlocksZones: [6] },
+
+  // Path 2 (Rightish) - Shipped more right and Y varied
+  { x: 77, y: 25, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
+  { x: 75, y: 32, zone: 3 }, { x: 79, y: 38, zone: 3 },
+  { x: 83, y: 40, zone: 3, isPreset: 'pickaxe' },
+  { x: 77, y: 43, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
+  { x: 78, y: 54, zone: 5 }, { x: 75, y: 60, zone: 5 },
+  { x: 77, y: 71, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
+
+  // Center / Misc
+  { x: 53, y: 62, zone: 1, isPreset: 'pickaxe' },
+  { x: 53, y: 72, zone: 6, isPreset: 'mushroom' }, 
+  { x: 53, y: 78, zone: 6, isGatekeeper: true, id: 'rock_final_1', emoji: '🪨', unlocksZones: [7] },
+  { x: 53, y: 84, zone: 7 }, 
+  { x: 53, y: 88, zone: 7, isGatekeeper: true, id: 'rock_final_2', emoji: '🪨', unlocksZones: [8] },
+  { x: 53, y: 92, zone: 8 }, 
+  { x: 53, y: 95, zone: 8, isGatekeeper: true, id: 'vault_rock', emoji: '🪨', unlocksZones: [9] },
+  
+  // Treasure Room
+  { x: 45, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
+  { x: 49, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
+  { x: 53, y: 98, zone: 9, isGoal: true, isPreset: 'treasure', isTreasure: true },
+  { x: 57, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
+  { x: 61, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
+
+  // Decorative / Side-step Rocks (Smaller, breakable, but not blocking)
+  { x: 30, y: 15, zone: 1, isExtraRock: true, size: 'small', id: 'extra_rock_1', emoji: '🪨' },
+  { x: 70, y: 18, zone: 1, isExtraRock: true, size: 'small', id: 'extra_rock_2', emoji: '🪨' },
+  { x: 55, y: 30, zone: 1, isExtraRock: true, size: 'small', id: 'extra_rock_3', emoji: '🪨' },
+  { x: 20, y: 45, zone: 2, isExtraRock: true, size: 'small', id: 'extra_rock_4', emoji: '🪨' },
+  { x: 85, y: 50, zone: 3, isExtraRock: true, size: 'small', id: 'extra_rock_5', emoji: '🪨' },
+  { x: 60, y: 80, zone: 6, isExtraRock: true, size: 'small', id: 'extra_rock_6', emoji: '🪨' }
 ];
 
 // === Underground: Scenery ===
