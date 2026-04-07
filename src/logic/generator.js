@@ -106,10 +106,12 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
     }
 
     if (level.mechanics.isVertical && level.mechanics.hasPickaxe) {
-      const nonGoalNodes = puzzleEntities.filter(e => !e.isGatekeeper && !e.isTreasure && !e.isPreset && e.reward !== 'pickaxe' && !e.id?.includes('scenery'));
+      // Don't put pickaxes in the treasure room (Zone 9) - we need them to get THERE.
+      const nonGoalNodes = puzzleEntities.filter(e => !e.isGatekeeper && !e.isTreasure && !e.isPreset && e.reward !== 'pickaxe' && !e.id?.includes('scenery') && e.zone < 9);
       const shuffled = [...nonGoalNodes].sort(() => Math.random() - 0.5);
-      // Increase budget to 8 to ensure level is siempre solvable
-      for (let i = 0; i < 8; i++) { if (shuffled[i]) shuffled[i].reward = 'pickaxe'; }
+      // Assign pickaxes to at most half the available nodes, but at least 5 if possible.
+      const pickaxeCount = Math.max(5, Math.min(8, Math.floor(shuffled.length * 0.6)));
+      for (let i = 0; i < pickaxeCount; i++) { if (shuffled[i]) shuffled[i].reward = 'pickaxe'; }
     } else if (level.mechanics.hasPickaxe) {
       const z1NonGoal = puzzleEntities.find(e => e.zone === 1 && !e.isGatekeeper && e.id !== goalTemplate.id && e.id !== firstStepEnt?.id);
       if (z1NonGoal) z1NonGoal.reward = 'pickaxe';

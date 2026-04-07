@@ -8,6 +8,8 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, radius = 45, screens = 2.5
   const flicker = Math.sin(gameTime * 10) * 0.8 + Math.sin(gameTime * 7) * 0.5;
   const currentRadius = radius + flicker;
   
+  const pointsString = polygon ? polygon.map(p => `${p.x},${p.y}`).join(' ') : '';
+  
   return (
     <svg 
       className="absolute inset-0 w-full h-full pointer-events-none z-[150]" 
@@ -34,9 +36,9 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, radius = 45, screens = 2.5
           <rect x="0" y="0" width="100" height={screens * 100} fill="white" />
           
           {/* Cut a hole where the hero's torch lights up — raycasted polygon */}
-          {polygon && (
+          {pointsString && (
             <polygon 
-              points={polygon} 
+              points={pointsString} 
               fill="url(#torchMaskGrad)" 
               filter="url(#visibilityBlur)"
             />
@@ -54,9 +56,9 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, radius = 45, screens = 2.5
       />
 
       {/* Warm ambient tint inside the lit area — very subtle golden torch glow */}
-      {polygon && (
+      {pointsString && (
         <polygon 
-          points={polygon} 
+          points={pointsString} 
           fill="rgba(255, 170, 60, 0.06)"
         />
       )}
