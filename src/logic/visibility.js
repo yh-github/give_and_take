@@ -135,9 +135,14 @@ export function castRays(origin, segments, radius = 30) {
         const set = new Set();
         return pts.filter(p => {
             if (!p || isNaN(p.x) || isNaN(p.y)) return false;
-            const key = `${Math.round(p.x * 1000) / 1000},${Math.round(p.y * 1000) / 1000}`;
-            if (set.has(key)) return false;
-            set.add(key);
+            // Rounded keys are faster than high precision for uniqueness
+            const rx = Math.round(p.x * 100);
+            const ry = Math.round(p.y * 100);
+            const key = (rx << 16) | ry; // Simple integer key if possible, but JS bitwise is 32-bit. 
+            // Let's stick to string but simpler.
+            const sKey = `${rx},${ry}`;
+            if (set.has(sKey)) return false;
+            set.add(sKey);
             return true;
         });
     })(points);
@@ -145,8 +150,8 @@ export function castRays(origin, segments, radius = 30) {
     const angles = [];
     uniquePoints.forEach(p => {
         const angle = Math.atan2(p.y - origin.y, p.x - origin.x);
+        // Only 2 rays per point instead of 3. This is enough to sample both sides of an edge.
         angles.push(angle - 0.0001);
-        angles.push(angle);
         angles.push(angle + 0.0001);
     });
 

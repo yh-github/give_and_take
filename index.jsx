@@ -81,6 +81,21 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     return getVisibilityPolygon(pPos, puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, 45, level.mechanics.screens || 1);
   }, [tempPlayerPos, pathHistory[pathHistory.length - 1], puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens]);
 
+  const visibleEntitiesSet = useMemo(() => {
+    if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial' || !polyPoints) return null;
+    const set = new Set();
+    const screens = level.mechanics.screens || 1;
+    const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
+    puzzle.puzzleEntities.forEach(ent => {
+      const eDist = Math.sqrt(Math.pow(ent.x - pPos.x, 2) + Math.pow(ent.y - pPos.y, 2));
+      if (eDist > 48) return; // Light radius is 45, add buffer
+      if (isPointInVisibilityPolygon({ x: ent.x, y: ent.y * screens }, polyPoints)) {
+        set.add(ent.id);
+      }
+    });
+    return set;
+  }, [polyPoints, puzzle?.puzzleEntities, tempPlayerPos, pathHistory[pathHistory.length - 1], level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens]);
+
   const debugSegments = useMemo(() => {
     if (!debugMode || !puzzle || level.id !== 'underground') return [];
     return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, level.mechanics.screens || 1);
@@ -1157,7 +1172,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               </div>
             )}
 
-            {console.log('Rendering puzzleEntities:', puzzle.puzzleEntities.map(p => p.id))}
             {puzzle.puzzleEntities.map(ent => {
               const isDefeated = defeated.includes(ent.id);
               if (ent.isPreset && isDefeated) return null;
@@ -1178,7 +1192,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
               const eDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(ent.x - displayPlayerPos.x, 2) + Math.pow(ent.y - displayPlayerPos.y, 2)) : 100;
               const inLightRadius = eDist < 28;
-              const isVisible = level.mechanics.darknessType !== 'radial' || (polyPoints && isPointInVisibilityPolygon({ x: ent.x, y: ent.y * (level.mechanics.screens || 1) }, polyPoints));
+              const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
               const inDarkness = !isVisible;
               const entZ = isSelected ? 200 : ((inLightRadius && !inFog && !inDarkness) ? 170 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
 
