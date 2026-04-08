@@ -14,14 +14,30 @@ function distToSegment(p, a, b) {
 }
 
 /**
+ * Check if a point is inside a polygon using ray-casting.
+ */
+function isPointInPolygon(p, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        const intersect = ((yi > p.y) !== (yj > p.y))
+            && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+/**
  * Finds a path from start to end using A* algorithm.
  * @param {Object} start {x, y}
  * @param {Object} end {x, y}
  * @param {Array} segments Array of {a: {x,y}, b: {x,y}}
  * @param {Object} bounds {width: 100, height: screens*100}
+ * @param {Array} polygons Array of polygon vertices [{x,y}, ...]
  * @param {number} resolution Density of the grid (lower is more precise)
  */
-export function findGlobalPath(start, end, segments, bounds, resolution = 3) {
+export function findGlobalPath(start, end, segments, bounds, polygons = [], resolution = 3) {
     if (!segments || segments.length === 0) return [end];
 
     const width = bounds.width;
@@ -38,16 +54,19 @@ export function findGlobalPath(start, end, segments, bounds, resolution = 3) {
     const startG = toGrid(start);
     const endG = toGrid(end);
 
-    // Check if end is reachable at all (if start is blocked, we're in trouble, but let's try)
-    // Radius for "solid" check. Higher = safer clearance from walls.
     const radius = 4.5; 
 
     const isSolid = (gx, gy) => {
         const x = gx * resolution;
         const y = gy * resolution;
-        // Optimization: don't check segments far away
+
+        // 1. Check if point is inside any solid polygon (volume check)
+        for (const poly of polygons) {
+            if (isPointInPolygon({ x, y }, poly)) return true;
+        }
+
+        // 2. Check if point is too close to any wall segment (clearance check)
         for (const seg of segments) {
-            // Fast bounding box check
             const minX = Math.min(seg.a.x, seg.b.x) - radius;
             const maxX = Math.max(seg.a.x, seg.b.x) + radius;
             const minY = Math.min(seg.a.y, seg.b.y) - radius;

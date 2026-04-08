@@ -378,7 +378,28 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           const end = { x: finalX, y: finalY * sc };
           const bounds = { width: 100, height: 100 * sc };
           
-          const aStarPath = findGlobalPath(start, end, segments, bounds);
+          // Prepare polygon obstacles for volume checking
+          const polygons = [];
+          if (CAVE_WALL_VERTICES.centralPillar) {
+            polygons.push(CAVE_WALL_VERTICES.centralPillar.map(p => ({ x: p.x, y: p.y * sc })));
+          }
+          // Also add rocks as polygons if they are gatekeepers/extra rocks
+          if (puzzle && puzzle.puzzleEntities) {
+            puzzle.puzzleEntities.forEach(node => {
+               if ((node.isGatekeeper || node.isExtraRock) && !stateRefs.current.defeated.includes(node.id)) {
+                  const sizeX = node.isGatekeeper ? 12 : 2.5;
+                  const sizeY = node.isGatekeeper ? 2 : 1.5;
+                  const x = node.x;
+                  const y = node.y * sc;
+                  polygons.push([
+                    { x: x - sizeX, y: y - sizeY }, { x: x + sizeX, y: y - sizeY },
+                    { x: x + sizeX, y: y + sizeY }, { x: x - sizeX, y: y + sizeY }
+                  ]);
+               }
+            });
+          }
+          
+          const aStarPath = findGlobalPath(start, end, segments, bounds, polygons);
           
           if (aStarPath && aStarPath.length > 1) {
             // Unscale Y values and add metadata (depth, zone)
@@ -576,14 +597,11 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
-    saveHistory();
-    setIsAnimatingLoot(true);
-    const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
-    setAttachedEntityId(null);
-    // Use navigateTo so that wall collision checks apply
-    const newPath = navigateTo(targetX, targetY, currentZone, 3, false);
-    setPathHistory(prev => [...prev, ...newPath]);
-    setTimeout(() => { setIsAnimatingLoot(false); handlePostActionAir(targetY); }, 800);
+    // Movement to any spot is not supported natively in this interaction model.
+    // However, we still handle air refill logic if clicking near camp or as part of mechanics.
+    if (level.mechanics.hasAir && Math.abs(targetY - level.campPos.y) < 5) {
+      handlePostActionAir(targetY);
+    }
   };
 
   const toggleInventoryType = (itemId) => {
