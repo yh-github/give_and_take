@@ -14,6 +14,15 @@ import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
+const DEFAULT_LIGHTING = {
+  radius: 45,
+  blur: 1.2,
+  darknessColor: '#080604',
+  darknessOpacity: 0.95,
+  ambientColor: '#ffaa3c',
+  ambientOpacity: 0.06,
+  flickerIntensity: 1.0
+};
 
 
 
@@ -61,6 +70,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [attachedEntityId, setAttachedEntityId] = useState(null);
   const [isMagicAnimating, setIsMagicAnimating] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [lightingSettings, setLightingSettings] = useState(DEFAULT_LIGHTING);
 
   const [dolphinZone, setDolphinZone] = useState(1);
   const [dolphinYPos, setDolphinYPos] = useState(16);
@@ -78,8 +88,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return null;
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
     if (!pPos) return null;
-    return getVisibilityPolygon(pPos, puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, 45, level.mechanics.screens || 1);
-  }, [tempPlayerPos, pathHistory[pathHistory.length - 1], puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens]);
+    return getVisibilityPolygon(pPos, puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, lightingSettings.radius, level.mechanics.screens || 1);
+  }, [tempPlayerPos, pathHistory[pathHistory.length - 1], puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens, lightingSettings.radius]);
 
   const visibleEntitiesSet = useMemo(() => {
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial' || !polyPoints) return null;
@@ -88,13 +98,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
     puzzle.puzzleEntities.forEach(ent => {
       const eDist = Math.sqrt(Math.pow(ent.x - pPos.x, 2) + Math.pow(ent.y - pPos.y, 2));
-      if (eDist > 48) return; // Light radius is 45, add buffer
+      if (eDist > lightingSettings.radius + 3) return; // Light radius with buffer
       if (isPointInVisibilityPolygon({ x: ent.x, y: ent.y * screens }, polyPoints)) {
         set.add(ent.id);
       }
     });
     return set;
-  }, [polyPoints, puzzle?.puzzleEntities, tempPlayerPos, pathHistory[pathHistory.length - 1], level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens]);
+  }, [polyPoints, puzzle?.puzzleEntities, tempPlayerPos, pathHistory[pathHistory.length - 1], level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens, lightingSettings.radius]);
 
   const debugSegments = useMemo(() => {
     if (!debugMode || !puzzle || level.id !== 'underground') return [];
@@ -835,7 +845,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               <button onClick={() => setMenuView('settings')} className="w-full bg-amber-600 py-4 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">{dict.generateMap}</button>
               <button onClick={() => setIsMenuOpen(false)} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.resume}</button>
             </>
-          ) : (
+          ) : menuView === 'settings' ? (
             <>
               <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.settings}</h2>
               <div className="space-y-4">
@@ -846,6 +856,57 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 <label className="flex flex-col gap-2 font-bold text-lg pt-2"><span className="flex justify-between"><span>{dict.minQuestChain}</span> <span className="text-amber-400">{menuSettings.steps}</span></span><input type="range" min="3" max="8" value={menuSettings.steps} onChange={(e) => setMenuSettings({ ...menuSettings, steps: parseInt(e.target.value) })} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label>
                 <label className="flex flex-col gap-2 font-bold text-lg"><span className="flex justify-between"><span>{dict.diggersMemory}</span> <span className="text-amber-400">{menuSettings.diggers}</span></span><input type="range" min="0" max="3" value={menuSettings.diggers} onChange={(e) => setMenuSettings({ ...menuSettings, diggers: parseInt(e.target.value) })} className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" /></label>
                 <button onClick={() => onGenerateNew(menuSettings)} className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">{dict.genMap}</button>
+              </div>
+              <button onClick={() => setMenuView('main')} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.back}</button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.lighting}</h2>
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <label className="flex items-center justify-between font-bold text-lg pt-2 cursor-pointer">
+                  <span>{dict.specialVision}</span>
+                  <input type="checkbox" checked={debugMode} onChange={(e) => setDebugMode(e.target.checked)} className="w-6 h-6 accent-amber-500" />
+                </label>
+                
+                <div className="h-px bg-stone-700 my-2" />
+
+                <label className="flex flex-col gap-1 font-bold">
+                  <span className="flex justify-between"><span>{dict.radius}</span> <span className="text-amber-400">{lightingSettings.radius}</span></span>
+                  <input type="range" min="10" max="100" value={lightingSettings.radius} onChange={(e) => setLightingSettings({ ...lightingSettings, radius: parseInt(e.target.value) })} className="w-full accent-amber-500" />
+                </label>
+
+                <label className="flex flex-col gap-1 font-bold">
+                  <span className="flex justify-between"><span>{dict.blur}</span> <span className="text-amber-400">{lightingSettings.blur}</span></span>
+                  <input type="range" min="0" max="10" step="0.1" value={lightingSettings.blur} onChange={(e) => setLightingSettings({ ...lightingSettings, blur: parseFloat(e.target.value) })} className="w-full accent-amber-500" />
+                </label>
+
+                <label className="flex flex-col gap-1 font-bold">
+                  <span className="flex justify-between"><span>{dict.darknessOpacity}</span> <span className="text-amber-400">{lightingSettings.darknessOpacity}</span></span>
+                  <input type="range" min="0" max="1" step="0.01" value={lightingSettings.darknessOpacity} onChange={(e) => setLightingSettings({ ...lightingSettings, darknessOpacity: parseFloat(e.target.value) })} className="w-full accent-amber-500" />
+                </label>
+
+                <label className="flex flex-col gap-1 font-bold">
+                  <span className="flex justify-between"><span>{dict.ambientOpacity}</span> <span className="text-amber-400">{lightingSettings.ambientOpacity}</span></span>
+                  <input type="range" min="0" max="0.5" step="0.01" value={lightingSettings.ambientOpacity} onChange={(e) => setLightingSettings({ ...lightingSettings, ambientOpacity: parseFloat(e.target.value) })} className="w-full accent-amber-500" />
+                </label>
+
+                <label className="flex flex-col gap-1 font-bold">
+                  <span className="flex justify-between"><span>{dict.flicker}</span> <span className="text-amber-400">{lightingSettings.flickerIntensity}</span></span>
+                  <input type="range" min="0" max="5" step="0.1" value={lightingSettings.flickerIntensity} onChange={(e) => setLightingSettings({ ...lightingSettings, flickerIntensity: parseFloat(e.target.value) })} className="w-full accent-amber-500" />
+                </label>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex flex-col gap-1 font-bold">
+                    <span>{dict.darknessColor}</span>
+                    <input type="color" value={lightingSettings.darknessColor} onChange={(e) => setLightingSettings({ ...lightingSettings, darknessColor: e.target.value })} className="w-full h-10 bg-stone-900 border-2 border-stone-600 rounded cursor-pointer" />
+                  </label>
+                  <label className="flex flex-col gap-1 font-bold">
+                    <span>{dict.ambientColor}</span>
+                    <input type="color" value={lightingSettings.ambientColor} onChange={(e) => setLightingSettings({ ...lightingSettings, ambientColor: e.target.value })} className="w-full h-10 bg-stone-900 border-2 border-stone-600 rounded cursor-pointer" />
+                  </label>
+                </div>
+
+                <button onClick={() => setLightingSettings(DEFAULT_LIGHTING)} className="w-full bg-stone-700 py-2 mt-4 rounded-lg font-bold hover:bg-stone-600 border-b-2 border-stone-900 transition-all">{dict.resetDefaults}</button>
               </div>
               <button onClick={() => setMenuView('main')} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.back}</button>
             </>
@@ -1091,6 +1152,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 polygon={polyPoints}
                 gameTime={gameTime}
                 screens={level.mechanics.screens || 1}
+                lighting={lightingSettings}
               />
             )}
 
@@ -1341,14 +1403,15 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           <div className="absolute top-4 left-4 z-[150] flex gap-2">
             <button onClick={(e) => { e.stopPropagation(); setLang('he'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'he' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇮🇱</button>
             <button onClick={(e) => { e.stopPropagation(); setLang('en'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'en' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇺🇸</button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); setDebugMode(!debugMode); }} 
-              className={`w-10 h-10 rounded-full border-2 ${debugMode ? 'border-magenta-500 bg-magenta-900/40 text-magenta-500 scale-110 shadow-lg' : 'border-stone-600 opacity-50 text-stone-400'} flex items-center justify-center bg-stone-800 transition-all font-bold`}
-              title="Toggle Debug View"
-              style={debugMode ? { borderColor: '#ff00ff', color: '#ff00ff', boxShadow: '0 0 10px #ff00ff' } : {}}
-            >
-              👁️
-            </button>
+            {level.id === 'underground' && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setMenuView('lighting'); setIsMenuOpen(true); }} 
+                className={`w-10 h-10 rounded-full border-2 ${menuView === 'lighting' && isMenuOpen ? 'border-amber-400 bg-amber-900/40 text-amber-500 scale-110 shadow-lg' : 'border-stone-600 opacity-70 text-stone-400'} flex items-center justify-center bg-stone-800 transition-all font-bold`}
+                title="Lighting Settings"
+              >
+                👁️
+              </button>
+            )}
           </div>
           <button onClick={(e) => { e.stopPropagation(); setMenuView('main'); setIsMenuOpen(true); }} className="absolute top-4 right-4 z-[150] bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"><span className="text-xl pt-0.5">⚙️</span></button>
 
