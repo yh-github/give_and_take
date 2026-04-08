@@ -1,11 +1,21 @@
 import React from 'react';
 
-const CaveVisibility = ({ heroPos, polygon, gameTime, radius = 45, screens = 2.5 }) => {
+const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = {} }) => {
+  const {
+    radius = 45,
+    blur = 1.2,
+    darknessColor = '#080604',
+    darknessOpacity = 0.95,
+    ambientColor = '#ffaa3c',
+    ambientOpacity = 0.06,
+    flickerIntensity = 1.0
+  } = lighting;
+
   // Hero Y must be scaled to match the SVG viewBox (0-250 for screens=2.5)
   const scaledHeroY = heroPos.y * screens;
   
   // Torch flicker
-  const flicker = Math.sin(gameTime * 10) * 0.8 + Math.sin(gameTime * 7) * 0.5;
+  const flicker = (Math.sin(gameTime * 10) * 0.8 + Math.sin(gameTime * 7) * 0.5) * flickerIntensity;
   const currentRadius = radius + flicker;
   
   const pointsString = React.useMemo(() => polygon ? polygon.map(p => `${p.x},${p.y}`).join(' ') : '', [polygon]);
@@ -18,7 +28,7 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, radius = 45, screens = 2.5
     >
       <defs>
         <filter id="visibilityBlur">
-          <feGaussianBlur stdDeviation="1.2" />
+          <feGaussianBlur stdDeviation={blur} />
         </filter>
         
         {/* Simplified Gradient: BLACK at center = LIT, fading to WHITE at edges = DARK */}
@@ -47,16 +57,17 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, radius = 45, screens = 2.5
       <rect 
         x="0" y="0" 
         width="100" height={screens * 100} 
-        fill="#080604" 
+        fill={darknessColor} 
         mask="url(#caveMask)"
-        opacity="0.95"
+        opacity={darknessOpacity}
       />
 
       {/* Warm ambient tint inside the lit area — very subtle golden torch glow */}
       {pointsString && (
         <polygon 
           points={pointsString} 
-          fill="rgba(255, 170, 60, 0.06)"
+          fill={ambientColor}
+          fillOpacity={ambientOpacity}
         />
       )}
     </svg>
