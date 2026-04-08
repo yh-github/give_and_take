@@ -225,3 +225,20 @@ export function isPointInVisibilityPolygon(point, polygonPoints) {
     }
     return isInside;
 }
+
+/**
+ * Checks if a line segment between p1 and p2 intersects any segments.
+ * Returns true if there is an intersection.
+ */
+export function checkCollision(p1, p2, segments) {
+    if (!p1 || !p2 || !segments || segments.length === 0) return false;
+    const ray = { a: p1, b: p2 };
+    for (const s of segments) {
+        const hit = getIntersection(ray, s);
+        // hit.param is the distance multiplier. 0-1 means the intersection is between p1 and p2.
+        if (hit && hit.param > 0.001 && hit.param < 0.999) {
+            return true;
+        }
+    }
+    return false;
+}
