@@ -9,7 +9,8 @@ import ErrorBoundary from './src/components/ErrorBoundary.jsx';
 import { BoatSVG, GiantClamSVG, BubbleVentSVG, CrabSVG, OctopusSVG, SeahorseSVG } from './src/levels/underwater/components.jsx';
 import { CaveEntranceProp } from './src/levels/river_crossing/components.jsx';
 import CaveVisibility from './src/levels/underground/CaveVisibility.jsx';
-import { getVisibilityPolygon, getObstacleSegments, isPointInVisibilityPolygon } from './src/logic/visibility.js';
+import { getVisibilityPolygon, getObstacleSegments, isPointInVisibilityPolygon, checkCollision } from './src/logic/visibility.js';
+import { findGlobalPath } from './src/logic/pathfinding.js';
 import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
@@ -81,8 +82,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
   const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
   const stateRefs = useRef({});
-  stateRefs.current = { inventory, defeated, pathHistory, envItemState, unlockedZones, campItems, buriedEntities, air, isTransformed, hasDeepTreasure, inkFogEntities, attachedEntityId };
   const activeDigTimers = useRef({});
+
+  const screens = level.mechanics.screens || 1;
+
+  const obstacleSegments = useMemo(() => {
+    if (!puzzle) return [];
+    return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, level.mechanics.screens || 1);
+  }, [puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens]);
 
   const polyPoints = useMemo(() => {
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return null;
@@ -110,6 +117,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (!debugMode || !puzzle || level.id !== 'underground') return [];
     return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, level.mechanics.screens || 1);
   }, [debugMode, puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens]);
+
+  stateRefs.current = { inventory, defeated, pathHistory, envItemState, unlockedZones, campItems, buriedEntities, air, isTransformed, hasDeepTreasure, inkFogEntities, attachedEntityId, obstacleSegments, screens };
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
@@ -329,17 +338,64 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const triggerVictory = () => { setIsVictorious(true); setTimeout(() => setShowTrophy(true), 800); setTimeout(() => setShowVictoryMsg(true), 1000); };
 
-  const navigateTo = useCallback((targetX, targetY, targetZone, targetDepth, isEntity = false) => {
+  const navigateTo = useCallback((targetX, targetY, targetZone, targetDepth, isEntity = false, entityType = null) => {
     const currentZone = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1].zone || 1;
     let waypoints = computeWaypoints(currentZone, targetZone);
     const lastPos = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1];
-    const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastPos;
+    
     let finalX = targetX; let finalY = targetY;
     if (isEntity) {
-      const dx = finalX - prevPoint.x; const dy = finalY - prevPoint.y; const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) { finalX = finalX - (dx / dist) * NAV_OFFSET; finalY = finalY - (dy / dist) * NAV_OFFSET; }
+      const dx = finalX - lastPos.x; const dy = finalY - lastPos.y; const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 0) { 
+        const offset = (entityType === 'rock') ? 8 : NAV_OFFSET;
+        finalX = finalX - (dx / dist) * offset; 
+        finalY = finalY - (dy / dist) * offset; 
+      }
     }
-    return [...waypoints, { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
+    
+    let finalPath = [...waypoints, { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
+    
+    try {
+      const segments = stateRefs.current.obstacleSegments;
+      const sc = stateRefs.current.screens || 1;
+      
+      if (segments && segments.length > 0) {
+        // Check if direct path is blocked
+        let isBlocked = false;
+        let checkPos = { x: lastPos.x, y: lastPos.y * sc };
+        for (const wp of finalPath) {
+          const nextPos = { x: wp.x, y: wp.y * sc };
+          if (checkCollision(checkPos, nextPos, segments)) {
+            isBlocked = true;
+            break;
+          }
+          checkPos = nextPos;
+        }
+
+        if (isBlocked) {
+          // Use Generic A* Pathfinding
+          const start = { x: lastPos.x, y: lastPos.y * sc };
+          const end = { x: finalX, y: finalY * sc };
+          const bounds = { width: 100, height: 100 * sc };
+          
+          const aStarPath = findGlobalPath(start, end, segments, bounds);
+          
+          if (aStarPath && aStarPath.length > 1) {
+            // Unscale Y values and add metadata (depth, zone)
+            finalPath = aStarPath.map(p => ({
+              x: p.x,
+              y: p.y / sc,
+              depth: targetDepth || 3,
+              zone: targetZone // Assume target's zone for the detour legs
+            }));
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Navigation error:", err);
+    }
+    
+    return finalPath;
   }, []);
 
   const handlePostActionAir = useCallback((finalY, isVentAction = false) => {
@@ -524,7 +580,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     setIsAnimatingLoot(true);
     const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
     setAttachedEntityId(null);
-    setPathHistory(prev => [...prev, { x: targetX, y: targetY, depth: 3, zone: currentZone }]);
+    // Use navigateTo so that wall collision checks apply
+    const newPath = navigateTo(targetX, targetY, currentZone, 3, false);
+    setPathHistory(prev => [...prev, ...newPath]);
     setTimeout(() => { setIsAnimatingLoot(false); handlePostActionAir(targetY); }, 800);
   };
 
@@ -588,7 +646,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     }
 
     const targetX = entity.x;
-    const newPath = navigateTo(targetX, targetY, entity.zone, entity.depth || 3, true);
+    const isRock = (entity.isGatekeeper && level.mechanics.hasPickaxe && entity.id !== 'final_gate') || entity.isExtraRock;
+    const newPath = navigateTo(targetX, targetY, entity.zone, entity.depth || 3, true, isRock ? 'rock' : null);
     const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
 
