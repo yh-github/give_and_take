@@ -126,6 +126,9 @@ export function generateLevelPuzzle(level, targetSteps, numDiggers) {
       const solutionPath = currentState.path;
       const solutionSteps = currentState.steps;
 
+      // Keep only entities used in the solution, plus any hardcoded/preset ones
+      puzzleEntities = puzzleEntities.filter(e => currentState.def.includes(e.id) || e.isPreset);
+      
       // 3. FORCE RESTORE: Any hardcoded entity that the solver deleted gets added back 
       // with its original pristine coordinates and data.
       hardcodedLayout.forEach(originalEntity => {

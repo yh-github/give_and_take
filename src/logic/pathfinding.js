@@ -38,7 +38,7 @@ function isPointInPolygon(p, poly) {
  * @param {number} resolution Density of the grid (lower is more precise)
  */
 export function findGlobalPath(start, end, segments, bounds, polygons = [], resolution = 3) {
-    if (!segments || segments.length === 0) return [end];
+    if ((!segments || segments.length === 0) && (!polygons || polygons.length === 0)) return [end];
 
     const width = bounds.width;
     const height = bounds.height;
@@ -118,10 +118,13 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
 
                 const tentativeGScore = (gScore.get(key(current)) || 0) + (dx !== 0 && dy !== 0 ? 1.414 : 1);
                 const neighborKey = key(neighbor);
-                if (tentativeGScore < (gScore.get(neighborKey) || Infinity)) {
+                const currentNeighborG = gScore.has(neighborKey) ? gScore.get(neighborKey) : Infinity;
+                if (tentativeGScore < currentNeighborG) {
                     cameFrom.set(neighborKey, current);
                     gScore.set(neighborKey, tentativeGScore);
-                    fScore.set(neighborKey, tentativeGScore + Math.abs(neighbor.x - endG.x) + Math.abs(neighbor.y - endG.y));
+                    const dxH = Math.abs(neighbor.x - endG.x);
+                    const dyH = Math.abs(neighbor.y - endG.y);
+                    fScore.set(neighborKey, tentativeGScore + Math.max(dxH, dyH) + 0.414 * Math.min(dxH, dyH));
                     if (!openSet.find(p => p.x === neighbor.x && p.y === neighbor.y)) {
                         openSet.push(neighbor);
                     }

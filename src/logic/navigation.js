@@ -25,6 +25,13 @@ export const computeWaypoints = (fromZone, toZone) => {
   const topCrossingY = 10;    // Above pillar (visual range: y=20–76)
   const bottomCrossingY = 80; // Below pillar
 
+  // Add corridor-centering waypoints to prevent clipping wall corners BEFORE crossing
+  if (leftZones.includes(fromZone) && !leftZones.includes(toZone)) {
+      waypoints.push({ x: leftX, y: Math.max(fromZone, toZone) >= 6 ? bottomCrossingY : topCrossingY, depth: 3, zone: fromZone });
+  } else if (rightZones.includes(fromZone) && !rightZones.includes(toZone)) {
+      waypoints.push({ x: rightX, y: Math.max(fromZone, toZone) >= 6 ? bottomCrossingY : topCrossingY, depth: 3, zone: fromZone });
+  }
+
   // 1. Crossing between branches
   if ((leftZones.includes(fromZone) && rightZones.includes(toZone)) ||
       (rightZones.includes(fromZone) && leftZones.includes(toZone))) {
@@ -52,11 +59,11 @@ export const computeWaypoints = (fromZone, toZone) => {
       waypoints.push({ x: 50, y: bottomCrossingY, depth: 3, zone: 6 });
   }
 
-  // Add corridor-centering waypoints to prevent clipping wall corners
-  if (leftZones.includes(toZone) || (toZone >= 6 && leftZones.includes(fromZone))) {
-      waypoints.push({ x: leftX, y: waypoints.length > 0 ? waypoints[waypoints.length-1].y : 20, depth: 3, zone: toZone });
-  } else if (rightZones.includes(toZone) || (toZone >= 6 && rightZones.includes(fromZone))) {
-      waypoints.push({ x: rightX, y: waypoints.length > 0 ? waypoints[waypoints.length-1].y : 20, depth: 3, zone: toZone });
+  // Add corridor-centering waypoints AFTER crossing
+  if (leftZones.includes(toZone) && !leftZones.includes(fromZone)) {
+      waypoints.push({ x: leftX, y: Math.max(fromZone, toZone) >= 6 ? bottomCrossingY : topCrossingY, depth: 3, zone: toZone });
+  } else if (rightZones.includes(toZone) && !rightZones.includes(fromZone)) {
+      waypoints.push({ x: rightX, y: Math.max(fromZone, toZone) >= 6 ? bottomCrossingY : topCrossingY, depth: 3, zone: toZone });
   }
 
   return waypoints;
