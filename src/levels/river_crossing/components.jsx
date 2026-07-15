@@ -19,7 +19,7 @@ export const RiverBackground = () => (
 );
 
 export const CaveEntranceProp = () => (
-  <div className="relative flex justify-center items-end pointer-events-none w-56 h-48 sm:w-64 sm:h-56 drop-shadow-2xl -translate-y-6 sm:-translate-y-8">
+  <div className="relative flex justify-center items-end pointer-events-none w-48 h-40 sm:w-56 sm:h-48 drop-shadow-2xl -translate-y-4 sm:-translate-y-6">
     <svg viewBox="0 0 200 150" className="absolute bottom-0 w-full h-full">
       <path d="M10,150 L60,40 L100,60 L140,20 L190,150 Z" fill="#4b5563"/>
       <path d="M-10,150 L50,70 L90,90 L130,50 L210,150 Z" fill="#374151"/>

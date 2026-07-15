@@ -31,8 +31,8 @@ export const entities = [
 // === River Crossing: Map Layout ===
 export const mapNodes = [
   { x: 12, y: 82, zone: 1 }, { x: 88, y: 82, zone: 1 }, { x: 25, y: 65, zone: 1 }, { x: 75, y: 65, zone: 1 }, 
-  { x: 50, y: 53, zone: 1, isGatekeeper: true, gkIdx: 0, unlocksZones: [2] },
-  { x: 20, y: 38, zone: 2 }, { x: 80, y: 38, zone: 2 }, { x: 50, y: 35, zone: 2, isGoal: true } 
+  { x: 50, y: 56, zone: 1, isGatekeeper: true, gkIdx: 0, unlocksZones: [2] },
+  { x: 20, y: 38, zone: 2 }, { x: 80, y: 38, zone: 2 }, { x: 51.5, y: 35, zone: 2, isGoal: true } 
 ];
 
 // === River Crossing: Scenery ===
