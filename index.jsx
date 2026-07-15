@@ -1308,6 +1308,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             {level.id === 'river_crossing' && puzzle?.puzzleEntities.some(e => e.id === puzzle.goalEntityId) && (
               <div className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20" style={{ left: '50%', top: '22%' }}>
                 <CaveEntranceProp />
+                {!defeated.includes(puzzle.goalEntityId) && !alertEntityId && (
+                  <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">{dict.exit}</div>
+                )}
               </div>
             )}
 
@@ -1460,7 +1463,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                       </div>
                     </div>
                     {ent.isGatekeeper && isAlerting && <div className="absolute -bottom-5 bg-red-700 text-white text-xs font-bold px-2 py-0.5 rounded border border-red-900 shadow-md scale-110 z-30">{dict.blocked}</div>}
-                    {isGoal && !isDefeated && !isAlerting && <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">{dict.exit}</div>}
+                    {isGoal && !isDefeated && !isAlerting && level.id !== 'river_crossing' && <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">{dict.exit}</div>}
                   </div>
                 </div>
               );

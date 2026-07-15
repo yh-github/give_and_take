@@ -1,12 +1,12 @@
 import React from 'react';
 
 export const BridgeSVG = () => (
-  <svg className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-28 -z-10" viewBox="0 0 60 100">
-    <circle cx="10" cy="5" r="4" fill="#3e1c00"/><circle cx="50" cy="5" r="4" fill="#3e1c00"/>
-    <circle cx="10" cy="95" r="4" fill="#3e1c00"/><circle cx="50" cy="95" r="4" fill="#3e1c00"/>
-    <path d="M 10 5 Q 15 50 10 95" fill="none" stroke="#3e1c00" strokeWidth="2" />
-    <path d="M 50 5 Q 45 50 50 95" fill="none" stroke="#3e1c00" strokeWidth="2" />
-    {[15, 30, 45, 60, 75].map((y, i) => ( <rect key={y} x={12} y={y} width="36" height="8" fill="#8b5a2b" stroke="#4a2211" strokeWidth="1" rx="1" transform={`rotate(${i%2===0?-2:2} 30 ${y+4})`}/> ))}
+  <svg className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-32 -z-10" viewBox="0 0 60 100">
+    <circle cx="10" cy="5" r="5" fill="#3e1c00"/><circle cx="50" cy="5" r="5" fill="#3e1c00"/>
+    <circle cx="10" cy="95" r="5" fill="#3e1c00"/><circle cx="50" cy="95" r="5" fill="#3e1c00"/>
+    <path d="M 10 5 Q 15 50 10 95" fill="none" stroke="#3e1c00" strokeWidth="4" />
+    <path d="M 50 5 Q 45 50 50 95" fill="none" stroke="#3e1c00" strokeWidth="4" />
+    {[15, 30, 45, 60, 75].map((y, i) => ( <rect key={y} x={10} y={y} width="40" height="12" fill="#8b5a2b" stroke="#4a2211" strokeWidth="1" rx="1.5" transform={`rotate(${i%2===0?-2:2} 30 ${y+6})`}/> ))}
   </svg>
 );
 
