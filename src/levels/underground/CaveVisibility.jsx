@@ -2,7 +2,7 @@ import React from 'react';
 
 const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = {} }) => {
   const {
-    radius = 45,
+    radius = 50,
     blur = 1.2,
     darknessColor = '#080604',
     darknessOpacity = 0.95,
