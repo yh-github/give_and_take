@@ -1,6 +1,22 @@
-/**
- * Generic A* pathfinding on a 2D grid derived from obstacle segments.
- */
+import { checkCollision } from './visibility.js';
+
+function smoothPath(path, segments) {
+    if (!path || path.length <= 2 || !segments) return path;
+    const smoothed = [path[0]];
+    let current = 0;
+    while (current < path.length - 1) {
+        let furthest = current + 1;
+        for (let next = path.length - 1; next > current + 1; next--) {
+            if (!checkCollision(path[current], path[next], segments)) {
+                furthest = next;
+                break;
+            }
+        }
+        smoothed.push(path[furthest]);
+        current = furthest;
+    }
+    return smoothed;
+}
 
 /**
  * Calculates the shortest distance from a point to a line segment.
@@ -54,7 +70,7 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     const startG = toGrid(start);
     const endG = toGrid(end);
 
-    const radius = 4.5; 
+    const radius = 2.0; 
 
     const isSolid = (gx, gy) => {
         const x = gx * resolution;
@@ -66,14 +82,18 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
         }
 
         // 2. Check if point is too close to any wall segment (clearance check)
-        for (const seg of segments) {
-            const minX = Math.min(seg.a.x, seg.b.x) - radius;
-            const maxX = Math.max(seg.a.x, seg.b.x) + radius;
-            const minY = Math.min(seg.a.y, seg.b.y) - radius;
-            const maxY = Math.max(seg.a.y, seg.b.y) + radius;
-            if (x < minX || x > maxX || y < minY || y > maxY) continue;
+        // Skip clearance check for the target point so we can path close to destination
+        const isTarget = gx === endG.x && gy === endG.y;
+        if (!isTarget) {
+            for (const seg of segments) {
+                const minX = Math.min(seg.a.x, seg.b.x) - radius;
+                const maxX = Math.max(seg.a.x, seg.b.x) + radius;
+                const minY = Math.min(seg.a.y, seg.b.y) - radius;
+                const maxY = Math.max(seg.a.y, seg.b.y) + radius;
+                if (x < minX || x > maxX || y < minY || y > maxY) continue;
 
-            if (distToSegment({ x, y }, seg.a, seg.b) < radius) return true;
+                if (distToSegment({ x, y }, seg.a, seg.b) < radius) return true;
+            }
         }
         return false;
     };
@@ -89,7 +109,7 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     fScore.set(key(startG), Math.abs(startG.x - endG.x) + Math.abs(startG.y - endG.y));
 
     let count = 0;
-    while (openSet.length > 0 && count < 2000) {
+    while (openSet.length > 0 && count < 10000) {
         count++;
         // Get node with lowest fScore
         openSet.sort((a, b) => (fScore.get(key(a)) || Infinity) - (fScore.get(key(b)) || Infinity));
@@ -103,7 +123,8 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
                 path.push({ x: temp.x * resolution, y: temp.y * resolution });
                 temp = cameFrom.get(key(temp));
             }
-            return path.reverse();
+            const rawPath = path.reverse();
+            return smoothPath(rawPath, segments);
         }
 
         // Neighbors (8-way)
@@ -133,6 +154,6 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
         }
     }
 
-    // Fallback: if A* fails or times out, return a direct path (better than nothing)
-    return [end];
+    // Fallback: if A* fails or times out, return empty path (unreachable)
+    return [];
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { findGlobalPath } from './src/logic/pathfinding.js';
 import { computeWaypoints } from './src/logic/navigation.js';
 import { generateLevelPuzzle } from './src/logic/generator.js';
+import { isPointInVisibilityPolygon } from './src/logic/visibility.js';
 
 describe('Pathfinding', () => {
     it('does not early return when there are only polygons but no segments', () => {
@@ -12,6 +13,34 @@ describe('Pathfinding', () => {
         ]];
         const path = findGlobalPath(start, end, [], {width: 100, height: 100}, polygons, 3);
         expect(path.length).toBeGreaterThan(1);
+    });
+
+    it('returns empty array when target is unreachable or path is too complex', () => {
+        const start = { x: 0, y: 0 };
+        const end = { x: 50, y: 50 };
+        // Create an enclosing box around start
+        const segments = [
+            { a: { x: -5, y: -5 }, b: { x: 10, y: -5 } },
+            { a: { x: 10, y: -5 }, b: { x: 10, y: 10 } },
+            { a: { x: 10, y: 10 }, b: { x: -5, y: 10 } },
+            { a: { x: -5, y: 10 }, b: { x: -5, y: -5 } }
+        ];
+        const path = findGlobalPath(start, end, segments, {width: 100, height: 100}, [], 3);
+        expect(path).toEqual([]); // Should fail and return empty array
+    });
+});
+
+describe('Visibility', () => {
+    it('correctly identifies if a point is within a visibility polygon', () => {
+        const poly = [
+            {x: 0, y: 0},
+            {x: 10, y: 0},
+            {x: 10, y: 10},
+            {x: 0, y: 10}
+        ];
+        expect(isPointInVisibilityPolygon({x: 5, y: 5}, poly)).toBe(true);
+        expect(isPointInVisibilityPolygon({x: 15, y: 5}, poly)).toBe(false);
+        expect(isPointInVisibilityPolygon({x: -1, y: 5}, poly)).toBe(false);
     });
 });
 

@@ -24,21 +24,21 @@ export const mapNodes = [
   // Zone 1 accessible pickaxe — above the first rocks
   { x: 42, y: 16, zone: 1, isPreset: 'pickaxe' },
 
-  // Path 1 (Left Path) — gatekeeper rocks and entity slots, kept inside left corridor (x=28-38)
-  { x: 33, y: 22, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
+  // Path 1 (Left Path) — gatekeeper rocks and entity slots, centered at x=36
+  { x: 36, y: 22, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
   { x: 28, y: 27, zone: 2 },
   { x: 38, y: 34, zone: 2 }, { x: 30, y: 40, zone: 2 },
-  { x: 34, y: 46, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
+  { x: 36, y: 46, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
   { x: 28, y: 54, zone: 4 }, { x: 38, y: 60, zone: 4, isPreset: 'mushroom' },
-  { x: 33, y: 68, zone: 4, isGatekeeper: true, id: 'rock_left_3', emoji: '🪨', unlocksZones: [6] },
+  { x: 36, y: 68, zone: 4, isGatekeeper: true, id: 'rock_left_3', emoji: '🪨', unlocksZones: [6] },
 
-  // Path 2 (Right Path) — centered in corridor (x=60-78)
-  { x: 73, y: 25, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
+  // Path 2 (Right Path) — centered in corridor (x=66)
+  { x: 66, y: 23, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
   { x: 68, y: 32, zone: 3 }, { x: 79, y: 38, zone: 3 },
   { x: 74, y: 42, zone: 3, isPreset: 'pickaxe' },
-  { x: 72, y: 48, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
+  { x: 66, y: 46, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
   { x: 66, y: 56, zone: 5 }, { x: 80, y: 63, zone: 5 },
-  { x: 73, y: 71, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
+  { x: 66, y: 68, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
 
   // Final Descent
   { x: 70, y: 74, zone: 6, isPreset: 'mushroom' },
