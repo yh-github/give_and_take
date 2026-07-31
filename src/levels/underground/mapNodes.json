@@ -1,0 +1,227 @@
+[
+  {
+    "x": 68,
+    "y": 6,
+    "zone": 1,
+    "isPreset": "mushroom"
+  },
+  {
+    "x": 50,
+    "y": 14,
+    "zone": 1
+  },
+  {
+    "x": 72,
+    "y": 10,
+    "zone": 1
+  },
+  {
+    "x": 42,
+    "y": 16,
+    "zone": 1,
+    "isPreset": "pickaxe"
+  },
+  {
+    "x": 36,
+    "y": 22,
+    "zone": 1,
+    "isGatekeeper": true,
+    "id": "rock_left_1",
+    "emoji": "🪨",
+    "unlocksZones": [
+      2
+    ]
+  },
+  {
+    "x": 28,
+    "y": 27,
+    "zone": 2
+  },
+  {
+    "x": 38,
+    "y": 34,
+    "zone": 2
+  },
+  {
+    "x": 30,
+    "y": 40,
+    "zone": 2
+  },
+  {
+    "x": 36,
+    "y": 46,
+    "zone": 2,
+    "isGatekeeper": true,
+    "id": "rock_left_2",
+    "emoji": "🪨",
+    "unlocksZones": [
+      4
+    ]
+  },
+  {
+    "x": 28,
+    "y": 54,
+    "zone": 4
+  },
+  {
+    "x": 38,
+    "y": 60,
+    "zone": 4,
+    "isPreset": "mushroom"
+  },
+  {
+    "x": 36,
+    "y": 68,
+    "zone": 4,
+    "isGatekeeper": true,
+    "id": "rock_left_3",
+    "emoji": "🪨",
+    "unlocksZones": [
+      6
+    ]
+  },
+  {
+    "x": 76,
+    "y": 23,
+    "zone": 1,
+    "isGatekeeper": true,
+    "id": "rock_right_1",
+    "emoji": "🪨",
+    "unlocksZones": [
+      3
+    ]
+  },
+  {
+    "x": 68,
+    "y": 32,
+    "zone": 3
+  },
+  {
+    "x": 79,
+    "y": 38,
+    "zone": 3
+  },
+  {
+    "x": 74,
+    "y": 42,
+    "zone": 3,
+    "isPreset": "pickaxe"
+  },
+  {
+    "x": 76,
+    "y": 46,
+    "zone": 3,
+    "isGatekeeper": true,
+    "id": "rock_right_2",
+    "emoji": "🪨",
+    "unlocksZones": [
+      5
+    ]
+  },
+  {
+    "x": 66,
+    "y": 56,
+    "zone": 5
+  },
+  {
+    "x": 80,
+    "y": 63,
+    "zone": 5
+  },
+  {
+    "x": 76,
+    "y": 68,
+    "zone": 5,
+    "isGatekeeper": true,
+    "id": "rock_right_3",
+    "emoji": "🪨",
+    "unlocksZones": [
+      6
+    ]
+  },
+  {
+    "x": 70,
+    "y": 74,
+    "zone": 6,
+    "isPreset": "mushroom"
+  },
+  {
+    "x": 70,
+    "y": 78,
+    "zone": 6,
+    "isGatekeeper": true,
+    "id": "rock_final_1",
+    "emoji": "🪨",
+    "unlocksZones": [
+      7
+    ]
+  },
+  {
+    "x": 66,
+    "y": 84,
+    "zone": 7
+  },
+  {
+    "x": 70,
+    "y": 88,
+    "zone": 7,
+    "isGatekeeper": true,
+    "id": "rock_final_2",
+    "emoji": "🪨",
+    "unlocksZones": [
+      8
+    ]
+  },
+  {
+    "x": 76,
+    "y": 92,
+    "zone": 8
+  },
+  {
+    "x": 70,
+    "y": 95,
+    "zone": 8,
+    "isGatekeeper": true,
+    "id": "vault_rock",
+    "emoji": "🪨",
+    "unlocksZones": [
+      9
+    ]
+  },
+  {
+    "x": 55,
+    "y": 98,
+    "zone": 9,
+    "isPreset": "treasure",
+    "isTreasure": true
+  },
+  {
+    "x": 60,
+    "y": 98,
+    "zone": 9,
+    "isPreset": "treasure",
+    "isTreasure": true
+  },
+  {
+    "x": 65,
+    "y": 98,
+    "zone": 9,
+    "isGoal": true,
+    "isPreset": "treasure",
+    "isTreasure": true
+  },
+  {
+    "x": 70,
+    "y": 98,
+    "zone": 9,
+    "isPreset": "treasure",
+    "isTreasure": true
+  },
+  {
+    "x": 75,
+    "y": 98,
+    "zone": 9,
+    "isPreset": "treasure",
+    "isTreasure": true
+  }
+]

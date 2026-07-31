@@ -1,3 +1,5 @@
+import mapNodesData from './mapNodes.json';
+
 // === Underground: Items ===
 export const items = [
   { id: 'crystal', name: 'Crystal', emoji: '🔮' }, { id: 'gold_nugget', name: 'Gold Nugget', emoji: '🪙' },
@@ -19,50 +21,7 @@ export const entities = [
   { id: 'goblin', name: 'Cave Goblin', emoji: '👺', allowedReqs: ['gold_nugget', 'gem', 'mushroom', 'emerald', 'rope'] },
 ];
 
-export const mapNodes = [
-  { x: 68, y: 6, zone: 1, isPreset: 'mushroom' }, { x: 50, y: 14, zone: 1 }, { x: 72, y: 10, zone: 1 },
-  // Zone 1 accessible pickaxe — above the first rocks
-  { x: 42, y: 16, zone: 1, isPreset: 'pickaxe' },
-
-  // Path 1 (Left Path) — gatekeeper rocks and entity slots, centered at x=36
-  { x: 36, y: 22, zone: 1, isGatekeeper: true, id: 'rock_left_1', emoji: '🪨', unlocksZones: [2] },
-  { x: 28, y: 27, zone: 2 },
-  { x: 38, y: 34, zone: 2 }, { x: 30, y: 40, zone: 2 },
-  { x: 36, y: 46, zone: 2, isGatekeeper: true, id: 'rock_left_2', emoji: '🪨', unlocksZones: [4] },
-  { x: 28, y: 54, zone: 4 }, { x: 38, y: 60, zone: 4, isPreset: 'mushroom' },
-  { x: 36, y: 68, zone: 4, isGatekeeper: true, id: 'rock_left_3', emoji: '🪨', unlocksZones: [6] },
-
-  // Path 2 (Right Path) — centered in corridor (x=66)
-  { x: 66, y: 23, zone: 1, isGatekeeper: true, id: 'rock_right_1', emoji: '🪨', unlocksZones: [3] },
-  { x: 68, y: 32, zone: 3 }, { x: 79, y: 38, zone: 3 },
-  { x: 74, y: 42, zone: 3, isPreset: 'pickaxe' },
-  { x: 66, y: 46, zone: 3, isGatekeeper: true, id: 'rock_right_2', emoji: '🪨', unlocksZones: [5] },
-  { x: 66, y: 56, zone: 5 }, { x: 80, y: 63, zone: 5 },
-  { x: 66, y: 68, zone: 5, isGatekeeper: true, id: 'rock_right_3', emoji: '🪨', unlocksZones: [6] },
-
-  // Final Descent
-  { x: 70, y: 74, zone: 6, isPreset: 'mushroom' },
-  { x: 70, y: 78, zone: 6, isGatekeeper: true, id: 'rock_final_1', emoji: '🪨', unlocksZones: [7] },
-  { x: 66, y: 84, zone: 7 },
-  { x: 70, y: 88, zone: 7, isGatekeeper: true, id: 'rock_final_2', emoji: '🪨', unlocksZones: [8] },
-  { x: 76, y: 92, zone: 8 },
-  { x: 70, y: 95, zone: 8, isGatekeeper: true, id: 'vault_rock', emoji: '🪨', unlocksZones: [9] },
-
-  // Treasure Room
-  { x: 55, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
-  { x: 60, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
-  { x: 65, y: 98, zone: 9, isGoal: true, isPreset: 'treasure', isTreasure: true },
-  { x: 70, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
-  { x: 75, y: 98, zone: 9, isPreset: 'treasure', isTreasure: true },
-
-  // Decorative Rocks
-  // { x: 40, y: 15, zone: 1, isExtraRock: true, size: 'small', id: 'extra_rock_1', emoji: '🪨' },
-  // { x: 95, y: 18, zone: 1, isExtraRock: true, size: 'small', id: 'extra_rock_2', emoji: '🪨' },
-  // // { x: 70, y: 30, zone: 3, isExtraRock: true, size: 'small', id: 'extra_rock_3', emoji: '🪨' },
-  // { x: 30, y: 45, zone: 2, isExtraRock: true, size: 'small', id: 'extra_rock_4', emoji: '🪨' },
-  // { x: 95, y: 52, zone: 3, isExtraRock: true, size: 'small', id: 'extra_rock_5', emoji: '🪨' },
-  // { x: 75, y: 80, zone: 6, isExtraRock: true, size: 'small', id: 'extra_rock_6', emoji: '🪨' }
-];
+export const mapNodes = mapNodesData;
 
 // === Underground: Scenery ===
 export const sceneryNodes = [

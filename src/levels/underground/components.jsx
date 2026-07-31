@@ -79,17 +79,21 @@ export const RockSVG = ({ isDefeated, isAlerting, seed = 0, size = 'large' }) =>
   };
   
   const val = hash(seed);
-  const rotation = (val % 40) - 20; // more rotation
-  const scaleX = (size === 'small' ? 0.6 : 1.1) + (val % 10) / 40; 
-  const scaleY = (size === 'small' ? 0.6 : 1.1) + (val % 8) / 40; 
-  const variant = val % 4; // Added a 4th variant
+  // Remove overall rotation to keep the barricade horizontal
+  const rotation = (val % 10) - 5; 
   
-  // Custom jagged paths with "bulges"
+  // Stretch horizontally to fill the corridor better, compress vertically
+  const scaleX = (size === 'small' ? 0.8 : 1.4) + (val % 10) / 30; 
+  const scaleY = (size === 'small' ? 0.6 : 0.8) + (val % 8) / 40; 
+  const variant = val % 4; 
+  
+  // Custom wider paths representing a pile/barricade of rocks
   const paths = [
-    "M 10 45 L 5 35 L 12 15 L 35 12 L 60 5 L 85 8 L 105 10 L 115 25 L 118 45 L 105 55 L 80 58 L 45 60 L 15 55 Z",
-    "M 15 50 L 2 40 L 10 20 L 35 5 L 70 8 L 95 12 L 120 25 L 115 45 L 95 60 L 60 58 L 30 62 L 10 55 Z",
-    "M 8 40 L 12 25 L 25 10 L 55 5 L 90 12 L 115 20 L 118 40 L 105 55 L 75 62 L 45 58 L 20 60 L 5 50 Z",
-    "M 20 55 L 5 45 L 8 25 L 30 10 L 65 5 L 95 8 L 115 15 L 110 40 L 95 55 L 60 62 L 35 58 L 15 60 Z"
+    // A wide blockade
+    "M 5 45 L 2 30 L 15 15 L 45 10 L 80 12 L 110 5 L 135 15 L 145 35 L 140 55 L 110 65 L 75 60 L 35 65 Z",
+    "M 10 50 L 5 35 L 20 12 L 55 8 L 90 10 L 125 15 L 140 30 L 135 55 L 105 62 L 65 58 L 25 65 Z",
+    "M 8 40 L 15 20 L 35 8 L 70 5 L 100 12 L 135 18 L 145 40 L 130 60 L 95 55 L 50 65 L 15 58 Z",
+    "M 15 55 L 5 35 L 25 15 L 60 10 L 95 8 L 130 15 L 142 45 L 125 65 L 85 58 L 45 62 Z"
   ];
   
   if (isDefeated) {
@@ -97,11 +101,11 @@ export const RockSVG = ({ isDefeated, isAlerting, seed = 0, size = 'large' }) =>
       const rubbleScale = size === 'small' ? 0.5 : 0.9;
       return (
           <div className="relative pointer-events-none opacity-80 translate-y-4" style={{ transform: `scale(${rubbleScale})` }}>
-              <svg viewBox="0 0 120 60" className="w-[32cqw] h-auto drop-shadow-lg">
-                  <path d="M 20 50 L 35 45 L 45 52 L 30 55 Z" fill="#635d57" stroke="#3d3832" />
-                  <path d="M 55 52 L 70 48 L 85 55 L 65 58 Z" fill="#4d4842" stroke="#3d3832" />
-                  <path d="M 80 45 L 100 40 L 110 48 L 90 52 Z" fill="#6a645d" stroke="#3d3832" />
-                  <path d="M 35 58 L 50 55 L 65 60 L 40 62 Z" fill="#3d3832" stroke="#2a2520" />
+              <svg viewBox="0 0 150 70" className="w-[38cqw] h-auto drop-shadow-lg">
+                  <path d="M 20 50 L 45 40 L 60 55 L 35 65 Z" fill="#635d57" stroke="#3d3832" />
+                  <path d="M 65 55 L 90 45 L 110 60 L 80 65 Z" fill="#4d4842" stroke="#3d3832" />
+                  <path d="M 100 45 L 125 35 L 140 50 L 115 60 Z" fill="#6a645d" stroke="#3d3832" />
+                  <path d="M 45 62 L 70 55 L 95 65 L 65 70 Z" fill="#3d3832" stroke="#2a2520" />
               </svg>
           </div>
       );
@@ -109,7 +113,7 @@ export const RockSVG = ({ isDefeated, isAlerting, seed = 0, size = 'large' }) =>
 
   return (
     <div className={`relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})` }}>
-      <svg viewBox="0 0 120 70" className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
+      <svg viewBox="0 0 150 70" className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
         <defs>
           <linearGradient id={`rockGrad-${variant}-${size}`} x1={`${variant * 20}%`} y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="#8a847e" />

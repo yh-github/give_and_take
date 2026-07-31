@@ -15,9 +15,9 @@ import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
-const GAME_VERSION = 'v1.7.1-balanced-rocks';
+const GAME_VERSION = 'v1.7.2-rock-barricade';
 const DEFAULT_LIGHTING = {
-  radius: 45,
+  radius: 50,
   blur: 1.2,
   darknessColor: '#080604',
   darknessOpacity: 0.95,
@@ -32,6 +32,15 @@ const DEFAULT_LIGHTING = {
 function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, setLang }) {
   const [puzzle, setPuzzle] = useState(null);
   const [generationFailed, setGenerationFailed] = useState(false);
+  const [isLevelEditor] = useState(() => new URLSearchParams(window.location.search).get('editor') === 'true');
+  const [editorScrollY, setEditorScrollY] = useState(0);
+  const [editorNodes, setEditorNodes] = useState([]);
+  useEffect(() => {
+    if (isLevelEditor && level && level.mapNodes) {
+      setEditorNodes(JSON.parse(JSON.stringify(level.mapNodes)));
+    }
+  }, [isLevelEditor, level]);
+
   const [inventory, setInventory] = useState([]);
   const [unlockedZones, setUnlockedZones] = useState([1]);
   const [defeated, setDefeated] = useState([]);
@@ -1114,7 +1123,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const totalMapHeight = level.mechanics.isVertical ? `${level.mechanics.screens * 100}%` : '100%';
 
   let mapTranslateY = '0%';
-  if (level.mechanics.isVertical) {
+  if (isLevelEditor) {
+    mapTranslateY = `-${editorScrollY}%`;
+  } else if (level.mechanics.isVertical) {
     const screenPct = 100 / level.mechanics.screens;
     const maxScrollPct = 100 - screenPct;
     // Use playerVisualY (which tracks attached entity) for camera so camera follows dolphin/drowning correctly.
@@ -1194,6 +1205,23 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   return (
     <div className="h-[100dvh] w-full bg-stone-900 flex flex-col items-center justify-center p-0 sm:p-4 font-serif select-none overflow-hidden relative">
+      {isLevelEditor && (
+        <button 
+          onClick={() => {
+            fetch('/api/save-level', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mapNodes: editorNodes })
+            }).then(res => res.json()).then(res => {
+               if(res.success) alert('Level Saved Successfully!');
+               else alert('Error saving: ' + res.error);
+            }).catch(e => alert('Error saving: ' + e));
+          }}
+          className="absolute top-4 right-4 z-[2000] bg-green-600 text-white font-bold py-2 px-4 rounded shadow-lg hover:bg-green-500 active:translate-y-1 pointer-events-auto"
+        >
+          💾 Save Level
+        </button>
+      )}
       {isMagicAnimating && (
         <div className="fixed inset-0 z-[500] pointer-events-none flex items-center justify-center">
           <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] animate-pulse" />
@@ -1218,6 +1246,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         <div 
           ref={mapRef} 
           className="@container relative w-full flex-1 bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden cursor-pointer"
+          onWheel={(e) => {
+            if (isLevelEditor) {
+              setEditorScrollY(prev => {
+                const screenPct = 100 / (level.mechanics.screens || 1);
+                const maxScrollPct = 100 - screenPct;
+                let newScroll = prev + (e.deltaY > 0 ? 5 : -5);
+                if (newScroll < 0) newScroll = 0;
+                if (newScroll > maxScrollPct) newScroll = maxScrollPct;
+                return newScroll;
+              });
+            }
+          }}
         >
 
           {level.mechanics.hasAir && !isTransformed && (
@@ -1258,8 +1298,60 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
             style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}
           >
             <Background />
+            
+            {isLevelEditor && (
+              <div className="absolute inset-0 z-[1000] bg-black/40 pointer-events-auto">
+                {editorNodes.map((node, i) => {
+                  const isRock = (node.isGatekeeper || node.isExtraRock) && level.mechanics?.hasPickaxe && node.id !== 'final_gate';
+                  const emoji = node.emoji || (node.isPreset === 'pickaxe' ? '⛏️' : node.isPreset === 'mushroom' ? '🍄' : node.isTreasure ? '💎' : '❓');
+                  return (
+                    <div 
+                      key={node.id || i}
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing hover:scale-110 pointer-events-auto bg-white/10 rounded-full flex items-center justify-center shadow-2xl border border-white/30"
+                      style={{ 
+                        left: `${node.x}%`, top: `${node.y}%`, 
+                        fontSize: isRock ? '2rem' : node.isGatekeeper ? '3rem' : '2rem', 
+                        width: isRock ? 'max-content' : node.isGatekeeper ? '4.5rem' : '3.5rem', 
+                        height: isRock ? 'max-content' : node.isGatekeeper ? '4.5rem' : '3.5rem' 
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        e.target.setPointerCapture(e.pointerId);
+                        const handleMove = (eMove) => {
+                          if (!innerMapRef.current) return;
+                          const rect = innerMapRef.current.getBoundingClientRect();
+                          const newX = ((eMove.clientX - rect.left) / rect.width) * 100;
+                          const newY = ((eMove.clientY - rect.top) / rect.height) * 100;
+                          setEditorNodes(prev => {
+                            const copy = [...prev];
+                            copy[i] = { ...copy[i], x: Math.round(newX * 10) / 10, y: Math.round(newY * 10) / 10 };
+                            return copy;
+                          });
+                        };
+                        const handleUp = (eUp) => {
+                          eUp.target.releasePointerCapture(eUp.pointerId);
+                          eUp.target.removeEventListener('pointermove', handleMove);
+                          eUp.target.removeEventListener('pointerup', handleUp);
+                        };
+                        e.target.addEventListener('pointermove', handleMove);
+                        e.target.addEventListener('pointerup', handleUp);
+                      }}
+                    >
+                      {isRock && level.RockComponent ? (
+                        <div className="w-[24cqw] flex justify-center items-center pointer-events-none">
+                           <level.RockComponent isDefeated={false} seed={node.id} size={node.size || 'large'} />
+                        </div>
+                      ) : (
+                        <span className="drop-shadow-md pointer-events-none">{emoji}</span>
+                      )}
+                      <div className="absolute -bottom-6 bg-black text-white text-xs px-1 rounded opacity-70 whitespace-nowrap pointer-events-none">{node.x}, {node.y}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-            {level.id !== 'underground' && level.mechanics.hasFog && (
+            {!isLevelEditor && level.id !== 'underground' && level.mechanics.hasFog && (
               <div className="absolute inset-0 pointer-events-none z-[120]">
                 {!unlockedZones.includes(2) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
                 {!unlockedZones.includes(3) && <div className="absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
@@ -1333,7 +1425,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               </div>
             )}
 
-            {level.mechanics.hasDarkness && level.mechanics.darknessType === 'radial' && (
+            {!isLevelEditor && level.mechanics.hasDarkness && level.mechanics.darknessType === 'radial' && (
               <CaveVisibility
                 heroPos={displayPlayerPos}
                 polygon={polyPoints}
@@ -1343,7 +1435,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               />
             )}
 
-            {clickIndicator && (
+            {clickIndicator && !isLevelEditor && (
               <div
                 key={clickIndicator.id}
                 className="absolute pointer-events-none z-[180] -translate-x-1/2 -translate-y-1/2"
@@ -1400,14 +1492,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               );
             })}
 
-            {level.id !== 'underwater' && (
+            {!isLevelEditor && level.id !== 'underwater' && (
               <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-[99]" preserveAspectRatio="none">
                 {(!level.mechanics.screens || level.mechanics.screens === 1) && pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
                 {(!level.mechanics.screens || level.mechanics.screens === 1) && tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
               </svg>
             )}
 
-            {campItems.map(item => {
+            {!isLevelEditor && campItems.map(item => {
               const itemData = level.items.find(i => i.id === item.id);
               if (!itemData) return null;
               const isAlerting = alertEntityId === item.uid;
@@ -1418,7 +1510,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               );
             })}
 
-            <div onClick={handleCampClick} className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${selectedItemTypes.length > 0 ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]' : (!selectedItemTypes.length && level.mechanics.hasAir ? 'cursor-pointer hover:scale-110' : '')}`} style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 10 }}>
+            {!isLevelEditor && (
+              <div onClick={handleCampClick} className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${selectedItemTypes.length > 0 ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]' : (!selectedItemTypes.length && level.mechanics.hasAir ? 'cursor-pointer hover:scale-110' : '')}`} style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 10 }}>
               <div className="relative">
                 {level.CampIcon ? <level.CampIcon /> : <div className="text-6xl drop-shadow-lg scale-x-[-1] animate-flicker">🔥</div>}
                 {selectedItemTypes.length > 0 && (
@@ -1427,11 +1520,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                   </div>
                 )}
               </div>
-            </div>
+              </div>
+            )}
 
-            {flyingItem && (<div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div>)}
+            {!isLevelEditor && flyingItem && (<div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div>)}
 
-            {massFlyingTreasures.map((item, idx) => (
+            {!isLevelEditor && massFlyingTreasures.map((item, idx) => (
               <div key={`mass-treas-${idx}`} className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${item.x}%`, top: `${item.y}%`, zIndex: 110, animationDelay: `${item.delay}ms` }}>{item.emoji}</div>
             ))}
 
@@ -1444,7 +1538,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               </div>
             )}
 
-            {puzzle.puzzleEntities.map(ent => {
+            {!isLevelEditor && puzzle.puzzleEntities.map(ent => {
               const isDefeated = defeated.includes(ent.id);
               if (ent.isPreset && isDefeated) return null;
 
@@ -1480,7 +1574,15 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                   wallSegments
                 );
               const isInteractable = !inFog && (!inDarkness || (inLightRadius && !isBlockedByWall));
-              const interactableHover = !isInteractable ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (inDarkness) ? 'cursor-pointer opacity-60 grayscale' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+              // Rocks/gatekeepers stay visible in darkness (they block light), but
+              // non-interactable creatures/items should fade out.
+              const interactableHover = (hideInDarkness && !inLightRadius)
+                ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
+                : !isInteractable
+                  ? (isRock || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
+                  : inDarkness
+                    ? 'cursor-pointer opacity-60 grayscale'
+                    : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
               const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
               const isNearLeft = !ent.roamClass && ent.x <= 20;
@@ -1559,7 +1661,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                           ) : null
                         )}
 
-                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : isRock ? 'text-[26cqw]' : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
+                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : (isRock || ent.isExtraRock) ? 'w-[24cqw] text-[24cqw]' : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                           {(isRock || ent.isExtraRock) && !isDefeated ? (
                             <div className={`flex justify-center items-center transition-transform ${isRock ? 'cursor-pointer' : 'pointer-events-none'}`}>
                               {level.RockComponent ? <level.RockComponent isDefeated={false} isAlerting={isAlerting} seed={ent.id} size={ent.size || 'large'} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
