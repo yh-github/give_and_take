@@ -15,6 +15,7 @@ import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
+const GAME_VERSION = 'v1.7.1-balanced-rocks';
 const DEFAULT_LIGHTING = {
   radius: 45,
   blur: 1.2,
@@ -55,6 +56,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [schoolsOfFish, setSchoolsOfFish] = useState([]);
   const [campItems, setCampItems] = useState([]);
   const [massFlyingTreasures, setMassFlyingTreasures] = useState([]);
+  const [clickIndicator, setClickIndicator] = useState(null);
+  const [moveDurationMs, setMoveDurationMs] = useState(300);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState('main');
@@ -118,10 +121,32 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, level.mechanics.screens || 1);
   }, [debugMode, puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens]);
 
+  // Wall-only segments (no rocks) for line-of-sight interaction checks.
+  // This lets us distinguish "rock in my corridor" from "rock behind the central pillar."
+  const wallSegments = useMemo(() => {
+    if (!level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return [];
+    const segs = [];
+    const sc = level.mechanics.screens || 1;
+    const processPath = (vertices) => {
+      for (let i = 0; i < vertices.length - 1; i++) {
+        segs.push({ a: { x: vertices[i].x, y: vertices[i].y * sc }, b: { x: vertices[i+1].x, y: vertices[i+1].y * sc } });
+      }
+    };
+    if (CAVE_WALL_VERTICES.leftWall) processPath(CAVE_WALL_VERTICES.leftWall);
+    if (CAVE_WALL_VERTICES.rightWall) processPath(CAVE_WALL_VERTICES.rightWall);
+    if (CAVE_WALL_VERTICES.centralPillar) {
+      processPath(CAVE_WALL_VERTICES.centralPillar);
+      const p = CAVE_WALL_VERTICES.centralPillar;
+      segs.push({ a: { x: p[p.length-1].x, y: p[p.length-1].y * sc }, b: { x: p[0].x, y: p[0].y * sc } });
+    }
+    return segs;
+  }, [level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens]);
+
   stateRefs.current = { inventory, defeated, pathHistory, envItemState, unlockedZones, campItems, buriedEntities, air, isTransformed, hasDeepTreasure, inkFogEntities, attachedEntityId, obstacleSegments, screens };
 
   const demoRef = useRef(false);
   const mapRef = useRef(null);
+  const innerMapRef = useRef(null);
   const Background = level.BackgroundComponent;
 
   useEffect(() => {
@@ -402,13 +427,21 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           const aStarPath = findGlobalPath(start, end, segments, bounds, polygons);
           
           if (aStarPath && aStarPath.length > 1) {
-            // Unscale Y values and add metadata (depth, zone)
-            finalPath = aStarPath.map(p => ({
-              x: p.x,
-              y: p.y / sc,
-              depth: targetDepth || 3,
-              zone: targetZone // Assume target's zone for the detour legs
-            }));
+            // Unscale Y values and add metadata (depth, zone), with exact target coordinates on the final waypoint
+            finalPath = aStarPath.map((p, idx) => {
+              if (idx === aStarPath.length - 1) {
+                return { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone };
+              }
+              return {
+                x: p.x,
+                y: p.y / sc,
+                depth: targetDepth || 3,
+                zone: targetZone // Assume target's zone for the detour legs
+              };
+            });
+          } else {
+            // Path is blocked by walls/obstacles and A* failed: DO NOT walk through walls
+            finalPath = [];
           }
         }
       }
@@ -533,11 +566,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     setIsAnimatingLoot(true);
 
     const newPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
+    if (!newPath || newPath.length === 0) return;
     const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
 
     setPathHistory(prev => {
-      if (lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
       return [...prev, ...newPath];
     });
 
@@ -577,11 +611,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     setIsAnimatingLoot(true);
 
     const newPath = navigateTo(campItem.x, campItem.y, 1, level.campPos.depth || 3, false);
+    if (!newPath || newPath.length === 0) return;
     const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
 
     setPathHistory(prev => {
-      if (lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
       return [...prev, ...newPath];
     });
 
@@ -593,14 +628,71 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     }, 800);
   };
 
-  const handleCellClick = (e, targetX, targetY) => {
+  const handleCellClick = async (e, targetX, targetY) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
-    // Movement to any spot is not supported natively in this interaction model.
-    // However, we still handle air refill logic if clicking near camp or as part of mechanics.
-    if (level.mechanics.hasAir && Math.abs(targetY - level.campPos.y) < 5) {
-      handlePostActionAir(targetY);
+    if (level.mechanics.screens > 1) {
+      const sc = level.mechanics.screens || 1;
+      let isValidClick = true;
+
+      if (level.id === 'underground' && polyPoints) {
+        if (!isPointInVisibilityPolygon({ x: targetX, y: targetY * sc }, polyPoints)) {
+          isValidClick = false; // Block movement if clicking in the dark / out of line of sight
+        }
+      }
+
+      // Visual indicator ping at clicked location
+      const indicatorId = Date.now();
+      setClickIndicator({ x: targetX, y: targetY, isValid: isValidClick, id: indicatorId });
+      setTimeout(() => {
+        setClickIndicator(prev => prev?.id === indicatorId ? null : prev);
+      }, 750);
+
+      if (!isValidClick) return;
+
+      setAttachedEntityId(null);
+      saveHistory();
+
+      const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
+      let targetZone = currentZone;
+      if (level.id === 'underground') {
+        if (targetY < 20) targetZone = 1;
+        else if (targetY > 72) targetZone = 6;
+        else if (targetX < 50) targetZone = 2;
+        else targetZone = 3;
+      }
+
+      const newPath = navigateTo(targetX, targetY, targetZone, 3, false);
+      if (!newPath || newPath.length === 0) return;
+
+      setIsAnimatingLoot(true);
+      let lastP = pathHistory[pathHistory.length - 1];
+
+      for (let i = 0; i < newPath.length; i++) {
+        const wp = newPath[i];
+        const dx = wp.x - lastP.x;
+        const dy = wp.y - lastP.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const duration = Math.min(800, Math.max(250, Math.round(dist * 35)));
+
+        setMoveDurationMs(duration);
+        setPathHistory(prev => [...prev, wp]);
+        lastP = wp;
+
+        await new Promise(r => setTimeout(r, duration));
+      }
+
+      setIsAnimatingLoot(false);
+
+      if (level.mechanics.hasAir) {
+        handlePostActionAir(targetY);
+      }
+    } else {
+      // Legacy behavior for small levels
+      if (level.mechanics.hasAir && Math.abs(targetY - level.campPos.y) < 5) {
+        handlePostActionAir(targetY);
+      }
     }
   };
 
@@ -666,11 +758,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const targetX = entity.x;
     const isRock = (entity.isGatekeeper && level.mechanics.hasPickaxe && entity.id !== 'final_gate') || entity.isExtraRock;
     const newPath = navigateTo(targetX, targetY, entity.zone, entity.depth || 3, true, isRock ? 'rock' : null);
+    if (!newPath || newPath.length === 0) return;
     const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
 
     setPathHistory(prev => {
-      if (lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
       return [...prev, ...newPath];
     });
 
@@ -988,6 +1081,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               <button onClick={() => setMenuView('main')} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.back}</button>
             </>
           )}
+          <div className="text-center text-xs text-stone-500 font-mono pt-2 border-t border-stone-700/50">
+            {GAME_VERSION}
+          </div>
         </div>
       </div>
     );
@@ -1046,7 +1142,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const isDrowning = alertEntityId === 'out_of_air';
   const heroFace = isDrowning ? '😵' : (isTransformed ? '🧜‍♂️' : '🤠');
-  const playerTransition = isDrowning ? 'duration-[3000ms] ease-linear' : 'duration-700 ease-in-out';
+  const playerTransition = isDrowning ? 'duration-[3000ms] ease-linear' : `duration-[${moveDurationMs}ms] ease-out`;
   const GatekeeperProp = level.GatekeeperPropComponent;
 
   const getCustomEntityMovement = (ent) => {
@@ -1119,7 +1215,10 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       )}
 
       <div className="flex flex-col w-full h-[100dvh] sm:w-auto sm:h-[95dvh] sm:aspect-[9/19.5] sm:max-w-[45dvh] sm:rounded-3xl shadow-2xl relative ring-0 sm:ring-8 ring-stone-950 overflow-hidden mx-auto" style={{ containerType: 'inline-size', containerName: 'game' }}>
-        <div ref={mapRef} className="@container relative w-full flex-1 bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden">
+        <div 
+          ref={mapRef} 
+          className="@container relative w-full flex-1 bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden cursor-pointer"
+        >
 
           {level.mechanics.hasAir && !isTransformed && (
             <div
@@ -1146,7 +1245,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           )}
 
 
-          <div className="absolute inset-x-0 top-0 transition-transform duration-1000 ease-in-out pointer-events-auto animate-map-appear" style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}>
+          <div 
+            ref={innerMapRef}
+            onClick={(e) => {
+              if (!innerMapRef.current) return;
+              const rect = innerMapRef.current.getBoundingClientRect();
+              const clickX = ((e.clientX - rect.left) / rect.width) * 100;
+              const clickY = ((e.clientY - rect.top) / rect.height) * 100;
+              handleCellClick(e, clickX, clickY);
+            }}
+            className="absolute inset-x-0 top-0 transition-transform duration-1000 ease-in-out pointer-events-auto animate-map-appear cursor-pointer" 
+            style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}
+          >
             <Background />
 
             {level.id !== 'underground' && level.mechanics.hasFog && (
@@ -1233,6 +1343,26 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               />
             )}
 
+            {clickIndicator && (
+              <div
+                key={clickIndicator.id}
+                className="absolute pointer-events-none z-[180] -translate-x-1/2 -translate-y-1/2"
+                style={{ left: `${clickIndicator.x}%`, top: `${clickIndicator.y}%` }}
+              >
+                {clickIndicator.isValid ? (
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full border-2 border-cyan-400 bg-cyan-400/20 animate-ping absolute" />
+                    <div className="w-3 h-3 rounded-full bg-cyan-300 border border-white shadow-[0_0_10px_rgba(34,211,238,0.9)] animate-pulse" />
+                  </div>
+                ) : (
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full border-2 border-rose-500 bg-rose-500/20 animate-ping absolute" />
+                    <span className="text-xl drop-shadow-md select-none">🚫</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {level.sceneryNodes?.map((sc, i) => {
               const sDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(sc.x - displayPlayerPos.x, 2) + Math.pow(sc.y - displayPlayerPos.y, 2)) : 100;
               const sZ = sDist < 28 ? 99 : (sc.z || (sc.depth || 3) * 10);
@@ -1272,8 +1402,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
             {level.id !== 'underwater' && (
               <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-[99]" preserveAspectRatio="none">
-                {pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
-                {tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
+                {(!level.mechanics.screens || level.mechanics.screens === 1) && pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
+                {(!level.mechanics.screens || level.mechanics.screens === 1) && tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
               </svg>
             )}
 
@@ -1338,11 +1468,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               const inDarkness = !isVisible;
               const entZ = isSelected ? 200 : ((inLightRadius && !inFog && !inDarkness) ? 170 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
 
-              // Rocks should stay visible even in darkness so the player sees what blocks the light, 
-              // but creatures/items should be hidden. Both are non-interactable if in fog.
-              // Rocks remain clickable in the dark so you can move to them and mine them.
+              // Rocks stay visible in darkness so the player sees what blocks the light,
+              // but creatures/items are hidden. Entities behind a WALL must not be interactable.
+              // We check line-of-sight against wall geometry (not rocks) to distinguish
+              // "rock in my corridor" from "rock on the other side of the central pillar."
               const hideInDarkness = inDarkness && !isRock && !ent.isGatekeeper;
-              const isInteractable = !inFog && (!inDarkness || isRock || ent.isGatekeeper);
+              const isBlockedByWall = inDarkness && inLightRadius && wallSegments.length > 0 &&
+                checkCollision(
+                  { x: displayPlayerPos.x, y: displayPlayerPos.y * (level.mechanics.screens || 1) },
+                  { x: ent.x, y: ent.y * (level.mechanics.screens || 1) },
+                  wallSegments
+                );
+              const isInteractable = !inFog && (!inDarkness || (inLightRadius && !isBlockedByWall));
               const interactableHover = !isInteractable ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000' : (inDarkness) ? 'cursor-pointer opacity-60 grayscale' : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
               const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
@@ -1422,7 +1559,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                           ) : null
                         )}
 
-                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
+                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : isRock ? 'text-[26cqw]' : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                           {(isRock || ent.isExtraRock) && !isDefeated ? (
                             <div className={`flex justify-center items-center transition-transform ${isRock ? 'cursor-pointer' : 'pointer-events-none'}`}>
                               {level.RockComponent ? <level.RockComponent isDefeated={false} isAlerting={isAlerting} seed={ent.id} size={ent.size || 'large'} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
@@ -1480,7 +1617,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
           </div>
 
           <div className="absolute inset-0 opacity-10 z-[140] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-          <div className="absolute top-4 left-4 z-[150] flex gap-2">
+          <div className="absolute top-4 left-4 z-[150] flex gap-2 items-center">
             <button onClick={(e) => { e.stopPropagation(); setLang('he'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'he' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇮🇱</button>
             <button onClick={(e) => { e.stopPropagation(); setLang('en'); }} className={`w-10 h-10 rounded-full border-2 ${lang === 'en' ? 'border-amber-400 scale-110 shadow-lg' : 'border-stone-600 opacity-50'} flex items-center justify-center bg-stone-800`}>🇺🇸</button>
             {level.id === 'underground' && (
@@ -1492,6 +1629,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 👁️
               </button>
             )}
+            <span className="text-[10px] sm:text-xs font-mono px-2 py-1 rounded-full bg-stone-900/80 text-amber-400/90 border border-stone-700 shadow-md pointer-events-none select-none">
+              {GAME_VERSION}
+            </span>
           </div>
           <button onClick={(e) => { e.stopPropagation(); setMenuView('main'); setIsMenuOpen(true); }} className="absolute top-4 right-4 z-[150] bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"><span className="text-xl pt-0.5">⚙️</span></button>
 
