@@ -48,16 +48,17 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
       // gatekeeper rocks should be wide enough to block most of the corridor (wall to pillar)
       if (node.isGatekeeper && !defeated.includes(node.id)) {
           const y = node.y * screens;
-          let minX = 0;
-          let maxX = 100;
+          let minX, maxX;
           if (node.y < 72) {
-            if (node.x < 50) { minX = 0; maxX = 50; }
-            else { minX = 50; maxX = 100; }
+            if (node.x < 50) { minX = 16; maxX = 49; }
+            else { minX = 51; maxX = 82; }
+          } else {
+            minX = 31; maxX = 69;
           }
-          segments.push({ a: { x: minX, y: y - 2 }, b: { x: maxX, y: y - 2 } });
-          segments.push({ a: { x: maxX, y: y - 2 }, b: { x: maxX, y: y + 2 } });
-          segments.push({ a: { x: maxX, y: y + 2 }, b: { x: minX, y: y + 2 } });
-          segments.push({ a: { x: minX, y: y + 2 }, b: { x: minX, y: y - 2 } });
+          segments.push({ a: { x: minX, y: y - 1.5 }, b: { x: maxX, y: y - 1.5 } });
+          segments.push({ a: { x: maxX, y: y - 1.5 }, b: { x: maxX, y: y + 1.5 } });
+          segments.push({ a: { x: maxX, y: y + 1.5 }, b: { x: minX, y: y + 1.5 } });
+          segments.push({ a: { x: minX, y: y + 1.5 }, b: { x: minX, y: y - 1.5 } });
       } else if (node.isExtraRock && !defeated.includes(node.id)) {
           const sizeX = 2.5;
           const sizeY = 1.5;
@@ -200,12 +201,11 @@ export function castRays(origin, segments, radius = 30) {
 /**
  * Returns SVG points string for visibility polygon.
  */
-export function getVisibilityPolygon(heroPos, mapNodes, caveWallVertices, unlockedZones, defeated, radius = 30, screens = 2.5) {
+export function getVisibilityPolygon(heroPos, segments, radius = 30, screens = 2.5) {
     const scaledHeroPos = { 
         x: heroPos.x, 
         y: heroPos.y * screens // HERO MUST BE SCALED TO MATCH SEGMENT SPACE
     };
-    const segments = getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, defeated, screens);
     const intersects = castRays(scaledHeroPos, segments, radius);
     return intersects;
 }

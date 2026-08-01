@@ -15,7 +15,7 @@ import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
-const GAME_VERSION = 'v1.7.2-rock-barricade';
+const GAME_VERSION = 'v1.7.4-rock-sized-correctly';
 const DEFAULT_LIGHTING = {
   radius: 50,
   blur: 1.2,
@@ -100,15 +100,16 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const obstacleSegments = useMemo(() => {
     if (!puzzle) return [];
+    if (level.getObstacleSegments) return level.getObstacleSegments(puzzle.puzzleEntities, unlockedZones, defeated, level.mechanics.screens || 1);
     return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, level.mechanics.screens || 1);
-  }, [puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens]);
+  }, [puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens, level]);
 
   const polyPoints = useMemo(() => {
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return null;
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
     if (!pPos) return null;
-    return getVisibilityPolygon(pPos, puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, lightingSettings.radius, level.mechanics.screens || 1);
-  }, [tempPlayerPos, pathHistory[pathHistory.length - 1], puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens, lightingSettings.radius]);
+    return getVisibilityPolygon(pPos, obstacleSegments, lightingSettings.radius, level.mechanics.screens || 1);
+  }, [tempPlayerPos, pathHistory[pathHistory.length - 1], obstacleSegments, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens, lightingSettings.radius]);
 
   const visibleEntitiesSet = useMemo(() => {
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial' || !polyPoints) return null;
@@ -126,9 +127,10 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   }, [polyPoints, puzzle?.puzzleEntities, tempPlayerPos, pathHistory[pathHistory.length - 1], level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens, lightingSettings.radius]);
 
   const debugSegments = useMemo(() => {
-    if (!debugMode || !puzzle || level.id !== 'underground') return [];
+    if (!debugMode || !puzzle || !level.mechanics.isCaveType) return [];
+    if (level.getObstacleSegments) return level.getObstacleSegments(puzzle.puzzleEntities, unlockedZones, defeated, level.mechanics.screens || 1);
     return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, level.mechanics.screens || 1);
-  }, [debugMode, puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens]);
+  }, [debugMode, puzzle?.puzzleEntities, unlockedZones, defeated, level.mechanics.screens, level]);
 
   // Wall-only segments (no rocks) for line-of-sight interaction checks.
   // This lets us distinguish "rock in my corridor" from "rock behind the central pillar."
@@ -645,7 +647,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       const sc = level.mechanics.screens || 1;
       let isValidClick = true;
 
-      if (level.id === 'underground' && polyPoints) {
+      if (level.mechanics.isCaveType && polyPoints) {
         if (!isPointInVisibilityPolygon({ x: targetX, y: targetY * sc }, polyPoints)) {
           isValidClick = false; // Block movement if clicking in the dark / out of line of sight
         }
@@ -665,7 +667,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
       const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
       let targetZone = currentZone;
-      if (level.id === 'underground') {
+      if (level.mechanics.isCaveType) {
         if (targetY < 20) targetZone = 1;
         else if (targetY > 72) targetZone = 6;
         else if (targetX < 50) targetZone = 2;
@@ -807,7 +809,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
       setIsAnimatingLoot(true); saveHistory();
 
-      if (level.id === 'underground' && entity.isTreasure) {
+      if (level.mechanics.isCaveType && entity.isTreasure) {
         const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
         setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji, x: t.x, y: t.y, delay: idx * 150 })));
         setDefeated(prev => [...prev, ...allTreasures.map(t => t.id)]);
@@ -1338,7 +1340,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                       }}
                     >
                       {isRock && level.RockComponent ? (
-                        <div className="w-[24cqw] flex justify-center items-center pointer-events-none">
+                        <div className="w-[32cqw] flex justify-center items-center pointer-events-none">
                            <level.RockComponent isDefeated={false} seed={node.id} size={node.size || 'large'} />
                         </div>
                       ) : (
@@ -1351,8 +1353,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               </div>
             )}
 
-            {!isLevelEditor && level.id !== 'underground' && level.mechanics.hasFog && (
-              <div className="absolute inset-0 pointer-events-none z-[120]">
+            {!isLevelEditor && !level.mechanics.isCaveType && level.mechanics.hasFog && (
+              <div className="absolute inset-0 pointer-events-none z-[120]" style={{ opacity: isTransformed ? 0.3 : 0.7 }}>
                 {!unlockedZones.includes(2) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
                 {!unlockedZones.includes(3) && <div className="absolute right-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '21%', height: '22%' }} />}
                 {!unlockedZones.includes(4) && <div className="absolute left-0 w-[50%] bg-[#110c08] transition-opacity duration-1000" style={{ top: '45%', height: '20%' }} />}
@@ -1661,13 +1663,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                           ) : null
                         )}
 
-                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : (isRock || ent.isExtraRock) ? 'w-[24cqw] text-[24cqw]' : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
+                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : (isRock || ent.isExtraRock) ? 'w-[20cqw] text-[20cqw]' : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                           {(isRock || ent.isExtraRock) && !isDefeated ? (
-                            <div className={`flex justify-center items-center transition-transform ${isRock ? 'cursor-pointer' : 'pointer-events-none'}`}>
+                            <div className={`flex justify-center items-center transition-transform w-full ${isRock ? 'cursor-pointer' : 'pointer-events-none'}`}>
                               {level.RockComponent ? <level.RockComponent isDefeated={false} isAlerting={isAlerting} seed={ent.id} size={ent.size || 'large'} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
                             </div>
                           ) : (isRock || ent.isExtraRock) && isDefeated ? (
-                            <div className="relative group text-[0.8em] flex justify-center cursor-pointer z-50 animate-rock-shatter">
+                            <div className="relative group text-[0.8em] flex justify-center w-full cursor-pointer z-50 animate-rock-shatter">
                               {level.RockComponent ? <level.RockComponent isDefeated={true} isAlerting={false} seed={ent.id} size={ent.size || 'large'} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
                             </div>
                           ) : isCurrent && isDefeated ? (
