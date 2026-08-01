@@ -23,7 +23,7 @@ export const computeWaypoints = (fromZone, toZone) => {
   const leftX = 33;
   const rightX = 72;
   const topCrossingY = 10;    // Above pillar (visual range: y=20–76)
-  const bottomCrossingY = 80; // Below pillar
+  const bottomCrossingY = 74; // Below pillar, but above rock_final_1
 
   // Add corridor-centering waypoints to prevent clipping wall corners BEFORE crossing
   if (leftZones.includes(fromZone) && !leftZones.includes(toZone)) {
