@@ -90,17 +90,17 @@ export const RockSVG = ({ isDefeated, isAlerting, seed = 0, size = 'large' }) =>
   // Custom wider paths representing a pile/barricade of rocks
   const paths = [
     // A wide blockade
-    "M 5 45 L 2 30 L 15 15 L 45 10 L 80 12 L 110 5 L 135 15 L 145 35 L 140 55 L 110 65 L 75 60 L 35 65 Z",
-    "M 10 50 L 5 35 L 20 12 L 55 8 L 90 10 L 125 15 L 140 30 L 135 55 L 105 62 L 65 58 L 25 65 Z",
-    "M 8 40 L 15 20 L 35 8 L 70 5 L 100 12 L 135 18 L 145 40 L 130 60 L 95 55 L 50 65 L 15 58 Z",
-    "M 15 55 L 5 35 L 25 15 L 60 10 L 95 8 L 130 15 L 142 45 L 125 65 L 85 58 L 45 62 Z"
+    "M 5 45 L 2 30 L 15 15 L 45 10 L 80 12 L 110 5 L 135 15 L 145 35 L 145 55 L 135 65 L 75 60 L 35 65 Z",
+    "M 10 50 L 5 35 L 20 12 L 55 8 L 90 10 L 125 15 L 140 30 L 140 55 L 130 65 L 65 58 L 25 65 Z",
+    "M 8 40 L 15 20 L 35 8 L 70 5 L 100 12 L 135 18 L 145 40 L 145 60 L 135 65 L 50 65 L 15 58 Z",
+    "M 15 55 L 5 35 L 25 15 L 60 10 L 95 8 L 130 15 L 142 45 L 140 65 L 85 58 L 45 62 Z"
   ];
   
   if (isDefeated) {
       // Rubble state based on size
       const rubbleScale = size === 'small' ? 0.5 : 0.9;
       return (
-          <div className="relative pointer-events-none opacity-80 translate-y-4" style={{ transform: `scale(${rubbleScale})` }}>
+          <div className="w-full relative pointer-events-none opacity-80 translate-y-4 flex justify-center" style={{ transform: `scale(${rubbleScale})` }}>
               <svg viewBox="0 0 150 70" className="w-[38cqw] h-auto drop-shadow-lg">
                   <path d="M 20 50 L 45 40 L 60 55 L 35 65 Z" fill="#635d57" stroke="#3d3832" />
                   <path d="M 65 55 L 90 45 L 110 60 L 80 65 Z" fill="#4d4842" stroke="#3d3832" />
@@ -112,7 +112,7 @@ export const RockSVG = ({ isDefeated, isAlerting, seed = 0, size = 'large' }) =>
   }
 
   return (
-    <div className={`relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})` }}>
+    <div className={`w-full relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})` }}>
       <svg viewBox="0 0 150 70" className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
         <defs>
           <linearGradient id={`rockGrad-${variant}-${size}`} x1={`${variant * 20}%`} y1="0%" x2="0%" y2="100%">

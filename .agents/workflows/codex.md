@@ -1,0 +1,1 @@
+/home/yoavh/.gemini/config/disabled_plugins/gstack-antigravity/.agents/workflows/codex.md

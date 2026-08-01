@@ -61,13 +61,13 @@ describe('Navigation', () => {
 });
 
 describe('Generator', () => {
-    it('deletes unused entities that are not part of the solution', () => {
+    it('preserves red-herring entities on available map nodes', () => {
         const level = {
             id: 'test',
             mechanics: { hasPickaxe: false },
             mapNodes: [
                 { id: 'goal', x: 0, y: 0, zone: 1, isGoal: true },
-                { id: 'random_node', x: 10, y: 0, zone: 1 } // Not a gatekeeper, will become a random merchant
+                { id: 'random_node', x: 10, y: 0, zone: 1 } // Not a gatekeeper, becomes a merchant
             ],
             entities: [
                 { id: 'goal', allowedReqs: ['a'] },
@@ -79,9 +79,33 @@ describe('Generator', () => {
 
         const puzzle = generateLevelPuzzle(level, 0, 1);
         
-        // Ensure the unused merchant is NOT in the final puzzle
-        // The solver can solve it immediately using 'goal' and doesn't need the merchant
+        // Ensure the merchant (even if not strictly needed by shortest path) is preserved as a red herring / trade option
         const unused = puzzle.puzzleEntities.find(e => e.id.startsWith('merchant_'));
-        expect(unused).toBeUndefined();
+        expect(unused).toBeDefined();
+    });
+});
+
+describe('Cave V2', () => {
+    it('dynamically generates obstacle segments based on node coordinates', async () => {
+        // Dynamic import to avoid loading it if not needed in other tests
+        const caveV2 = (await import('./src/levels/cave_v2/index.js')).default;
+        
+        const puzzleEntities = [
+            { id: 'test_rock', isGatekeeper: true, x: 68, y: 67.3 }
+        ];
+        
+        const segments = caveV2.getObstacleSegments(puzzleEntities, [], [], 2.5);
+        
+        // Find the segments for the rock (should be exactly 4 segments making a rectangle)
+        // Min X = 68 - 13 = 55
+        // Max X = 68 + 13 = 81
+        // Min Y = 67.3 * 2.5 - 1.5 = 168.25 - 1.5 = 166.75
+        // Max Y = 67.3 * 2.5 + 1.5 = 168.25 + 1.5 = 169.75
+        const rockSegs = segments.filter(s => 
+            (s.a.x === 55 || s.a.x === 81) && 
+            (s.a.y === 166.75 || s.a.y === 169.75)
+        );
+        
+        expect(rockSegs.length).toBeGreaterThanOrEqual(4);
     });
 });
