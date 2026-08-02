@@ -12,6 +12,7 @@ import CaveVisibility from './src/levels/underground/CaveVisibility.jsx';
 import { getVisibilityPolygon, getObstacleSegments, isPointInVisibilityPolygon, checkCollision } from './src/logic/visibility.js';
 import { findGlobalPath } from './src/logic/pathfinding.js';
 import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
+import { getCorridorBounds } from './src/logic/geometry.js';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
@@ -1663,7 +1664,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               const inLightRadius = eDist < 28;
               const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
               const inDarkness = !isVisible;
-              const entZ = isSelected ? 200 : ((inLightRadius && !inFog && !inDarkness) ? 170 : (isRock ? 130 : (ent.isGatekeeper ? 110 : (ent.depth || 3) * 10 + 5)));
+              const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper) ? (inLightRadius ? 165 : 130) : ((inLightRadius && !inFog && !inDarkness) ? 170 : ((ent.depth || 3) * 10 + 5)));
 
               // Rocks stay visible in darkness so the player sees what blocks the light,
               // but creatures/items are hidden. Entities behind a WALL must not be interactable.
@@ -1705,6 +1706,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               let visualRotation = 0;
               let isFlipped = ent.isRight;
 
+              const isGatekeeperRock = (isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES;
+              let rockBounds = null;
+              if (isGatekeeperRock) {
+                rockBounds = getCorridorBounds(ent.y, CAVE_WALL_VERTICES, ent.x >= 50);
+                visualX = (rockBounds.xLeft + rockBounds.xRight) / 2;
+              }
+
               if (customMove) {
                 visualX = customMove.x;
                 visualY = customMove.y;
@@ -1714,7 +1722,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 // Large vertical swim range for "elevators"
                 visualY += Math.sin(gameTime * 1.5 + (ent.id.length * 0.7)) * 20;
               }
-              const entityStyle = { left: `${visualX}%`, top: `${visualY}%`, zIndex: entZ, transform: `translate(-50%, -50%) rotate(${visualRotation}deg)` };
+              const entityStyle = { 
+                left: `${visualX}%`, 
+                top: `${visualY}%`, 
+                width: rockBounds ? `${rockBounds.xRight - rockBounds.xLeft}%` : undefined,
+                zIndex: entZ, 
+                transform: `translate(-50%, -50%) rotate(${visualRotation}deg)` 
+              };
 
               return (
                 <div key={ent.id} onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
@@ -1764,7 +1778,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                           ) : null
                         )}
 
-                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : (isRock || ent.isExtraRock) ? ((ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'small' ? 'w-[20cqw] text-[20cqw]' : (ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'medium' ? 'w-[28cqw] text-[28cqw]' : 'w-[36cqw] text-[36cqw]') : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
+                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : (isRock || ent.isExtraRock) ? (rockBounds ? 'w-full' : ((ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'small' ? 'w-[20cqw] text-[20cqw]' : (ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'medium' ? 'w-[28cqw] text-[28cqw]' : 'w-[36cqw] text-[36cqw]')) : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
                           {(isRock || ent.isExtraRock) ? (
                             <div className={`flex justify-center items-center transition-transform w-full ${isRock && !isDefeated ? 'cursor-pointer' : 'pointer-events-none'}`}>
                               {level.RockComponent ? (
