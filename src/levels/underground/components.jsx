@@ -8,7 +8,7 @@ export const CAVE_WALL_VERTICES = {
     {x:20,y:30}, {x:18,y:36}, {x:21,y:42}, 
     {x:20,y:46}, {x:18,y:52}, 
     {x:22,y:60}, {x:19,y:65}, 
-    {x:20,y:68}, {x:17,y:72}, {x:20,y:76}, {x:18,y:80}, {x:20,y:84}, {x:14,y:88}, {x:12,y:92}, {x:14,y:96}, {x:12,y:100}, {x:0,y:100}
+    {x:20,y:68}, {x:17,y:72}, {x:50,y:75}, {x:54,y:79}, {x:52,y:83}, {x:55,y:87}, {x:52,y:91}, {x:50,y:95}, {x:52,y:98}, {x:50,y:100}, {x:0,y:100}
   ],
   rightWall: [
     {x:100,y:0}, {x:80,y:0}, 
@@ -17,7 +17,7 @@ export const CAVE_WALL_VERTICES = {
     {x:80,y:32}, {x:82,y:38}, {x:79,y:41}, 
     {x:80,y:43}, {x:82,y:50}, 
     {x:78,y:60}, {x:81,y:65}, 
-    {x:80,y:71}, {x:83,y:75}, {x:80,y:79}, {x:82,y:83}, {x:80,y:86}, {x:86,y:90}, {x:88,y:94}, {x:85,y:97}, {x:88,y:100}, {x:100,y:100}
+    {x:80,y:71}, {x:88,y:75}, {x:86,y:79}, {x:88,y:83}, {x:85,y:87}, {x:88,y:91}, {x:86,y:95}, {x:88,y:98}, {x:86,y:100}, {x:100,y:100}
   ],
   centralPillar: [
     {x:50,y:20}, 
@@ -40,7 +40,7 @@ export const CaveBackground = () => (
         L 20 30 L 18 36 L 21 42 
         L 20 46 L 18 52 
         L 22 60 L 19 65 
-        L 20 68 L 17 72 L 20 76 L 18 80 L 20 84 L 14 88 L 12 92 L 14 96 L 12 100 L 0 100 Z" 
+        L 20 68 L 17 72 L 50 75 L 54 79 L 52 83 L 55 87 L 52 91 L 50 95 L 52 98 L 50 100 L 0 100 Z" 
         fill="#181310" stroke="#0a0806" strokeWidth="0.5" vectorEffect="non-scaling-stroke" 
       />
       <path d="
@@ -50,7 +50,7 @@ export const CaveBackground = () => (
         L 80 32 L 82 38 L 79 41 
         L 80 43 L 82 50 
         L 78 60 L 81 65 
-        L 80 71 L 83 75 L 80 79 L 82 83 L 80 86 L 86 90 L 88 94 L 85 97 L 88 100 L 100 100 Z" 
+        L 80 71 L 88 75 L 86 79 L 88 83 L 85 87 L 88 91 L 86 95 L 88 98 L 86 100 L 100 100 Z" 
         fill="#181310" stroke="#0a0806" strokeWidth="0.5" vectorEffect="non-scaling-stroke" 
       />
       {/* Central Pillar - Asymmetric to match paths */}

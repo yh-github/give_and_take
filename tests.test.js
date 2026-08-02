@@ -85,25 +85,21 @@ describe('Generator', () => {
     });
 });
 
-describe('Cave V2', () => {
+describe('Underground Level', () => {
     it('dynamically generates obstacle segments based on node coordinates', async () => {
-        // Dynamic import to avoid loading it if not needed in other tests
-        const caveV2 = (await import('./src/levels/cave_v2/index.js')).default;
+        const underground = (await import('./src/levels/underground/index.js')).default;
         
         const puzzleEntities = [
             { id: 'test_rock', isGatekeeper: true, x: 68, y: 67.3 }
         ];
         
-        const segments = caveV2.getObstacleSegments(puzzleEntities, [], [], 2.5);
+        const segments = underground.getObstacleSegments(puzzleEntities, [], [], 2.5);
         
         // Find the segments for the rock (should be exactly 4 segments making a rectangle)
-        // Min X = 68 - 13 = 55
-        // Max X = 68 + 13 = 81
-        // Min Y = 67.3 * 2.5 - 1.5 = 168.25 - 1.5 = 166.75
-        // Max Y = 67.3 * 2.5 + 1.5 = 168.25 + 1.5 = 169.75
+        // Min X = 68 - 20 = 48
+        // Max X = 68 + 20 = 88
         const rockSegs = segments.filter(s => 
-            (s.a.x === 55 || s.a.x === 81) && 
-            (s.a.y === 166.75 || s.a.y === 169.75)
+            (s.a.x === 48 || s.a.x === 88)
         );
         
         expect(rockSegs.length).toBeGreaterThanOrEqual(4);

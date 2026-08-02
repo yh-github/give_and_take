@@ -22,8 +22,8 @@
     "isPreset": "pickaxe"
   },
   {
-    "x": 32.3,
-    "y": 22.4,
+    "x": 36,
+    "y": 22,
     "zone": 1,
     "isGatekeeper": true,
     "id": "rock_left_1",
@@ -48,8 +48,8 @@
     "zone": 2
   },
   {
-    "x": 34,
-    "y": 46.3,
+    "x": 36,
+    "y": 46,
     "zone": 2,
     "isGatekeeper": true,
     "id": "rock_left_2",
@@ -70,8 +70,8 @@
     "isPreset": "mushroom"
   },
   {
-    "x": 35,
-    "y": 67.3,
+    "x": 36,
+    "y": 68,
     "zone": 4,
     "isGatekeeper": true,
     "id": "rock_left_3",
@@ -81,8 +81,8 @@
     ]
   },
   {
-    "x": 68,
-    "y": 22.4,
+    "x": 76,
+    "y": 23,
     "zone": 1,
     "isGatekeeper": true,
     "id": "rock_right_1",
@@ -97,19 +97,19 @@
     "zone": 3
   },
   {
-    "x": 68,
+    "x": 79,
     "y": 38,
     "zone": 3
   },
   {
-    "x": 68,
+    "x": 74,
     "y": 42,
     "zone": 3,
     "isPreset": "pickaxe"
   },
   {
-    "x": 68,
-    "y": 46.3,
+    "x": 76,
+    "y": 46,
     "zone": 3,
     "isGatekeeper": true,
     "id": "rock_right_2",
@@ -119,18 +119,18 @@
     ]
   },
   {
-    "x": 68,
-    "y": 52.9,
+    "x": 66,
+    "y": 56,
     "zone": 5
   },
   {
-    "x": 68,
-    "y": 62.1,
+    "x": 80,
+    "y": 63,
     "zone": 5
   },
   {
-    "x": 68,
-    "y": 67.3,
+    "x": 76,
+    "y": 68,
     "zone": 5,
     "isGatekeeper": true,
     "id": "rock_right_3",
@@ -140,14 +140,14 @@
     ]
   },
   {
-    "x": 50,
-    "y": 73.1,
+    "x": 70,
+    "y": 74,
     "zone": 6,
     "isPreset": "mushroom"
   },
   {
-    "x": 50,
-    "y": 77.4,
+    "x": 70,
+    "y": 78,
     "zone": 6,
     "isGatekeeper": true,
     "id": "rock_final_1",
@@ -157,13 +157,13 @@
     ]
   },
   {
-    "x": 50,
-    "y": 81.8,
+    "x": 66,
+    "y": 84,
     "zone": 7
   },
   {
-    "x": 50,
-    "y": 85.1,
+    "x": 70,
+    "y": 88,
     "zone": 7,
     "isGatekeeper": true,
     "id": "rock_final_2",
@@ -173,13 +173,13 @@
     ]
   },
   {
-    "x": 50,
-    "y": 89.3,
+    "x": 76,
+    "y": 92,
     "zone": 8
   },
   {
-    "x": 50,
-    "y": 92.7,
+    "x": 70,
+    "y": 95,
     "zone": 8,
     "isGatekeeper": true,
     "id": "vault_rock",
@@ -189,21 +189,21 @@
     ]
   },
   {
-    "x": 42,
+    "x": 55,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",
     "isTreasure": true
   },
   {
-    "x": 46,
+    "x": 60,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",
     "isTreasure": true
   },
   {
-    "x": 50,
+    "x": 65,
     "y": 98,
     "zone": 9,
     "isGoal": true,
@@ -211,14 +211,14 @@
     "isTreasure": true
   },
   {
-    "x": 54,
+    "x": 70,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",
     "isTreasure": true
   },
   {
-    "x": 58,
+    "x": 75,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",
