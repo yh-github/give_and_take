@@ -15,7 +15,7 @@ import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
-const GAME_VERSION = 'v1.7.6-left-path-rejoined';
+const GAME_VERSION = 'v1.7.7-procedural-rock-mesh';
 const DEFAULT_LIGHTING = {
   radius: 50,
   blur: 1.2,
@@ -88,6 +88,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
   const [dolphinZone, setDolphinZone] = useState(1);
   const [dolphinYPos, setDolphinYPos] = useState(16);
+  const [breakingRockIds, setBreakingRockIds] = useState({});
   const dolphinZoneRef = useRef(1);
   useEffect(() => { dolphinZoneRef.current = dolphinZone; }, [dolphinZone]);
 
@@ -288,7 +289,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (!puzzle) return;
     Object.values(activeDigTimers.current).forEach(clearTimeout);
     activeDigTimers.current = {};
-    setInventory(puzzle.startItems || []); setPathHistory([{ ...level.campPos, zone: 1 }]);
+    setInventory(puzzle.startItems || []); setPathHistory([{ ...level.campPos, zone: 1 }]); setBreakingRockIds({});
     Object.entries(INITIAL_STATE).forEach(([k, v]) => {
       if (k === 'unlockedZones') setUnlockedZones(v); else if (k === 'air') setAir(v); else if (k === 'defeated') setDefeated(v); else if (k === 'selectedItemTypes') setSelectedItemTypes(v); else if (k === 'selectedEntityId') setSelectedEntityId(v); else if (k === 'historyStack') setHistoryStack(v); else if (k === 'isVictorious') setIsVictorious(v); else if (k === 'showTrophy') setShowTrophy(v); else if (k === 'showVictoryMsg') setShowVictoryMsg(v); else if (k === 'isDemonstrating') setIsDemonstrating(v); else if (k === 'isAnimatingLoot') setIsAnimatingLoot(v); else if (k === 'alertEntityId') setAlertEntityId(v); else if (k === 'flyingItem') setFlyingItem(v); else if (k === 'tempPlayerPos') setTempPlayerPos(v); else if (k === 'envItemState') setEnvItemState(v); else if (k === 'schoolsOfFish') setSchoolsOfFish(v); else if (k === 'animatingEntities') setAnimatingEntities(v); else if (k === 'campItems') setCampItems(v); else if (k === 'buriedEntities') setBuriedEntities(v); else if (k === 'isTransformed') setIsTransformed(v); else if (k === 'hasDeepTreasure') setHasDeepTreasure(v); else if (k === 'inkFogEntities') setInkFogEntities(v); else if (k === 'roamingBoats') setRoamingBoats(v); else if (k === 'attachedEntityId') setAttachedEntityId(v); else if (k === 'isMagicAnimating') setIsMagicAnimating(v); else if (k === 'heroBubbleBursts') setHeroBubbleBursts(v);
     });
@@ -957,6 +958,17 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
         return newInv;
       });
 
+      if (isRock) {
+        setBreakingRockIds(prev => ({ ...prev, [entity.id]: true }));
+        setTimeout(() => {
+          setBreakingRockIds(prev => {
+            const copy = { ...prev };
+            delete copy[entity.id];
+            return copy;
+          });
+        }, 1000);
+      }
+
       setDefeated(prev => {
         if (entity.id === 'sea_witch') return prev; // Witch doesn't disappear
         if (entity.id === 'dolphin_1') return [...prev, entity.id]; // record taming but keep it alive
@@ -1405,8 +1417,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                       }}
                     >
                       {isRock && level.RockComponent ? (
-                        <div className="w-[32cqw] flex justify-center items-center pointer-events-none">
-                           <level.RockComponent isDefeated={false} seed={node.id} size={node.size || 'large'} />
+                        <div className={`${(node.size || (node.isGatekeeper ? 'large' : 'small')) === 'small' ? 'w-[20cqw]' : (node.size || (node.isGatekeeper ? 'large' : 'small')) === 'medium' ? 'w-[28cqw]' : 'w-[36cqw]'} flex justify-center items-center pointer-events-none`}>
+                           <level.RockComponent isDefeated={false} seed={node.id} size={node.size || (node.isGatekeeper ? 'large' : 'small')} yNode={node.y} nodeX={node.x} />
                         </div>
                       ) : (
                         <span className="drop-shadow-md pointer-events-none">{emoji}</span>
@@ -1752,14 +1764,23 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                           ) : null
                         )}
 
-                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : (isRock || ent.isExtraRock) ? 'w-[32cqw] text-[32cqw]' : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
-                          {(isRock || ent.isExtraRock) && !isDefeated ? (
-                            <div className={`flex justify-center items-center transition-transform w-full ${isRock ? 'cursor-pointer' : 'pointer-events-none'}`}>
-                              {level.RockComponent ? <level.RockComponent isDefeated={false} isAlerting={isAlerting} seed={ent.id} size={ent.size || 'large'} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
-                            </div>
-                          ) : (isRock || ent.isExtraRock) && isDefeated ? (
-                            <div className="relative group text-[0.8em] flex justify-center w-full cursor-pointer z-50 animate-rock-shatter">
-                              {level.RockComponent ? <level.RockComponent isDefeated={true} isAlerting={false} seed={ent.id} size={ent.size || 'large'} /> : <span className="text-[1.2em] drop-shadow-md">🪨</span>}
+                        <div className={`drop-shadow-xl relative z-10 ${ent.emoji === '🧌' ? 'text-[18cqw]' : (isRock || ent.isExtraRock) ? ((ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'small' ? 'w-[20cqw] text-[20cqw]' : (ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'medium' ? 'w-[28cqw] text-[28cqw]' : 'w-[36cqw] text-[36cqw]') : ent.isGatekeeper || isGoal ? 'text-[15cqw]' : 'text-[9cqw]'}`}>
+                          {(isRock || ent.isExtraRock) ? (
+                            <div className={`flex justify-center items-center transition-transform w-full ${isRock && !isDefeated ? 'cursor-pointer' : 'pointer-events-none'}`}>
+                              {level.RockComponent ? (
+                                <level.RockComponent 
+                                  isDefeated={isDefeated} 
+                                  isAlerting={isAlerting} 
+                                  isBreaking={Boolean(breakingRockIds[ent.id])} 
+                                  seed={ent.id} 
+                                  size={ent.size || (ent.isGatekeeper ? 'large' : 'small')} 
+                                  heroPos={displayPlayerPos}
+                                  yNode={ent.y}
+                                  nodeX={ent.x}
+                                />
+                              ) : (
+                                <span className="text-[1.2em] drop-shadow-md">🪨</span>
+                              )}
                             </div>
                           ) : isCurrent && isDefeated ? (
                             <div className="text-[9cqw] opacity-0 scale-0 transition-all duration-500">🌀</div>

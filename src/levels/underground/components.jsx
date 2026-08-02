@@ -1,4 +1,5 @@
 import React from 'react';
+import { getCorridorBounds, generateProceduralRockFacets, calculateFacetLighting, hashSeed } from '../../logic/geometry.js';
 
 export const CAVE_WALL_VERTICES = {
   leftWall: [
@@ -66,94 +67,124 @@ export const CaveBackground = () => (
   </div>
 );
 
-export const RockSVG = ({ isDefeated, isAlerting, seed = 0, size = 'large' }) => {
-  // Simple deterministic random from seed
-  const hash = (s) => {
-    let h = 0;
-    const str = String(s);
-    for (let i = 0; i < str.length; i++) {
-        h = ((h << 5) - h) + str.charCodeAt(i);
-        h |= 0;
-    }
-    return Math.abs(h);
-  };
-  
-  const val = hash(seed);
-  // Remove overall rotation to keep the barricade horizontal
-  const rotation = (val % 10) - 5; 
-  
-  // Stretch horizontally to fill the corridor better, compress vertically
-  const scaleX = (size === 'small' ? 0.8 : 1.4) + (val % 10) / 30; 
-  const scaleY = (size === 'small' ? 0.6 : 0.8) + (val % 8) / 40; 
-  const variant = val % 4; 
-  
-  // Custom wider paths representing a pile/barricade of rocks
-  const paths = [
-    // A wide blockade
-    "M 5 45 L 2 30 L 15 15 L 45 10 L 80 12 L 110 5 L 135 15 L 145 35 L 145 55 L 135 65 L 75 60 L 35 65 Z",
-    "M 10 50 L 5 35 L 20 12 L 55 8 L 90 10 L 125 15 L 140 30 L 140 55 L 130 65 L 65 58 L 25 65 Z",
-    "M 8 40 L 15 20 L 35 8 L 70 5 L 100 12 L 135 18 L 145 40 L 145 60 L 135 65 L 50 65 L 15 58 Z",
-    "M 15 55 L 5 35 L 25 15 L 60 10 L 95 8 L 130 15 L 142 45 L 140 65 L 85 58 L 45 62 Z"
-  ];
-  
-  if (isDefeated) {
-      // Rubble state based on size
-      const rubbleScale = size === 'small' ? 0.5 : 0.9;
-      return (
-          <div className="w-full relative pointer-events-none opacity-80 translate-y-4 flex justify-center" style={{ transform: `scale(${rubbleScale})` }}>
-              <svg viewBox="0 0 150 70" className="w-[38cqw] h-auto drop-shadow-lg">
-                  <path d="M 20 50 L 45 40 L 60 55 L 35 65 Z" fill="#635d57" stroke="#3d3832" />
-                  <path d="M 65 55 L 90 45 L 110 60 L 80 65 Z" fill="#4d4842" stroke="#3d3832" />
-                  <path d="M 100 45 L 125 35 L 140 50 L 115 60 Z" fill="#6a645d" stroke="#3d3832" />
-                  <path d="M 45 62 L 70 55 L 95 65 L 65 70 Z" fill="#3d3832" stroke="#2a2520" />
-              </svg>
-          </div>
-      );
+export const RockSVG = ({ isDefeated, isAlerting, isBreaking, seed = 0, size = 'large', heroPos, yNode = 50, nodeX = 50 }) => {
+  const isRightChannel = nodeX >= 50;
+  const bounds = getCorridorBounds(yNode, CAVE_WALL_VERTICES, isRightChannel);
+  const mesh = generateProceduralRockFacets(bounds.xLeft, bounds.xRight, yNode, size === 'small' ? 2.5 : size === 'medium' ? 3.2 : 4.2, seed);
+
+  // 1. DEBRIS STATE (Illuminated procedural ground rubble)
+  if (isDefeated && !isBreaking) {
+    return (
+      <div className="w-full relative pointer-events-none translate-y-1 flex justify-center">
+        <svg viewBox="0 0 150 45" className="w-full h-auto drop-shadow-md overflow-visible">
+          <ellipse cx="75" cy="38" rx="68" ry="6" fill="#14100d" opacity="0.65" />
+          <g>
+            {mesh.facets.map((facet, idx) => {
+              const lighting = calculateFacetLighting(facet, heroPos);
+              const p = facet.pts;
+              const pointsStr = `${p[0].localX},${p[0].localY * 0.4 + 18} ${p[1].localX},${p[1].localY * 0.4 + 18} ${p[2].localX},${p[2].localY * 0.4 + 18} ${p[3].localX},${p[3].localY * 0.4 + 18}`;
+              return (
+                <polygon
+                  key={facet.id || idx}
+                  points={pointsStr}
+                  fill={lighting.color}
+                  stroke="#14110e"
+                  strokeWidth="1.5"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+    );
   }
 
+  // 2. BREAKING ANIMATION STATE
+  if (isBreaking) {
+    return (
+      <div className="w-full relative pointer-events-none flex justify-center">
+        <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 animate-pickaxe-hit">
+          <span className="text-3xl sm:text-4xl drop-shadow-[0_0_10px_rgba(251,191,36,1)]">⛏️</span>
+        </div>
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-40 animate-hit-spark">
+          <span className="text-2xl">✨</span>
+        </div>
+
+        <svg viewBox="0 0 150 70" className="w-full h-auto overflow-visible">
+          <g opacity="0.95" className="z-30">
+            <path 
+              d="M 75 12 L 75 42 M 75 12 L 45 35 M 75 12 L 105 35"
+              stroke="#fef08a" 
+              strokeWidth="3" 
+              fill="none" 
+              strokeDasharray="120"
+              className="animate-crack-branch"
+              style={{ filter: 'drop-shadow(0 0 6px #f59e0b)' }}
+              vectorEffect="non-scaling-stroke"
+            />
+          </g>
+
+          <g>
+            <g className="animate-rock-split-left">
+              {mesh.facets.filter(f => f.col < 3).map((facet, idx) => {
+                const lighting = calculateFacetLighting(facet, heroPos);
+                const p = facet.pts;
+                return (
+                  <polygon
+                    key={facet.id || idx}
+                    points={`${p[0].localX},${p[0].localY} ${p[1].localX},${p[1].localY} ${p[2].localX},${p[2].localY} ${p[3].localX},${p[3].localY}`}
+                    fill={lighting.color}
+                    stroke="#14110e"
+                    strokeWidth="1.5"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
+            </g>
+
+            <g className="animate-rock-split-right">
+              {mesh.facets.filter(f => f.col >= 3).map((facet, idx) => {
+                const lighting = calculateFacetLighting(facet, heroPos);
+                const p = facet.pts;
+                return (
+                  <polygon
+                    key={facet.id || idx}
+                    points={`${p[0].localX},${p[0].localY} ${p[1].localX},${p[1].localY} ${p[2].localX},${p[2].localY} ${p[3].localX},${p[3].localY}`}
+                    fill={lighting.color}
+                    stroke="#14110e"
+                    strokeWidth="1.5"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
+            </g>
+          </g>
+        </svg>
+      </div>
+    );
+  }
+
+  // 3. INTACT PROCEDURAL ROCK MESH WITH DYNAMIC NORMAL LIGHTING
   return (
-    <div className={`w-full relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ transform: `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})` }}>
+    <div className={`w-full relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`}>
       <svg viewBox="0 0 150 70" className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
-        <defs>
-          <linearGradient id={`rockGrad-${variant}-${size}`} x1={`${variant * 20}%`} y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#8a847e" />
-            <stop offset="30%" stopColor="#635d57" />
-            <stop offset="75%" stopColor="#3d3832" />
-            <stop offset="100%" stopColor="#1a1815" />
-          </linearGradient>
-          <filter id="rockRoughness">
-            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="5" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" result="displaced" />
-            <feGaussianBlur in="displaced" stdDeviation="0.6" />
-          </filter>
-          <filter id="innerShadow">
-            <feOffset dx="1" dy="3" />
-            <feGaussianBlur stdDeviation="2" result="offset-blur" />
-            <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
-            <feFlood floodColor="black" floodOpacity="0.5" result="color" />
-            <feComposite operator="in" in="color" in2="inverse" result="shadow" />
-            <feComposite operator="over" in="shadow" in2="SourceGraphic" />
-          </filter>
-        </defs>
-        <path 
-          d={paths[variant].replace('Z', ' L 60 65 L 15 62 Z')} 
-          fill={`url(#rockGrad-${variant}-${size})`} 
-          stroke="#121110" 
-          strokeWidth="3"
-          filter="url(#rockRoughness)"
-        />
-        <path 
-          d={paths[variant]} 
-          fill="none"
-          filter="url(#innerShadow)"
-          pointerEvents="none"
-        />
-        {/* Jagged Facets and Highlights */}
-        <g opacity="0.45">
-          <path d="M 25 15 L 40 12 L 50 25 M 75 10 L 85 8 L 92 25" stroke="white" strokeWidth="1.5" fill="none" />
-          <path d="M 50 55 L 70 50 L 85 55" stroke="black" strokeWidth="3" fill="none" />
-          <path d="M 15 40 L 30 45 L 45 42" stroke="black" strokeWidth="2.5" fill="none" opacity="0.7"/>
-          <path d="M 90 20 L 105 25 L 110 15" stroke="white" strokeWidth="1" fill="none" />
+        <g>
+          {mesh.facets.map((facet, idx) => {
+            const lighting = calculateFacetLighting(facet, heroPos);
+            const p = facet.pts;
+            const pointsStr = `${p[0].localX},${p[0].localY} ${p[1].localX},${p[1].localY} ${p[2].localX},${p[2].localY} ${p[3].localX},${p[3].localY}`;
+            return (
+              <polygon
+                key={facet.id || idx}
+                points={pointsStr}
+                fill={lighting.color}
+                stroke="#14110e"
+                strokeWidth="1.5"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
         </g>
       </svg>
     </div>
