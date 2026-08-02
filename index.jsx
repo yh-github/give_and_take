@@ -15,7 +15,7 @@ import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
-const GAME_VERSION = 'v1.7.5-editor-rocks-restored';
+const GAME_VERSION = 'v1.7.6-left-path-rejoined';
 const DEFAULT_LIGHTING = {
   radius: 50,
   blur: 1.2,
