@@ -16,7 +16,7 @@ import { getCorridorBounds } from './src/logic/geometry.js';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
-const GAME_VERSION = 'v1.7.7-procedural-rock-mesh';
+const GAME_VERSION = 'v1.7.8-organic-rock-barricades';
 const DEFAULT_LIGHTING = {
   radius: 50,
   blur: 1.2,
