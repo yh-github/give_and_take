@@ -1,6 +1,6 @@
 /**
- * Geometry & Procedural Rock Mesh Engine
- * Provides corridor boundary calculation, 3D facet mesh generation,
+ * Geometry & Procedural Organic Boulder Engine
+ * Provides corridor boundary calculation, 3D organic boulder generation,
  * and real-time hero-relative normal lighting.
  */
 
@@ -71,96 +71,91 @@ export function getCorridorBounds(y, caveWallVertices, isRightChannel = false) {
 }
 
 /**
- * Generates procedural rock facets mapped to SVG local coordinates (0..150 X, 10..60 Y).
- * Also attaches map coordinates for real-time lighting calculations.
+ * Generates an organic cluster of 5-7 3D boulders spanning from xLeft to xRight.
  */
-export function generateProceduralRockFacets(xLeft, xRight, yCenter, height = 3.5, seed = 'rock') {
+export function generateProceduralOrganicRock(xLeft, xRight, yCenter, height = 3.5, seed = 'rock') {
   const val = hashSeed(seed);
-  const mapWidth = Math.max(10, xRight - xLeft);
-  const mapYTop = yCenter - height / 2;
-  const mapYBottom = yCenter + height / 2;
+  const width = Math.max(10, xRight - xLeft);
 
-  const numCols = 6;
-  const numRows = 3;
-  const facets = [];
+  const numBoulders = 5 + (val % 3); // 5, 6, or 7 organic boulders
+  const boulders = [];
 
-  const grid = [];
-  for (let r = 0; r <= numRows; r++) {
-    const row = [];
-    const vPct = r / numRows;
+  for (let i = 0; i < numBoulders; i++) {
+    const bSeed = `${seed}_b_${i}`;
+    const bHash = hashSeed(bSeed);
 
-    for (let c = 0; c <= numCols; c++) {
-      const uPct = c / numCols;
-      let localX = uPct * 150;
-      let localY = 10 + vPct * 50;
+    // Spread centers along corridor width
+    const uRatio = (i + 0.5) / numBoulders + ((bHash % 100) / 100 - 0.5) * 0.14;
+    const clampedURatio = Math.max(0.08, Math.min(0.92, uRatio));
 
-      let mapX = xLeft + uPct * mapWidth;
-      let mapY = mapYTop + vPct * height;
+    const bLocalX = clampedURatio * 150;
+    const bLocalY = 35 + (((bHash >> 2) % 100) / 100 - 0.5) * 22;
 
-      // Add organic jitter
-      if (c > 0 && c < numCols && r > 0 && r < numRows) {
-        const jx = ((hashSeed(`${seed}_${r}_${c}_x`) % 100) / 100 - 0.5) * 12;
-        const jy = ((hashSeed(`${seed}_${r}_${c}_y`) % 100) / 100 - 0.5) * 10;
-        localX += jx;
-        localY += jy;
-        mapX += (jx / 150) * mapWidth;
-        mapY += (jy / 50) * height;
-      } else if (r === 0) {
-        const jy = ((hashSeed(`${seed}_top_${c}`) % 100) / 100 - 0.5) * 8;
-        localY += jy;
-        mapY += (jy / 50) * height;
-      } else if (r === numRows) {
-        const jy = ((hashSeed(`${seed}_bot_${c}`) % 100) / 100 - 0.5) * 8;
-        localY += jy;
-        mapY += (jy / 50) * height;
-      }
+    const rx = 18 + (bHash % 14); // 18..32 SVG units radius
+    const ry = 14 + ((bHash >> 4) % 10); // 14..24 SVG units radius
 
-      row.push({ localX, localY, mapX, mapY });
+    const numPts = 8;
+    const vertices = [];
+    for (let p = 0; p < numPts; p++) {
+      const angle = (p / numPts) * Math.PI * 2;
+      const rJitter = 1 + ((hashSeed(`${bSeed}_pt_${p}`) % 100) / 100 - 0.5) * 0.35;
+      const vx = bLocalX + Math.cos(angle) * rx * rJitter;
+      const vy = bLocalY + Math.sin(angle) * ry * rJitter;
+
+      // Clamp X strictly inside SVG canvas [2, 148] to guarantee zero wall overlap!
+      const clampedVx = Math.max(2, Math.min(148, vx));
+      vertices.push({ x: clampedVx, y: vy });
     }
-    grid.push(row);
-  }
 
-  for (let r = 0; r < numRows; r++) {
-    for (let c = 0; c < numCols; c++) {
-      const p1 = grid[r][c];
-      const p2 = grid[r][c + 1];
-      const p3 = grid[r + 1][c + 1];
-      const p4 = grid[r + 1][c];
+    const peakOffsetJitterX = ((hashSeed(`${bSeed}_peak_x`) % 100) / 100 - 0.5) * (rx * 0.3);
+    const peakOffsetJitterY = ((hashSeed(`${bSeed}_peak_y`) % 100) / 100 - 0.5) * (ry * 0.3);
+    const peak = { x: bLocalX + peakOffsetJitterX, y: bLocalY + peakOffsetJitterY };
 
-      const localCx = (p1.localX + p2.localX + p3.localX + p4.localX) / 4;
-      const localCy = (p1.localY + p2.localY + p3.localY + p4.localY) / 4;
+    const facets = [];
+    for (let f = 0; f < numPts; f += 2) {
+      const p1 = vertices[f];
+      const p2 = vertices[(f + 1) % numPts];
+      const p3 = vertices[(f + 2) % numPts];
 
-      const mapCx = (p1.mapX + p2.mapX + p3.mapX + p4.mapX) / 4;
-      const mapCy = (p1.mapY + p2.mapY + p3.mapY + p4.mapY) / 4;
+      const fcx = (p1.x + p2.x + p3.x + peak.x) / 4;
+      const fcy = (p1.y + p2.y + p3.y + peak.y) / 4;
 
-      const normU = (c / numCols - 0.5) * 2;
-      const normV = (r / numRows - 0.5) * 2;
+      const fMapX = xLeft + (fcx / 150) * width;
+      const fMapY = yCenter + ((fcy - 35) / 35) * (height / 2);
 
-      let nx = normU * 0.6;
-      let ny = normV * 0.8;
-      let nz = Math.sqrt(Math.max(0.1, 1 - nx * nx - ny * ny));
+      const du = (fcx - bLocalX) / rx;
+      const dv = (fcy - bLocalY) / ry;
 
+      let nx = du * 0.75;
+      let ny = dv * 0.85;
+      let nz = Math.sqrt(Math.max(0.15, 1 - nx * nx - ny * ny));
       const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
       nx /= len; ny /= len; nz /= len;
 
       facets.push({
-        id: `f_${r}_${c}`,
-        pts: [p1, p2, p3, p4],
-        localCentroid: { x: localCx, y: localCy },
-        mapCentroid: { x: mapCx, y: mapCy },
-        normal: { x: nx, y: ny, z: nz },
-        row: r,
-        col: c
+        id: `f_${i}_${f}`,
+        pts: [p1, p2, p3, peak],
+        mapCentroid: { x: fMapX, y: fMapY },
+        normal: { x: nx, y: ny, z: nz }
       });
     }
+
+    boulders.push({
+      id: `boulder_${i}`,
+      localX: bLocalX,
+      localY: bLocalY,
+      rx, ry,
+      vertices,
+      peak,
+      facets
+    });
   }
 
-  return { xLeft, xRight, yCenter, mapWidth, height, facets };
+  return { xLeft, xRight, yCenter, width, height, boulders };
 }
 
 /**
  * Calculates dynamic hero-relative lighting intensity and facet color.
- * Returns light intensity [0.22 to 1.0] and shaded fill color.
  */
 export function calculateFacetLighting(facet, heroPos, screens = 2.5) {
   if (!heroPos || isNaN(heroPos.x) || isNaN(heroPos.y)) {
@@ -187,12 +182,11 @@ export function calculateFacetLighting(facet, heroPos, screens = 2.5) {
 }
 
 /**
- * Maps light intensity [0.22 .. 1.0] to rich stone colors.
+ * Maps light intensity [0.22 .. 1.0] to rich natural stone colors.
  */
 export function getShadedColor(intensity) {
-  // Deep dark shadow: #1c1612 -> Mid slate: #665a4e -> Warm highlight: #d9c4aa
-  const r = Math.round(28 + intensity * (217 - 28));
-  const g = Math.round(22 + intensity * (196 - 22));
-  const b = Math.round(18 + intensity * (170 - 18));
+  const r = Math.round(30 + intensity * (220 - 30));
+  const g = Math.round(25 + intensity * (198 - 25));
+  const b = Math.round(20 + intensity * (172 - 20));
   return `rgb(${r}, ${g}, ${b})`;
 }
