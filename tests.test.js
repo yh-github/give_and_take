@@ -118,15 +118,17 @@ describe('Procedural Geometry & Lighting', () => {
         expect(rightBounds.xRight).toBeCloseTo(82, 0);
     });
 
-    it('generates 3D rock facets and evaluates dynamic normal lighting based on hero position', async () => {
-        const { generateProceduralRockFacets, calculateFacetLighting } = await import('./src/logic/geometry.js');
+    it('generates 3D organic boulder facets and evaluates dynamic normal lighting based on hero position', async () => {
+        const { generateProceduralOrganicRock, calculateFacetLighting } = await import('./src/logic/geometry.js');
 
-        const mesh = generateProceduralRockFacets(20, 48, 30, 4, 'test_seed');
-        expect(mesh.facets.length).toBeGreaterThan(5);
+        const mesh = generateProceduralOrganicRock(20, 48, 30, 4, 'test_seed');
+        expect(mesh.boulders.length).toBeGreaterThan(4);
 
-        // Find a top-facing facet (ny < 0) and bottom-facing facet (ny > 0)
-        const topFacet = mesh.facets.find(f => f.normal.y < -0.2);
-        const bottomFacet = mesh.facets.find(f => f.normal.y > 0.2);
+        let allFacets = [];
+        mesh.boulders.forEach(b => { allFacets = allFacets.concat(b.facets); });
+
+        const topFacet = allFacets.find(f => f.normal.y < -0.2);
+        const bottomFacet = allFacets.find(f => f.normal.y > 0.2);
 
         expect(topFacet).toBeDefined();
         expect(bottomFacet).toBeDefined();
@@ -142,5 +144,28 @@ describe('Procedural Geometry & Lighting', () => {
         const lightTopHeroBelow = calculateFacetLighting(topFacet, heroBelow, 2.5);
         const lightBotHeroBelow = calculateFacetLighting(bottomFacet, heroBelow, 2.5);
         expect(lightBotHeroBelow.intensity).toBeGreaterThan(lightTopHeroBelow.intensity);
+    });
+
+    it('proves zero wall overlap: all generated boulder vertices stay strictly inside corridor bounds', async () => {
+        const { getCorridorBounds, generateProceduralOrganicRock } = await import('./src/logic/geometry.js');
+        const { CAVE_WALL_VERTICES } = await import('./src/levels/underground/components.jsx');
+        const mapNodes = (await import('./src/levels/underground/mapNodes.json')).default;
+
+        const rockNodes = mapNodes.filter(n => n.isGatekeeper || n.isExtraRock);
+        expect(rockNodes.length).toBeGreaterThan(0);
+
+        rockNodes.forEach(node => {
+            const isRightChannel = node.x >= 50;
+            const bounds = getCorridorBounds(node.y, CAVE_WALL_VERTICES, isRightChannel);
+            const mesh = generateProceduralOrganicRock(bounds.xLeft, bounds.xRight, node.y, 4.0, node.id || 'rock');
+
+            mesh.boulders.forEach(boulder => {
+                boulder.vertices.forEach(v => {
+                    // SVG local coordinates 0..150 correspond to bounds.xLeft .. bounds.xRight
+                    expect(v.x).toBeGreaterThanOrEqual(0);
+                    expect(v.x).toBeLessThanOrEqual(150);
+                });
+            });
+        });
     });
 });

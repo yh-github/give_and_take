@@ -1687,7 +1687,13 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                   : inDarkness
                     ? 'cursor-pointer opacity-60 grayscale'
                     : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
-              const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
+              const isGatekeeperRock = (isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES;
+              let rockBounds = null;
+              if (isGatekeeperRock) {
+                rockBounds = getCorridorBounds(ent.y, CAVE_WALL_VERTICES, ent.x >= 50);
+              }
+
+              const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${isGatekeeperRock ? 'transform -translate-y-1/2' : (ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
               const isNearLeft = !ent.roamClass && ent.x <= 20;
               const isNearRight = !ent.roamClass && ent.x >= 80;
@@ -1706,13 +1712,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               let visualRotation = 0;
               let isFlipped = ent.isRight;
 
-              const isGatekeeperRock = (isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES;
-              let rockBounds = null;
-              if (isGatekeeperRock) {
-                rockBounds = getCorridorBounds(ent.y, CAVE_WALL_VERTICES, ent.x >= 50);
-                visualX = (rockBounds.xLeft + rockBounds.xRight) / 2;
-              }
-
               if (customMove) {
                 visualX = customMove.x;
                 visualY = customMove.y;
@@ -1722,10 +1721,15 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 // Large vertical swim range for "elevators"
                 visualY += Math.sin(gameTime * 1.5 + (ent.id.length * 0.7)) * 20;
               }
-              const entityStyle = { 
+              const entityStyle = isGatekeeperRock ? { 
+                left: `${rockBounds.xLeft}%`, 
+                top: `${visualY}%`, 
+                width: `${rockBounds.xRight - rockBounds.xLeft}%`,
+                zIndex: entZ, 
+                transform: `translate(0%, -50%) rotate(${visualRotation}deg)` 
+              } : {
                 left: `${visualX}%`, 
                 top: `${visualY}%`, 
-                width: rockBounds ? `${rockBounds.xRight - rockBounds.xLeft}%` : undefined,
                 zIndex: entZ, 
                 transform: `translate(-50%, -50%) rotate(${visualRotation}deg)` 
               };
