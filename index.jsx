@@ -16,7 +16,7 @@ import { getCorridorBounds } from './src/logic/geometry.js';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
-const GAME_VERSION = 'v1.7.9-rock-occlusion-sync';
+const GAME_VERSION = 'v1.7.10-secret-passage-sealed';
 const DEFAULT_LIGHTING = {
   radius: 50,
   blur: 1.2,
@@ -397,10 +397,18 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const bounds = { width: 100, height: 100 * sc };
     const segments = stateRefs.current.obstacleSegments || [];
 
-    // Prepare polygon obstacles for volume checking
+    // Prepare polygon obstacles for volume checking (left wall, right wall, central pillar, rocks)
     const polygons = [];
-    if (CAVE_WALL_VERTICES.centralPillar) {
-      polygons.push(CAVE_WALL_VERTICES.centralPillar.map(p => ({ x: p.x, y: p.y * sc })));
+    if (CAVE_WALL_VERTICES) {
+      if (CAVE_WALL_VERTICES.leftWall) {
+        polygons.push(CAVE_WALL_VERTICES.leftWall.map(p => ({ x: p.x, y: p.y * sc })));
+      }
+      if (CAVE_WALL_VERTICES.rightWall) {
+        polygons.push(CAVE_WALL_VERTICES.rightWall.map(p => ({ x: p.x, y: p.y * sc })));
+      }
+      if (CAVE_WALL_VERTICES.centralPillar) {
+        polygons.push(CAVE_WALL_VERTICES.centralPillar.map(p => ({ x: p.x, y: p.y * sc })));
+      }
     }
     if (puzzle && puzzle.puzzleEntities) {
       puzzle.puzzleEntities.forEach(node => {
