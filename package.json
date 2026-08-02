@@ -1,6 +1,6 @@
 {
   "name": "give_and_take",
-  "version": "1.0.0",
+  "version": "1.7.5",
   "description": "A procedurally generated puzzle-trading adventure built with React, Vite, and Tailwind CSS. Navigate through different realms, trade items with eccentric characters, and solve complex quest chains to reach your goal.",
   "main": "index.js",
   "scripts": {

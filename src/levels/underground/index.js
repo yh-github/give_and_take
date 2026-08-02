@@ -60,9 +60,9 @@ const underground = {
         if (node.isGatekeeper && !defeated.includes(node.id)) {
             const y = node.y * screens;
             // Calculate width dynamically based on typical visual footprint.
-            // Width is ~20cqw, scaled by 1.4, so visual width is ~28cqw (half-width 14).
-            // We use a physical light blocker of 13 to ensure rock visuals cover the edge.
-            const halfWidth = 13;
+            // Width is ~32cqw, scaled by 1.4, so visual width is ~44cqw (half-width ~22).
+            // We use a physical light blocker of 20 to ensure rock visuals cover the edge.
+            const halfWidth = 20;
             const minX = node.x - halfWidth;
             const maxX = node.x + halfWidth;
             

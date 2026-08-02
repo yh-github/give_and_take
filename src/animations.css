@@ -117,6 +117,27 @@
 }
 .animate-bubble { animation: bubble 14s linear infinite; }
 
+@keyframes heroAirBubble {
+  0% {
+    transform: translate(var(--start-dx, 0px), 0px) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(var(--end-dx, 10px), -100px) scale(1.2);
+    opacity: 0;
+  }
+}
+.animate-hero-air-bubble {
+  animation: heroAirBubble 1.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+
 /* === Underwater: Boats === */
 @keyframes boatGlideRight {
   0% { left: -20%; transform: translate(-50%, -50%) scale-x(-1); }
