@@ -10,13 +10,13 @@ import { BoatSVG, GiantClamSVG, BubbleVentSVG, CrabSVG, OctopusSVG, SeahorseSVG 
 import { CaveEntranceProp } from './src/levels/river_crossing/components.jsx';
 import CaveVisibility from './src/levels/underground/CaveVisibility.jsx';
 import { getVisibilityPolygon, getObstacleSegments, isPointInVisibilityPolygon, checkCollision } from './src/logic/visibility.js';
-import { findGlobalPath } from './src/logic/pathfinding.js';
+import { findGlobalPath, checkPolygonCollision } from './src/logic/pathfinding.js';
 import { CAVE_WALL_VERTICES } from './src/levels/underground/components.jsx';
 import { getCorridorBounds } from './src/logic/geometry.js';
 
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
-const GAME_VERSION = 'v1.7.8-organic-rock-barricades';
+const GAME_VERSION = 'v1.7.9-rock-occlusion-sync';
 const DEFAULT_LIGHTING = {
   radius: 50,
   blur: 1.2,
@@ -378,9 +378,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const triggerVictory = () => { setIsVictorious(true); setTimeout(() => setShowTrophy(true), 800); setTimeout(() => setShowVictoryMsg(true), 1000); };
 
   const navigateTo = useCallback((targetX, targetY, targetZone, targetDepth, isEntity = false, entityType = null) => {
-    const currentZone = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1].zone || 1;
-    let waypoints = computeWaypoints(currentZone, targetZone);
     const lastPos = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1];
+    const currentZone = lastPos.zone || 1;
+    const sc = stateRefs.current.screens || 1;
     
     let finalX = targetX; let finalY = targetY;
     if (isEntity) {
@@ -392,79 +392,65 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       }
     }
     
-    let finalPath = [...waypoints, { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
-    
-    try {
-      const segments = stateRefs.current.obstacleSegments;
-      const sc = stateRefs.current.screens || 1;
-      
-      if (segments && segments.length > 0) {
-        // Check if direct path is blocked
-        let isBlocked = false;
-        let checkPos = { x: lastPos.x, y: lastPos.y * sc };
-        for (const wp of finalPath) {
-          const nextPos = { x: wp.x, y: wp.y * sc };
-          if (checkCollision(checkPos, nextPos, segments)) {
-            isBlocked = true;
-            break;
-          }
-          checkPos = nextPos;
-        }
+    const start = { x: lastPos.x, y: lastPos.y * sc };
+    const end = { x: finalX, y: finalY * sc };
+    const bounds = { width: 100, height: 100 * sc };
+    const segments = stateRefs.current.obstacleSegments || [];
 
-        if (isBlocked) {
-          // Use Generic A* Pathfinding
-          const start = { x: lastPos.x, y: lastPos.y * sc };
-          const end = { x: finalX, y: finalY * sc };
-          const bounds = { width: 100, height: 100 * sc };
-          
-          // Prepare polygon obstacles for volume checking
-          const polygons = [];
-          if (CAVE_WALL_VERTICES.centralPillar) {
-            polygons.push(CAVE_WALL_VERTICES.centralPillar.map(p => ({ x: p.x, y: p.y * sc })));
-          }
-          // Also add rocks as polygons if they are gatekeepers/extra rocks
-          if (puzzle && puzzle.puzzleEntities) {
-            puzzle.puzzleEntities.forEach(node => {
-               if ((node.isGatekeeper || node.isExtraRock) && !stateRefs.current.defeated.includes(node.id)) {
-                  const sizeX = node.isGatekeeper ? 12 : 2.5;
-                  const sizeY = node.isGatekeeper ? 2 : 1.5;
-                  const x = node.x;
-                  const y = node.y * sc;
-                  polygons.push([
-                    { x: x - sizeX, y: y - sizeY }, { x: x + sizeX, y: y - sizeY },
-                    { x: x + sizeX, y: y + sizeY }, { x: x - sizeX, y: y + sizeY }
-                  ]);
-               }
-            });
-          }
-          
-          const aStarPath = findGlobalPath(start, end, segments, bounds, polygons);
-          
-          if (aStarPath && aStarPath.length > 1) {
-            // Unscale Y values and add metadata (depth, zone), with exact target coordinates on the final waypoint
-            finalPath = aStarPath.map((p, idx) => {
-              if (idx === aStarPath.length - 1) {
-                return { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone };
-              }
-              return {
-                x: p.x,
-                y: p.y / sc,
-                depth: targetDepth || 3,
-                zone: targetZone // Assume target's zone for the detour legs
-              };
-            });
-          } else {
-            // Path is blocked by walls/obstacles and A* failed: DO NOT walk through walls
-            finalPath = [];
-          }
-        }
+    // Prepare polygon obstacles for volume checking
+    const polygons = [];
+    if (CAVE_WALL_VERTICES.centralPillar) {
+      polygons.push(CAVE_WALL_VERTICES.centralPillar.map(p => ({ x: p.x, y: p.y * sc })));
+    }
+    if (puzzle && puzzle.puzzleEntities) {
+      puzzle.puzzleEntities.forEach(node => {
+         if ((node.isGatekeeper || node.isExtraRock) && !stateRefs.current.defeated.includes(node.id)) {
+            const sizeX = node.isGatekeeper ? 12 : 2.5;
+            const sizeY = node.isGatekeeper ? 1.5 : 1.5;
+            const x = node.x;
+            const y = node.y * sc;
+            polygons.push([
+              { x: x - sizeX, y: y - sizeY }, { x: x + sizeX, y: y - sizeY },
+              { x: x + sizeX, y: y + sizeY }, { x: x - sizeX, y: y + sizeY }
+            ]);
+         }
+      });
+    }
+
+    try {
+      // 1. Direct Line Check: Is the straight path from lastPos to target clear of both wall segments & solid polygons?
+      const isDirectSegBlocked = segments.length > 0 && checkCollision(start, end, segments);
+      const isDirectPolyBlocked = polygons.length > 0 && checkPolygonCollision(start, end, polygons);
+
+      if (!isDirectSegBlocked && !isDirectPolyBlocked) {
+        return [{ x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
       }
+
+      // 2. Direct path IS blocked: Use A* Pathfinding to navigate intelligently around obstacles
+      const aStarPath = findGlobalPath(start, end, segments, bounds, polygons);
+      if (aStarPath && aStarPath.length > 1) {
+        return aStarPath.map((p, idx) => {
+          if (idx === aStarPath.length - 1) {
+            return { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone };
+          }
+          return {
+            x: p.x,
+            y: p.y / sc,
+            depth: targetDepth || 3,
+            zone: targetZone
+          };
+        });
+      }
+
+      // 3. Fallback to zone waypoints if A* fails
+      const waypoints = computeWaypoints(currentZone, targetZone, lastPos, { x: finalX, y: finalY });
+      return [...waypoints, { x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
     } catch (err) {
       console.error("Navigation error:", err);
     }
     
-    return finalPath;
-  }, []);
+    return [{ x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
+  }, [puzzle]);
 
   const triggerAirLossBubbles = useCallback((x, y) => {
     if (!level.mechanics.hasAir || isTransformed) return;

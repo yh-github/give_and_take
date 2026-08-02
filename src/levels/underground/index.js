@@ -63,14 +63,18 @@ const underground = {
             const bounds = getCorridorBounds(node.y, CAVE_WALL_VERTICES, isRightChannel);
             const minX = bounds.xLeft;
             const maxX = bounds.xRight;
-            const y = node.y * screens;
+            const yTop = (node.y - 1.5) * screens;
+            const yBottom = (node.y + 1.5) * screens;
             
-            segments.push({ a: { x: minX, y }, b: { x: maxX, y } });
+            segments.push({ a: { x: minX, y: yTop }, b: { x: maxX, y: yTop } });
+            segments.push({ a: { x: minX, y: yBottom }, b: { x: maxX, y: yBottom } });
         } else if (node.isExtraRock && !defeated.includes(node.id)) {
             const sizeX = 2.5;
             const x = node.x;
-            const y = node.y * screens;
-            segments.push({ a: { x: x - sizeX, y }, b: { x: x + sizeX, y } });
+            const yTop = (node.y - 1.5) * screens;
+            const yBottom = (node.y + 1.5) * screens;
+            segments.push({ a: { x: x - sizeX, y: yTop }, b: { x: x + sizeX, y: yTop } });
+            segments.push({ a: { x: x - sizeX, y: yBottom }, b: { x: x + sizeX, y: yBottom } });
         }
       });
     }
