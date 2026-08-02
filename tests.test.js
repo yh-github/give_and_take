@@ -28,6 +28,33 @@ describe('Pathfinding', () => {
         const path = findGlobalPath(start, end, segments, {width: 100, height: 100}, [], 3);
         expect(path).toEqual([]); // Should fail and return empty array
     });
+
+    it('correctly detects segment collision with solid polygons', async () => {
+        const { checkPolygonCollision } = await import('./src/logic/pathfinding.js');
+        const polygons = [[
+            { x: 20, y: 20 }, { x: 40, y: 20 }, { x: 40, y: 40 }, { x: 20, y: 40 }
+        ]];
+        // Segment cutting straight through polygon
+        expect(checkPolygonCollision({ x: 10, y: 30 }, { x: 50, y: 30 }, polygons)).toBe(true);
+        // Segment entirely outside polygon
+        expect(checkPolygonCollision({ x: 10, y: 10 }, { x: 50, y: 10 }, polygons)).toBe(false);
+    });
+
+    it('smoothPath avoids shortcutting across solid polygons', async () => {
+        const { smoothPath } = await import('./src/logic/pathfinding.js');
+        const path = [
+            { x: 10, y: 30 },
+            { x: 10, y: 50 },
+            { x: 50, y: 50 },
+            { x: 50, y: 30 }
+        ];
+        const polygons = [[
+            { x: 20, y: 20 }, { x: 40, y: 20 }, { x: 40, y: 45 }, { x: 20, y: 45 }
+        ]];
+        const smoothed = smoothPath(path, [], polygons);
+        // String pulling must NOT bypass intermediate nodes because line (10,30)->(50,50) intersects polygon
+        expect(smoothed.length).toBeGreaterThan(2);
+    });
 });
 
 describe('Visibility', () => {

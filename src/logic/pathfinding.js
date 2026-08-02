@@ -1,13 +1,43 @@
 import { checkCollision } from './visibility.js';
 
-function smoothPath(path, segments) {
-    if (!path || path.length <= 2 || !segments) return path;
+/**
+ * Checks if two line segments (a-b) and (c-d) intersect.
+ */
+function segmentsIntersect(a, b, c, d) {
+    const ccw = (p1, p2, p3) => (p3.y - p1.y) * (p2.x - p1.x) > (p2.y - p1.y) * (p3.x - p1.x);
+    return (ccw(a, c, d) !== ccw(b, c, d)) && (ccw(a, b, c) !== ccw(a, b, d));
+}
+
+/**
+ * Check if a line segment between p1 and p2 intersects any solid polygon.
+ */
+export function checkPolygonCollision(p1, p2, polygons) {
+    if (!polygons || polygons.length === 0) return false;
+    for (const poly of polygons) {
+        if (!poly || poly.length < 3) continue;
+        // 1. Check if segment intersects any edge of the polygon
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[i];
+            const b = poly[(i + 1) % poly.length];
+            if (segmentsIntersect(p1, p2, a, b)) return true;
+        }
+        // 2. Check if midpoint of segment is inside polygon
+        const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        if (isPointInPolygon(mid, poly)) return true;
+    }
+    return false;
+}
+
+export function smoothPath(path, segments, polygons = []) {
+    if (!path || path.length <= 2) return path;
     const smoothed = [path[0]];
     let current = 0;
     while (current < path.length - 1) {
         let furthest = current + 1;
         for (let next = path.length - 1; next > current + 1; next--) {
-            if (!checkCollision(path[current], path[next], segments)) {
+            const hasSegColl = segments && segments.length > 0 && checkCollision(path[current], path[next], segments);
+            const hasPolyColl = polygons && polygons.length > 0 && checkPolygonCollision(path[current], path[next], polygons);
+            if (!hasSegColl && !hasPolyColl) {
                 furthest = next;
                 break;
             }
@@ -32,7 +62,7 @@ function distToSegment(p, a, b) {
 /**
  * Check if a point is inside a polygon using ray-casting.
  */
-function isPointInPolygon(p, poly) {
+export function isPointInPolygon(p, poly) {
     let inside = false;
     for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
         const xi = poly[i].x, yi = poly[i].y;
@@ -82,9 +112,9 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
         }
 
         // 2. Check if point is too close to any wall segment (clearance check)
-        // Skip clearance check for the target point so we can path close to destination
-        const isTarget = gx === endG.x && gy === endG.y;
-        if (!isTarget) {
+        // Skip clearance check for start and target points so we can path close to walls/destinations
+        const isStartOrTarget = (gx === startG.x && gy === startG.y) || (gx === endG.x && gy === endG.y);
+        if (!isStartOrTarget) {
             for (const seg of segments) {
                 const minX = Math.min(seg.a.x, seg.b.x) - radius;
                 const maxX = Math.max(seg.a.x, seg.b.x) + radius;
@@ -124,8 +154,12 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
                 temp = cameFrom.get(key(temp));
             }
             const rawPath = path.reverse();
-            return smoothPath(rawPath, segments);
+            return smoothPath(rawPath, segments, polygons);
         }
+
+        const targetDx = endG.x - current.x;
+        const targetDy = endG.y - current.y;
+        const targetDist = Math.sqrt(targetDx * targetDx + targetDy * targetDy) || 1;
 
         // Neighbors (8-way)
         for (let dx = -1; dx <= 1; dx++) {
@@ -137,7 +171,16 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
                 // Skip if blocked
                 if (isSolid(neighbor.x, neighbor.y)) continue;
 
-                const tentativeGScore = (gScore.get(key(current)) || 0) + (dx !== 0 && dy !== 0 ? 1.414 : 1);
+                // Step cost: diagonal is 1.414, straight is 1.0
+                let stepCost = (dx !== 0 && dy !== 0 ? 1.414 : 1);
+                
+                // Directional penalty: penalize steps moving opposite/away from target direction
+                const dot = (dx * targetDx + dy * targetDy) / targetDist;
+                if (dot < 0) {
+                    stepCost += 0.5 * Math.abs(dot); // Penalty for stepping backwards
+                }
+
+                const tentativeGScore = (gScore.get(key(current)) || 0) + stepCost;
                 const neighborKey = key(neighbor);
                 const currentNeighborG = gScore.has(neighborKey) ? gScore.get(neighborKey) : Infinity;
                 if (tentativeGScore < currentNeighborG) {
@@ -157,3 +200,4 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     // Fallback: if A* fails or times out, return empty path (unreachable)
     return [];
 }
+
