@@ -86,22 +86,61 @@ describe('Generator', () => {
 });
 
 describe('Underground Level', () => {
-    it('dynamically generates obstacle segments based on node coordinates', async () => {
+    it('dynamically generates obstacle segments based on node coordinates and corridor bounds', async () => {
         const underground = (await import('./src/levels/underground/index.js')).default;
         
         const puzzleEntities = [
-            { id: 'test_rock', isGatekeeper: true, x: 68, y: 67.3 }
+            { id: 'test_rock', isGatekeeper: true, x: 36, y: 22 }
         ];
         
         const segments = underground.getObstacleSegments(puzzleEntities, [], [], 2.5);
         
-        // Find the segments for the rock (should be exactly 4 segments making a rectangle)
-        // Min X = 68 - 20 = 48
-        // Max X = 68 + 20 = 88
+        // At y=22 left channel: xLeft=20, xRight=48
         const rockSegs = segments.filter(s => 
-            (s.a.x === 48 || s.a.x === 88)
+            (s.a.x === 20 || s.a.x === 48 || s.b.x === 20 || s.b.x === 48)
         );
         
         expect(rockSegs.length).toBeGreaterThanOrEqual(4);
+    });
+});
+
+describe('Procedural Geometry & Lighting', () => {
+    it('calculates accurate corridor bounds from cave walls', async () => {
+        const { getCorridorBounds } = await import('./src/logic/geometry.js');
+        const { CAVE_WALL_VERTICES } = await import('./src/levels/underground/components.jsx');
+
+        const leftBounds = getCorridorBounds(22, CAVE_WALL_VERTICES, false);
+        expect(leftBounds.xLeft).toBeCloseTo(20, 0);
+        expect(leftBounds.xRight).toBeCloseTo(48, 0);
+
+        const rightBounds = getCorridorBounds(23, CAVE_WALL_VERTICES, true);
+        expect(rightBounds.xLeft).toBeCloseTo(52, 0);
+        expect(rightBounds.xRight).toBeCloseTo(82, 0);
+    });
+
+    it('generates 3D rock facets and evaluates dynamic normal lighting based on hero position', async () => {
+        const { generateProceduralRockFacets, calculateFacetLighting } = await import('./src/logic/geometry.js');
+
+        const mesh = generateProceduralRockFacets(20, 48, 30, 4, 'test_seed');
+        expect(mesh.facets.length).toBeGreaterThan(5);
+
+        // Find a top-facing facet (ny < 0) and bottom-facing facet (ny > 0)
+        const topFacet = mesh.facets.find(f => f.normal.y < -0.2);
+        const bottomFacet = mesh.facets.find(f => f.normal.y > 0.2);
+
+        expect(topFacet).toBeDefined();
+        expect(bottomFacet).toBeDefined();
+
+        // When hero is ABOVE the rock (y=10): top facet should be brighter than bottom facet
+        const heroAbove = { x: 34, y: 10 };
+        const lightTopHeroAbove = calculateFacetLighting(topFacet, heroAbove, 2.5);
+        const lightBotHeroAbove = calculateFacetLighting(bottomFacet, heroAbove, 2.5);
+        expect(lightTopHeroAbove.intensity).toBeGreaterThan(lightBotHeroAbove.intensity);
+
+        // When hero is BELOW the rock (y=50): bottom facet should be brighter than top facet
+        const heroBelow = { x: 34, y: 50 };
+        const lightTopHeroBelow = calculateFacetLighting(topFacet, heroBelow, 2.5);
+        const lightBotHeroBelow = calculateFacetLighting(bottomFacet, heroBelow, 2.5);
+        expect(lightBotHeroBelow.intensity).toBeGreaterThan(lightTopHeroBelow.intensity);
     });
 });

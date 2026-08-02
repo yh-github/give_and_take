@@ -1,5 +1,6 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.js';
 import { CaveBackground, CampIcon, RockSVG, CAVE_WALL_VERTICES } from './components.jsx';
+import { getCorridorBounds } from '../../logic/geometry.js';
 
 const underground = {
   id: 'underground',
@@ -54,17 +55,15 @@ const underground = {
         });
     }
 
-    // 3. Dynamic Rocks
+    // 3. Dynamic Rocks (Synchronized 100% to wall corridor bounds)
     if (puzzleEntities) {
       puzzleEntities.forEach(node => {
         if (node.isGatekeeper && !defeated.includes(node.id)) {
+            const isRightChannel = node.x >= 50;
+            const bounds = getCorridorBounds(node.y, CAVE_WALL_VERTICES, isRightChannel);
+            const minX = bounds.xLeft;
+            const maxX = bounds.xRight;
             const y = node.y * screens;
-            // Calculate width dynamically based on typical visual footprint.
-            // Width is ~32cqw, scaled by 1.4, so visual width is ~44cqw (half-width ~22).
-            // We use a physical light blocker of 20 to ensure rock visuals cover the edge.
-            const halfWidth = 20;
-            const minX = node.x - halfWidth;
-            const maxX = node.x + halfWidth;
             
             segments.push({ a: { x: minX, y: y - 1.5 }, b: { x: maxX, y: y - 1.5 } });
             segments.push({ a: { x: maxX, y: y - 1.5 }, b: { x: maxX, y: y + 1.5 } });
