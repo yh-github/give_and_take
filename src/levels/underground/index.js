@@ -65,19 +65,12 @@ const underground = {
             const maxX = bounds.xRight;
             const y = node.y * screens;
             
-            segments.push({ a: { x: minX, y: y - 1.5 }, b: { x: maxX, y: y - 1.5 } });
-            segments.push({ a: { x: maxX, y: y - 1.5 }, b: { x: maxX, y: y + 1.5 } });
-            segments.push({ a: { x: maxX, y: y + 1.5 }, b: { x: minX, y: y + 1.5 } });
-            segments.push({ a: { x: minX, y: y + 1.5 }, b: { x: minX, y: y - 1.5 } });
+            segments.push({ a: { x: minX, y }, b: { x: maxX, y } });
         } else if (node.isExtraRock && !defeated.includes(node.id)) {
             const sizeX = 2.5;
-            const sizeY = 1.5;
             const x = node.x;
             const y = node.y * screens;
-            segments.push({ a: { x: x - sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y - sizeY } });
-            segments.push({ a: { x: x + sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y + sizeY } });
-            segments.push({ a: { x: x + sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y + sizeY } });
-            segments.push({ a: { x: x - sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y - sizeY } });
+            segments.push({ a: { x: x - sizeX, y }, b: { x: x + sizeX, y } });
         }
       });
     }

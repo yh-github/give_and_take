@@ -1664,23 +1664,22 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
               const inLightRadius = eDist < 28;
               const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
               const inDarkness = !isVisible;
-              const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper) ? (inLightRadius ? 165 : 130) : ((inLightRadius && !inFog && !inDarkness) ? 170 : ((ent.depth || 3) * 10 + 5)));
 
-              // Rocks stay visible in darkness so the player sees what blocks the light,
-              // but creatures/items are hidden. Entities behind a WALL must not be interactable.
-              // We check line-of-sight against wall geometry (not rocks) to distinguish
-              // "rock in my corridor" from "rock on the other side of the central pillar."
-              const hideInDarkness = inDarkness && !isRock && !ent.isGatekeeper;
-              const isBlockedByWall = inDarkness && inLightRadius && wallSegments.length > 0 &&
+              const isBlockedByWall = inLightRadius && wallSegments.length > 0 &&
                 checkCollision(
                   { x: displayPlayerPos.x, y: displayPlayerPos.y * (level.mechanics.screens || 1) },
                   { x: ent.x, y: ent.y * (level.mechanics.screens || 1) },
                   wallSegments
                 );
+
+              const isRockVisible = (isRock || ent.isGatekeeper) && inLightRadius && !isBlockedByWall;
+              const hideInDarkness = (inDarkness || isBlockedByWall) && !isRock && !ent.isGatekeeper;
+              const hideRockBehindWall = (isRock || ent.isGatekeeper) && isBlockedByWall;
+
+              const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper) ? (isRockVisible ? 165 : 110) : ((inLightRadius && !inFog && !inDarkness && !isBlockedByWall) ? 170 : ((ent.depth || 3) * 10 + 5)));
               const isInteractable = !inFog && (!inDarkness || (inLightRadius && !isBlockedByWall));
-              // Rocks/gatekeepers stay visible in darkness (they block light), but
-              // non-interactable creatures/items should fade out.
-              const interactableHover = (hideInDarkness && !inLightRadius)
+
+              const interactableHover = ((hideInDarkness && !inLightRadius) || hideRockBehindWall)
                 ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
                 : !isInteractable
                   ? (isRock || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
