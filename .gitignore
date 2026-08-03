@@ -1,2 +1,4 @@
 node_modules/
 .env
+.agents/skills/modern-web-guidance
+.agents/skills/chrome-devtools
