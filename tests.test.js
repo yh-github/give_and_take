@@ -195,4 +195,35 @@ describe('Procedural Geometry & Lighting', () => {
             });
         });
     });
+
+    it('aligns gatekeeper rock obstacle bounds strictly to corridor bounds', async () => {
+        const { getCorridorBounds } = await import('./src/logic/geometry.js');
+        const { CAVE_WALL_VERTICES } = await import('./src/levels/underground/components.jsx');
+        
+        // Gatekeeper rock at y=23, x=76 (right channel)
+        const boundsRight = getCorridorBounds(23, CAVE_WALL_VERTICES, true);
+        expect(boundsRight.xLeft).toBeGreaterThan(50);
+        expect(boundsRight.xRight).toBeLessThan(90);
+
+        // Gatekeeper rock at y=22, x=36 (left channel)
+        const boundsLeft = getCorridorBounds(22, CAVE_WALL_VERTICES, false);
+        expect(boundsLeft.xLeft).toBeGreaterThan(10);
+        expect(boundsLeft.xRight).toBeLessThan(50);
+    });
 });
+
+describe('Underwater Level & Dolphin Mechanics', () => {
+    it('generates underwater level with transport dolphin accepting fish', async () => {
+        const { default: underwaterLevel } = await import('./src/levels/underwater/index.js');
+        const { generateUnderwaterPuzzle } = await import('./src/levels/underwater/generator.js');
+
+        const puzzle = generateUnderwaterPuzzle(underwaterLevel);
+        expect(puzzle).toBeDefined();
+        const dolphin = puzzle.puzzleEntities.find(e => e.id === 'dolphin_1');
+        expect(dolphin).toBeDefined();
+        expect(dolphin.requires).toContain('fish');
+        expect(dolphin.reward).toBeNull();
+    });
+});
+
+

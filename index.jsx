@@ -87,11 +87,14 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   const [debugMode, setDebugMode] = useState(false);
   const [lightingSettings, setLightingSettings] = useState(DEFAULT_LIGHTING);
 
-  const [dolphinZone, setDolphinZone] = useState(1);
+  const [dolphinState, setDolphinState] = useState('idle_surface'); // 'idle_surface' | 'diving' | 'idle_deep' | 'rising'
   const [dolphinYPos, setDolphinYPos] = useState(16);
   const [breakingRockIds, setBreakingRockIds] = useState({});
-  const dolphinZoneRef = useRef(1);
-  useEffect(() => { dolphinZoneRef.current = dolphinZone; }, [dolphinZone]);
+  const dolphinStateRef = useRef('idle_surface');
+  const dolphinYPosRef = useRef(16);
+  useEffect(() => { dolphinStateRef.current = dolphinState; }, [dolphinState]);
+  useEffect(() => { dolphinYPosRef.current = dolphinYPos; }, [dolphinYPos]);
+  const dolphinAnimRef = useRef({ startTime: 0, startY: 16, targetY: 16, duration: 0, isDiving: false, attachPlayer: false });
 
   const airRef = useRef(air); airRef.current = air;
   const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
@@ -174,20 +177,78 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     return () => clearTimeout(timer);
   }, [level, targetSteps, numDiggers]);
 
+  const startDolphinDive = useCallback(() => {
+    setAttachedEntityId('dolphin_1');
+    setIsAnimatingLoot(true);
+    setDolphinState('diving');
+    dolphinAnimRef.current = {
+      startTime: performance.now(),
+      startY: dolphinYPosRef.current,
+      targetY: 60,
+      duration: 2000,
+      isDiving: true,
+      attachPlayer: true
+    };
+  }, []);
+
+  const startDolphinReturn = useCallback((attachPlayer = false) => {
+    if (attachPlayer) {
+      setAttachedEntityId('dolphin_1');
+      setIsAnimatingLoot(true);
+    }
+    setDolphinState('rising');
+    dolphinAnimRef.current = {
+      startTime: performance.now(),
+      startY: dolphinYPosRef.current,
+      targetY: 16,
+      duration: 1800,
+      isDiving: false,
+      attachPlayer
+    };
+  }, []);
+
   useEffect(() => {
     let frameId;
     const update = (time) => {
       setGameTime(time / 1000);
-      setDolphinYPos(prev => {
-        const target = dolphinZoneRef.current === 1 ? 16 : 60;
-        if (Math.abs(prev - target) < 0.1) return target;
-        return prev + (target - prev) * 0.04;
-      });
+
+      const anim = dolphinAnimRef.current;
+      const state = dolphinStateRef.current;
+
+      if (state === 'diving' || state === 'rising') {
+        const elapsed = performance.now() - anim.startTime;
+        const progress = Math.min(1, Math.max(0, elapsed / anim.duration));
+        // Cubic ease-in-out curve for natural dolphin swimming
+        const ease = progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+        const currentY = anim.startY + (anim.targetY - anim.startY) * ease;
+        setDolphinYPos(currentY);
+
+        if (progress >= 1) {
+          if (state === 'diving') {
+            setDolphinState('idle_deep');
+            setAttachedEntityId(null);
+            setIsAnimatingLoot(false);
+            setPathHistory(prev => [...prev, { x: 50, y: 60, zone: 2 }]);
+            handlePostActionAir(60);
+          } else if (state === 'rising') {
+            setDolphinState('idle_surface');
+            if (anim.attachPlayer) {
+              setAttachedEntityId(null);
+              setIsAnimatingLoot(false);
+              setPathHistory(prev => [...prev, { x: 50, y: 16, zone: 1 }]);
+              handlePostActionAir(16);
+            }
+          }
+        }
+      }
+
       frameId = requestAnimationFrame(update);
     };
     frameId = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frameId);
-  }, []);
+  }, [handlePostActionAir]);
 
   useEffect(() => {
     if (!level.mechanics.hasSchoolsOfFish) return;
@@ -264,7 +325,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       air: stateRefs.current.air,
       isTransformed: stateRefs.current.isTransformed,
       hasDeepTreasure: stateRefs.current.hasDeepTreasure,
-      inkFogEntities: new Set(stateRefs.current.inkFogEntities)
+      inkFogEntities: new Set(stateRefs.current.inkFogEntities),
+      dolphinState: dolphinStateRef.current,
+      dolphinYPos: dolphinYPosRef.current
     }]);
   }, []);
 
@@ -280,6 +343,10 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     setIsTransformed(prevState.isTransformed || false);
     setHasDeepTreasure(prevState.hasDeepTreasure || false);
     setInkFogEntities(new Set(prevState.inkFogEntities || []));
+    if (prevState.dolphinState) {
+      setDolphinState(prevState.dolphinState);
+      setDolphinYPos(prevState.dolphinYPos ?? (prevState.dolphinState === 'idle_deep' ? 60 : 16));
+    }
     setHistoryStack(prev => prev.slice(0, -1)); setSelectedItemTypes([]); setSelectedEntityId(null);
     setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false); setAnimatingEntities([]);
     setMassFlyingTreasures([]);
@@ -291,6 +358,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     Object.values(activeDigTimers.current).forEach(clearTimeout);
     activeDigTimers.current = {};
     setInventory(puzzle.startItems || []); setPathHistory([{ ...level.campPos, zone: 1 }]); setBreakingRockIds({});
+    setDolphinState('idle_surface'); setDolphinYPos(16);
+    dolphinAnimRef.current = { startTime: 0, startY: 16, targetY: 16, duration: 0, isDiving: false, attachPlayer: false };
     Object.entries(INITIAL_STATE).forEach(([k, v]) => {
       if (k === 'unlockedZones') setUnlockedZones(v); else if (k === 'air') setAir(v); else if (k === 'defeated') setDefeated(v); else if (k === 'selectedItemTypes') setSelectedItemTypes(v); else if (k === 'selectedEntityId') setSelectedEntityId(v); else if (k === 'historyStack') setHistoryStack(v); else if (k === 'isVictorious') setIsVictorious(v); else if (k === 'showTrophy') setShowTrophy(v); else if (k === 'showVictoryMsg') setShowVictoryMsg(v); else if (k === 'isDemonstrating') setIsDemonstrating(v); else if (k === 'isAnimatingLoot') setIsAnimatingLoot(v); else if (k === 'alertEntityId') setAlertEntityId(v); else if (k === 'flyingItem') setFlyingItem(v); else if (k === 'tempPlayerPos') setTempPlayerPos(v); else if (k === 'envItemState') setEnvItemState(v); else if (k === 'schoolsOfFish') setSchoolsOfFish(v); else if (k === 'animatingEntities') setAnimatingEntities(v); else if (k === 'campItems') setCampItems(v); else if (k === 'buriedEntities') setBuriedEntities(v); else if (k === 'isTransformed') setIsTransformed(v); else if (k === 'hasDeepTreasure') setHasDeepTreasure(v); else if (k === 'inkFogEntities') setInkFogEntities(v); else if (k === 'roamingBoats') setRoamingBoats(v); else if (k === 'attachedEntityId') setAttachedEntityId(v); else if (k === 'isMagicAnimating') setIsMagicAnimating(v); else if (k === 'heroBubbleBursts') setHeroBubbleBursts(v);
     });
@@ -413,13 +482,21 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (puzzle && puzzle.puzzleEntities) {
       puzzle.puzzleEntities.forEach(node => {
          if ((node.isGatekeeper || node.isExtraRock) && !stateRefs.current.defeated.includes(node.id)) {
-            const sizeX = node.isGatekeeper ? 12 : 2.5;
-            const sizeY = node.isGatekeeper ? 1.5 : 1.5;
-            const x = node.x;
+            const sizeY = 1.5;
             const y = node.y * sc;
+            let minX, maxX;
+            if (node.isGatekeeper && CAVE_WALL_VERTICES) {
+              const bounds = getCorridorBounds(node.y, CAVE_WALL_VERTICES, node.x >= 50);
+              minX = bounds.xLeft;
+              maxX = bounds.xRight;
+            } else {
+              const sizeX = 2.5;
+              minX = node.x - sizeX;
+              maxX = node.x + sizeX;
+            }
             polygons.push([
-              { x: x - sizeX, y: y - sizeY }, { x: x + sizeX, y: y - sizeY },
-              { x: x + sizeX, y: y + sizeY }, { x: x - sizeX, y: y + sizeY }
+              { x: minX, y: y - sizeY }, { x: maxX, y: y - sizeY },
+              { x: maxX, y: y + sizeY }, { x: minX, y: y + sizeY }
             ]);
          }
       });
@@ -590,6 +667,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const itemToDrop = selectedItemTypes[0];
     if (!itemToDrop && !level.mechanics.hasAir) return;
 
+    if (dolphinStateRef.current === 'idle_deep') {
+      startDolphinReturn(false);
+    }
     setAttachedEntityId(null);
     saveHistory();
     setIsAnimatingLoot(true);
@@ -639,6 +719,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       return;
     }
 
+    if (dolphinStateRef.current === 'idle_deep') {
+      startDolphinReturn(false);
+    }
     setAttachedEntityId(null);
     saveHistory();
     setIsAnimatingLoot(true);
@@ -688,6 +771,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
       if (!isValidClick) return;
 
+      if (dolphinStateRef.current === 'idle_deep') {
+        startDolphinReturn(false);
+      }
       setAttachedEntityId(null);
       saveHistory();
 
@@ -695,9 +781,12 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
       let targetZone = currentZone;
       if (level.mechanics.isCaveType) {
         if (targetY < 20) targetZone = 1;
-        else if (targetY > 72) targetZone = 6;
-        else if (targetX < 50) targetZone = 2;
-        else targetZone = 3;
+        else if (targetY < 45) targetZone = targetX < 50 ? 2 : 3;
+        else if (targetY < 68) targetZone = targetX < 50 ? 4 : 5;
+        else if (targetY < 80) targetZone = 6;
+        else if (targetY < 88) targetZone = 7;
+        else if (targetY < 95) targetZone = 8;
+        else targetZone = 9;
       }
 
       const newPath = navigateTo(targetX, targetY, targetZone, 3, false);
@@ -748,6 +837,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
     if (attachedEntityId && attachedEntityId !== entity.id) setAttachedEntityId(null);
+    if (dolphinStateRef.current === 'idle_deep' && entity.id !== 'dolphin_1') {
+      startDolphinReturn(false);
+    }
 
     const isReverseAccess = entity.isGatekeeper && entity.unlocksZones && entity.unlocksZones.some(z => unlockedZones.includes(z));
 
@@ -805,22 +897,19 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     });
 
     if (defeated.includes(entity.id)) {
-      // If it's a tamed elevator/dolphin, re-attach so it carries the hero
+      if (entity.id === 'dolphin_1') {
+        if (dolphinStateRef.current === 'idle_deep' || dolphinYPosRef.current > 40) {
+          // Ride dolphin up to surface
+          startDolphinReturn(true);
+        } else {
+          // Ride dolphin down to deep sea
+          startDolphinDive();
+        }
+        return;
+      }
+      // If it's a tamed elevator, re-attach so it carries the hero
       if (entity.roamClass?.includes('elevator')) {
         setAttachedEntityId(entity.id);
-        if (entity.id === 'dolphin_1') {
-          const newDolphinZone = dolphinZone === 1 ? 2 : 1;
-          setDolphinZone(newDolphinZone);
-          // Dolphin: dive or rise to the new zone
-          setTimeout(() => {
-            const finalDst = { x: 50, y: newDolphinZone === 1 ? 16 : 60, zone: newDolphinZone };
-            setPathHistory(prev => [...prev, finalDst]);
-            setAttachedEntityId(null);
-            setIsAnimatingLoot(false);
-          }, 1800);
-          setIsAnimatingLoot(true);
-          return;
-        }
       }
       handlePostActionAir(targetY, entity.isVent);
       return;
@@ -976,19 +1065,7 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
 
       // When dolphin is tamed with fish: show the dive animation then deposit hero into zone 2
       if (entity.id === 'dolphin_1') {
-        setAttachedEntityId('dolphin_1');
-
-        const newDolphinZone = dolphinZone === 1 ? 2 : 1;
-        setDolphinZone(newDolphinZone);
-
-        // After showing the ride, release at the new zone
-        setTimeout(() => {
-          const finalDst = { x: 50, y: newDolphinZone === 1 ? 16 : 60, zone: newDolphinZone };
-          setPathHistory(prev => [...prev, finalDst]);
-          setAttachedEntityId(null);
-          setIsAnimatingLoot(false);
-        }, 1800);
-        // Don't fall through to the normal reward/isAnimatingLoot clear below
+        startDolphinDive();
         setSelectedItemTypes([]); setSelectedEntityId(null);
         return;
       } else if (entity.roamClass?.includes('elevator')) {
@@ -1172,14 +1249,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     const _attachedEnt = puzzle ? puzzle.puzzleEntities.find(e => e.id === attachedEntityId) : null;
     let _scrollY = displayPlayerPos.y;
     if (_attachedEnt) {
-      // Mirror the squircle y so camera tracks the dolphin
       if (_attachedEnt.id === 'dolphin_1') {
-        const _t = gameTime * 0.8;
-        const _n = 6;
-        const _sinT = Math.sin(_t);
-        const _normY = Math.sign(_sinT) * Math.pow(Math.abs(_sinT), 2 / _n);
-        const yRange = dolphinZone === 1 ? 7 : 3;
-        _scrollY = dolphinYPos + _normY * yRange;
+        _scrollY = dolphinYPos;
       } else if (_attachedEnt.roamClass?.includes('elevator')) {
         _scrollY = displayPlayerPos.y + Math.sin(gameTime * 1.5 + (_attachedEnt.id.length * 0.7)) * 20;
       }
@@ -1191,55 +1262,71 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
   }
 
   const isDrowning = alertEntityId === 'out_of_air';
-  const playerTransition = isDrowning ? 'duration-[3000ms] ease-linear' : `duration-[${moveDurationMs}ms] ease-out`;
+  const playerTransition = attachedEntityId ? 'transition-none' : (isDrowning ? 'duration-[3000ms] ease-linear' : `duration-[${moveDurationMs}ms] ease-out`);
   const GatekeeperProp = level.GatekeeperPropComponent;
 
   const getCustomEntityMovement = (ent) => {
     if (level.id !== 'underwater') return null;
     if (ent.id === 'dolphin_1') {
-      const isAttached = attachedEntityId === 'dolphin_1';
+      const state = dolphinStateRef.current;
 
-      if (isAttached) {
-        // Transport mode: carrying hero between surface (16) and deep sea (60)
-        const t = gameTime * 2.5;
-        const targetY = dolphinZoneRef.current === 1 ? 16 : 60;
-        const yDiff = targetY - dolphinYPos;
-        // Pitch dolphin down when descending (+35 deg), up when ascending (-35 deg)
-        const pitch = Math.min(45, Math.max(-45, yDiff * 2.5));
-        const x = 50 + Math.sin(t) * 10;
-        const flip = Math.cos(t) < 0;
-        return { x, y: dolphinYPos, rotate: pitch, flip };
-      } else {
-        // Playful idle mode: swimming, doing 360 flips, occasionally diving deep
-        const t = gameTime * 0.8;
-        const x = 50 + Math.sin(t) * 28; // swims side to side
+      if (state === 'diving') {
+        // Swimming downwards with wavy horizontal S-curves & downward dive pitch
+        const t = gameTime * 3.2;
+        const x = 50 + Math.sin(t) * 14;
         const isMovingLeft = Math.cos(t) < 0;
+        const pitch = 32 + Math.sin(t * 1.5) * 8;
+        const rotate = pitch * (isMovingLeft ? -1 : 1);
+        return { x, y: dolphinYPos, rotate, flip: isMovingLeft };
+      }
 
-        // Periodic deep dive cycle (every ~10s)
-        const diveCycle = (gameTime * 0.4) % (Math.PI * 2);
-        const isDeepDiving = Math.sin(diveCycle) > 0.65;
+      if (state === 'rising') {
+        // Swimming upwards with upward dive pitch
+        const t = gameTime * 3.2;
+        const x = 50 + Math.sin(t) * 14;
+        const isMovingLeft = Math.cos(t) < 0;
+        const pitch = -32 - Math.sin(t * 1.5) * 8;
+        const rotate = pitch * (isMovingLeft ? -1 : 1);
+        return { x, y: dolphinYPos, rotate, flip: isMovingLeft };
+      }
 
-        let y = 16 + Math.sin(gameTime * 1.8) * 3;
-        let rotate = Math.sin(t * 1.5) * 12;
-
-        if (isDeepDiving) {
-          // Playful deep dive down to y=56 and back up
-          const diveProgress = (Math.sin(diveCycle) - 0.65) / 0.35; // 0 to 1
-          const diveArch = Math.sin(diveProgress * Math.PI); // 0 -> 1 -> 0
-          y = 16 + diveArch * 40;
-          const diveSpeed = Math.cos(diveProgress * Math.PI);
-          rotate = diveSpeed * 45 * (isMovingLeft ? -1 : 1);
-        } else {
-          // Playful 360 somersault flips near the surface
-          const flipPhase = (gameTime * 1.5) % (Math.PI * 2);
-          if (flipPhase > 4.8) {
-            const flipProgress = (flipPhase - 4.8) / (Math.PI * 2 - 4.8);
-            rotate = flipProgress * 360 * (isMovingLeft ? -1 : 1);
-          }
-        }
-
+      if (state === 'idle_deep') {
+        // Gentle swimming at depth (y ≈ 60)
+        const t = gameTime * 0.8;
+        const x = 50 + Math.sin(t) * 22;
+        const isMovingLeft = Math.cos(t) < 0;
+        const y = 60 + Math.sin(gameTime * 1.6) * 2.5;
+        const rotate = Math.sin(t * 1.5) * 10 * (isMovingLeft ? -1 : 1);
         return { x, y, rotate, flip: isMovingLeft };
       }
+
+      // Default: 'idle_surface'
+      const t = gameTime * 0.8;
+      const x = 50 + Math.sin(t) * 28;
+      const isMovingLeft = Math.cos(t) < 0;
+
+      // Periodic deep dive cycle (every ~10s) only when untamed at surface
+      const diveCycle = (gameTime * 0.4) % (Math.PI * 2);
+      const isDeepDiving = Math.sin(diveCycle) > 0.65;
+
+      let y = 16 + Math.sin(gameTime * 1.8) * 3;
+      let rotate = Math.sin(t * 1.5) * 12;
+
+      if (isDeepDiving && !defeated.includes('dolphin_1')) {
+        const diveProgress = (Math.sin(diveCycle) - 0.65) / 0.35;
+        const diveArch = Math.sin(diveProgress * Math.PI);
+        y = 16 + diveArch * 40;
+        const diveSpeed = Math.cos(diveProgress * Math.PI);
+        rotate = diveSpeed * 45 * (isMovingLeft ? -1 : 1);
+      } else {
+        const flipPhase = (gameTime * 1.5) % (Math.PI * 2);
+        if (flipPhase > 4.8) {
+          const flipProgress = (flipPhase - 4.8) / (Math.PI * 2 - 4.8);
+          rotate = flipProgress * 360 * (isMovingLeft ? -1 : 1);
+        }
+      }
+
+      return { x, y, rotate, flip: isMovingLeft };
     }
     if (ent.id.startsWith('mermaid')) {
       const idx = parseInt(ent.id.split('_')[1]) || 0;
@@ -1263,9 +1350,10 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
     if (attachedEnt) {
       const custom = getCustomEntityMovement(attachedEnt);
       if (custom) {
-        playerVisualX = custom.x - (attachedEnt.id === 'dolphin_1' ? 3 : 0);
-        playerVisualY = custom.y - (attachedEnt.id === 'dolphin_1' ? 3 : 0);
-        playerRotation = custom.rotate;
+        const xOffset = custom.flip ? 2 : -2;
+        playerVisualX = custom.x + xOffset;
+        playerVisualY = custom.y - 4.5;
+        playerRotation = custom.rotate * 0.6;
       } else if (attachedEnt.roamClass?.includes('elevator')) {
         playerVisualY += Math.sin(gameTime * 1.5 + (attachedEnt.id.length * 0.7)) * 20;
       }
@@ -1341,6 +1429,9 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 // Only useful if hero is not already at surface
                 const curY = pathHistory[pathHistory.length - 1].y;
                 if (curY <= level.campPos.y + 2) return;
+                if (dolphinStateRef.current === 'idle_deep') {
+                  startDolphinReturn(false);
+                }
                 const curPos = pathHistory[pathHistory.length - 1];
                 triggerAirLossBubbles(curPos.x, curPos.y);
                 setAttachedEntityId(null);
@@ -1686,7 +1777,8 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 rockBounds = getCorridorBounds(ent.y, CAVE_WALL_VERTICES, ent.x >= 50);
               }
 
-              const wrapperClasses = `absolute flex flex-col items-center transition-all duration-300 ${isGatekeeperRock ? 'transform -translate-y-1/2' : (ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
+              const isCustomEntity = !!customMove;
+              const wrapperClasses = `absolute flex flex-col items-center ${isCustomEntity ? 'transition-none' : 'transition-all duration-300'} ${isGatekeeperRock ? 'transform -translate-y-1/2' : (ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
               const isNearLeft = !ent.roamClass && ent.x <= 20;
               const isNearRight = !ent.roamClass && ent.x >= 80;
@@ -1874,9 +1966,6 @@ function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, set
                 👁️
               </button>
             )}
-            <span className="text-[10px] sm:text-xs font-mono px-2 py-1 rounded-full bg-stone-900/80 text-amber-400/90 border border-stone-700 shadow-md pointer-events-none select-none">
-              {GAME_VERSION}
-            </span>
           </div>
           <button onClick={(e) => { e.stopPropagation(); setMenuView('main'); setIsMenuOpen(true); }} className="absolute top-4 right-4 z-[150] bg-stone-800 text-stone-200 w-12 h-12 flex items-center justify-center rounded-full border-2 border-stone-600 shadow-lg hover:bg-stone-700 transition-colors"><span className="text-xl pt-0.5">⚙️</span></button>
 

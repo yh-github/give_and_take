@@ -1,3 +1,5 @@
+import { getCorridorBounds } from './geometry.js';
+
 /**
  * Visibility Engine: Raycasting and Obstacle Management
  */
@@ -23,9 +25,6 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
             b: { x: vertices[i+1].x, y: vertices[i+1].y * screens }
         });
     }
-    // Close the loop for paths that should be closed (like central pillar)
-    // Actually our wall paths aren't necessarily closed loops in the segment sense
-    // but the vertices define the "border".
   };
 
   if (caveWallVertices) {
@@ -33,7 +32,6 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
     if (caveWallVertices.rightWall) processPath(caveWallVertices.rightWall);
     if (caveWallVertices.centralPillar) {
         processPath(caveWallVertices.centralPillar);
-        // Pillar is definitely a loop
         const p = caveWallVertices.centralPillar;
         segments.push({
             a: { x: p[p.length-1].x, y: p[p.length-1].y * screens },
@@ -49,7 +47,11 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
       if (node.isGatekeeper && !defeated.includes(node.id)) {
           const y = node.y * screens;
           let minX, maxX;
-          if (node.y < 72) {
+          if (caveWallVertices) {
+            const bounds = getCorridorBounds(node.y, caveWallVertices, node.x >= 50);
+            minX = bounds.xLeft;
+            maxX = bounds.xRight;
+          } else if (node.y < 72) {
             if (node.x < 50) { minX = 16; maxX = 49; }
             else { minX = 51; maxX = 82; }
           } else {
