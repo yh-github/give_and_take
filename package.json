@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest"
+    "test": "vitest",
+    "test:e2e": "node scripts/smoke_test.cjs"
   },
   "repository": {
     "type": "git",
@@ -28,9 +29,12 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "@tailwindcss/vite": "^4.2.2",
+    "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
+    "happy-dom": "^20.11.2",
     "postcss": "^8.5.8",
+    "puppeteer": "^25.7.0",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.3",
     "vitest": "^4.1.10"
