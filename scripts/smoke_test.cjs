@@ -33,7 +33,7 @@ async function runSmokeTests() {
 
     await page.setViewport({ width: 1024, height: 900 });
 
-    // 1. Initial Load Test
+    // 1. Initial Load Test (Underground Cave)
     console.log('🧪 Test 1: Loading default level (Underground)...');
     await page.goto(baseUrl, { waitUntil: 'networkidle0' });
     
@@ -45,16 +45,41 @@ async function runSmokeTests() {
 
     console.log('  ✅ Game container & gear button rendered');
 
-    // Verify language flags exist
-    const hasFlags = await page.evaluate(() => {
-      const text = document.body.textContent;
-      return text.includes('🇮🇱') && text.includes('🇺🇸');
+    // Verify language flags exist and test language toggle
+    console.log('🧪 Test 2: Testing Language Toggle (🇮🇱 / 🇺🇸)...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const usBtn = btns.find(b => b.textContent.includes('🇺🇸'));
+      if (usBtn) usBtn.click();
     });
-    if (!hasFlags) throw new Error('Language flag buttons not found');
-    console.log('  ✅ Language toggle buttons verified');
+    await new Promise(r => setTimeout(r, 200));
 
-    // 2. Menu and Level Switching Test
-    console.log('🧪 Test 2: Opening Settings Menu and Switching Level...');
+    // Open menu to verify English text
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const gear = btns.find(b => b.textContent.includes('⚙️'));
+      if (gear) gear.click();
+    });
+    await new Promise(r => setTimeout(r, 300));
+    const hasEnglishMenu = await page.evaluate(() => document.body.textContent.includes('Menu') || document.body.textContent.includes('Restart'));
+    if (!hasEnglishMenu) throw new Error('English language toggle failed');
+    console.log('  ✅ English translation verified in UI');
+
+    // Close menu & switch back to Hebrew
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const resume = btns.find(b => b.textContent.includes('Back') || b.textContent.includes('Resume') || b.textContent.includes('חזור'));
+      if (resume) resume.click();
+    });
+    await new Promise(r => setTimeout(r, 200));
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const ilBtn = btns.find(b => b.textContent.includes('🇮🇱'));
+      if (ilBtn) ilBtn.click();
+    });
+
+    // 3. Switch to Underwater Level
+    console.log('🧪 Test 3: Switching to Underwater Level...');
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
       const gear = btns.find(b => b.textContent.includes('⚙️'));
@@ -94,8 +119,46 @@ async function runSmokeTests() {
 
     console.log('  ✅ Switched to Underwater level successfully');
 
-    // 3. Level Editor Query Param Test
-    console.log('🧪 Test 3: Testing Level Editor mode (?editor=true)...');
+    // 4. Switch to River Crossing Level
+    console.log('🧪 Test 4: Switching to River Crossing Level...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const gear = btns.find(b => b.textContent.includes('⚙️'));
+      if (gear) gear.click();
+    });
+    await new Promise(r => setTimeout(r, 400));
+
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const genBtn = btns.find(b => b.textContent.includes('צור מפה') || b.textContent.includes('Generate'));
+      if (genBtn) genBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 400));
+
+    await page.evaluate(() => {
+      const select = document.querySelector('select');
+      if (select) {
+        select.value = 'river_crossing';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await new Promise(r => setTimeout(r, 300));
+
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const submitBtn = btns.find(b => b.textContent.includes('צור מפה') || b.textContent.includes('Generate Map'));
+      if (submitBtn) submitBtn.click();
+    });
+
+    await page.waitForFunction(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      return btns.some(b => b.textContent.includes('⚙️'));
+    }, { timeout: 8000 });
+
+    console.log('  ✅ Switched to River Crossing level successfully');
+
+    // 5. Level Editor Query Param Test
+    console.log('🧪 Test 5: Testing Level Editor mode (?editor=true)...');
     await page.goto(`${baseUrl}/?editor=true`, { waitUntil: 'networkidle0' });
     
     await page.waitForFunction(() => {
@@ -105,7 +168,7 @@ async function runSmokeTests() {
 
     console.log('  ✅ Level editor mode active with Save Level button');
 
-    // 4. Check for uncaught runtime errors
+    // 6. Check for uncaught runtime errors
     if (uncaughtErrors.length > 0) {
       throw new Error(`Encountered ${uncaughtErrors.length} uncaught page errors: ${uncaughtErrors.join('; ')}`);
     }
