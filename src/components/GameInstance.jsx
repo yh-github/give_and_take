@@ -103,33 +103,41 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return null;
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
     if (!pPos) return null;
-    return getVisibilityPolygon(pPos, obstacleSegments, lightingSettings.torchRadius, level.mechanics.screens || 1);
-  }, [puzzle, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens, tempPlayerPos, pathHistory, obstacleSegments, lightingSettings.torchRadius]);
+    return getVisibilityPolygon(pPos, obstacleSegments, lightingSettings?.radius || lightingSettings?.torchRadius || 50, level.mechanics.screens || 1);
+  }, [puzzle, level.mechanics.hasDarkness, level.mechanics.darknessType, level.mechanics.screens, tempPlayerPos, pathHistory, obstacleSegments, lightingSettings]);
 
   const visibleEntitiesSet = useMemo(() => {
     if (!polyPoints || !puzzle) return null;
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
+    if (!pPos) return null;
     const visible = new Set();
-    const pillarSegments = obstacleSegments.filter(s => s.isPillar);
-
-    const isRayBlockedByWalls = (p1, p2) => {
-      if (pillarSegments.length === 0) return false;
-      const p1Scaled = { x: p1.x, y: p1.y * screens };
-      const p2Scaled = { x: p2.x, y: p2.y * screens };
-      return checkCollision(p1Scaled, p2Scaled, pillarSegments);
-    };
+    const torchRadius = lightingSettings?.radius || lightingSettings?.torchRadius || 50;
 
     puzzle.puzzleEntities.forEach(e => {
-      const dist = Math.sqrt(Math.pow(e.x - pPos.x, 2) + Math.pow(e.y - pPos.y, 2));
-      const entPos = { x: e.x, y: e.y * screens };
-      const isPhysicallyVisible = isPointInVisibilityPolygon(entPos, polyPoints);
-      const isLoSBlocked = isRayBlockedByWalls(pPos, e);
-      if ((isPhysicallyVisible || dist < 12) && !isLoSBlocked) {
+      const isRock = (e.isGatekeeper && level.mechanics.hasPickaxe && e.id !== 'final_gate') || e.isExtraRock;
+      let targetPoint;
+      let dist;
+      if (isRock || e.isGatekeeper) {
+        const facingY = pPos.y < e.y ? (e.y - 1.5) : (e.y + 1.5);
+        targetPoint = { x: e.x, y: facingY * screens };
+        dist = Math.sqrt(Math.pow(e.x - pPos.x, 2) + Math.pow(facingY - pPos.y, 2));
+      } else {
+        targetPoint = { x: e.x, y: e.y * screens };
+        dist = Math.sqrt(Math.pow(e.x - pPos.x, 2) + Math.pow(e.y - pPos.y, 2));
+      }
+
+      if (dist > torchRadius) return;
+
+      const pPosScaled = { x: pPos.x, y: pPos.y * screens };
+      const otherSegments = obstacleSegments.filter(s => s.rockId !== e.id);
+      const isLoSBlocked = checkCollision(pPosScaled, targetPoint, otherSegments);
+
+      if (!isLoSBlocked) {
         visible.add(e.id);
       }
     });
     return visible;
-  }, [polyPoints, puzzle, tempPlayerPos, pathHistory, obstacleSegments, screens]);
+  }, [polyPoints, puzzle, tempPlayerPos, pathHistory, obstacleSegments, screens, lightingSettings, level.mechanics.hasPickaxe]);
 
   const debugSegments = useMemo(() => {
     if (!debugMode || !obstacleSegments) return [];

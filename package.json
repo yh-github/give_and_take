@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest",
+    "test": "vitest --fileParallelism=false",
     "test:e2e": "node scripts/smoke_test.cjs"
   },
   "repository": {

@@ -1,7 +1,6 @@
 import React, { Fragment } from 'react';
 import { GiantClamSVG, BubbleVentSVG } from '../levels/underwater/components.jsx';
 import { getCorridorBounds } from '../logic/geometry.js';
-import { checkCollision } from '../logic/visibility.js';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
 
 export function GameEntity({
@@ -42,37 +41,17 @@ export function GameEntity({
 
   const inFog = (level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)))) || inkFogEntities.has(ent.id);
 
-  const eDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(ent.x - displayPlayerPos.x, 2) + Math.pow(ent.y - displayPlayerPos.y, 2)) : 100;
-  const inLightRadius = eDist < 28;
   const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
   const inDarkness = !isVisible;
 
-  // In the underground cave, the central pillar separates left corridor (x < 50) and right corridor (x >= 50) for y in [20, 75].
-  const isOppositeChannel = level.id === 'underground' && displayPlayerPos.y >= 20 && ent.y >= 20 && ((displayPlayerPos.x < 50 && ent.x >= 50) || (displayPlayerPos.x >= 50 && ent.x < 50));
-  const pillarSegments = wallSegments ? wallSegments.filter(s => s.isPillar) : [];
+  const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper) ? 110 : ((isVisible && !inFog) ? 110 : ((ent.depth || 3) * 10 + 5)));
+  const isInteractable = !inFog && !inDarkness;
 
-  const isBlockedByWall = inLightRadius && (
-    isOppositeChannel || (pillarSegments.length > 0 && checkCollision(
-      { x: displayPlayerPos.x, y: displayPlayerPos.y * screens },
-      { x: ent.x, y: ent.y * screens },
-      pillarSegments
-    ))
-  );
-
-  const isRockVisible = (isRock || ent.isGatekeeper) && inLightRadius && !isOppositeChannel;
-  const hideInDarkness = (inDarkness || isBlockedByWall) && !isRock && !ent.isGatekeeper;
-  const hideRockBehindWall = (isRock || ent.isGatekeeper) && isOppositeChannel;
-
-  const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper) ? (isRockVisible ? 165 : 110) : ((inLightRadius && !inFog && !inDarkness && !isBlockedByWall) ? 170 : ((ent.depth || 3) * 10 + 5)));
-  const isInteractable = !inFog && (!inDarkness || (inLightRadius && !isBlockedByWall));
-
-  const interactableHover = ((hideInDarkness && !inLightRadius) || hideRockBehindWall)
+  const interactableHover = (inDarkness || inFog)
     ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
     : !isInteractable
       ? (isRock || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
-      : inDarkness
-        ? 'cursor-pointer opacity-60 grayscale'
-        : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+      : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
 
   const isGatekeeperRock = (isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES;
   let rockBounds = null;

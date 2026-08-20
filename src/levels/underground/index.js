@@ -70,15 +70,19 @@ const underground = {
             const yTop = (node.y - 1.5) * screens;
             const yBottom = (node.y + 1.5) * screens;
             
-            segments.push({ a: { x: minX, y: yTop }, b: { x: maxX, y: yTop } });
-            segments.push({ a: { x: minX, y: yBottom }, b: { x: maxX, y: yBottom } });
+            segments.push({ a: { x: minX, y: yTop }, b: { x: maxX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
+            segments.push({ a: { x: maxX, y: yTop }, b: { x: maxX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+            segments.push({ a: { x: maxX, y: yBottom }, b: { x: minX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+            segments.push({ a: { x: minX, y: yBottom }, b: { x: minX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
         } else if (node.isExtraRock && !defeated.includes(node.id)) {
             const sizeX = 2.5;
             const x = node.x;
             const yTop = (node.y - 1.5) * screens;
             const yBottom = (node.y + 1.5) * screens;
-            segments.push({ a: { x: x - sizeX, y: yTop }, b: { x: x + sizeX, y: yTop } });
-            segments.push({ a: { x: x - sizeX, y: yBottom }, b: { x: x + sizeX, y: yBottom } });
+            segments.push({ a: { x: x - sizeX, y: yTop }, b: { x: x + sizeX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
+            segments.push({ a: { x: x + sizeX, y: yTop }, b: { x: x + sizeX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+            segments.push({ a: { x: x + sizeX, y: yBottom }, b: { x: x - sizeX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+            segments.push({ a: { x: x - sizeX, y: yBottom }, b: { x: x - sizeX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
         }
       });
     }

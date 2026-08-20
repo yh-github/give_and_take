@@ -176,5 +176,61 @@ describe('Underground Level Movement Suite', () => {
     // Left rock in the player's corridor should be visible and NOT hidden behind walls
     expect(leftRockEntity.className).not.toContain('opacity-0');
     expect(leftRockEntity.className).not.toContain('invisible');
+
+    // Downstream rocks (e.g. final gate rocks at y=78%) should be completely occluded by darkness
+    const finalRockEntity = Array.from(allEntities).find(el => {
+      return el.style && el.style.top === '78%' && el.innerHTML.includes('polygon');
+    });
+
+    if (finalRockEntity) {
+      expect(finalRockEntity.className).toContain('opacity-0');
+      expect(finalRockEntity.className).toContain('invisible');
+    }
+  });
+
+  it('hides big rocks at the end of paths when standing behind normal rocks in either corridor', async () => {
+    render(<App />);
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+
+    const heroFace = screen.getByText('🤠');
+    const heroContainer = heroFace.closest('[class*="transform"]');
+    const innerMap = heroContainer.parentElement;
+
+    vi.spyOn(innerMap, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 1000,
+      right: 400,
+      bottom: 1000,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    });
+
+    // Step down towards right corridor: x=75%, y=10%
+    await act(async () => {
+      fireEvent.click(innerMap, {
+        clientX: 300, // 75%
+        clientY: 100  // 10%
+      });
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+
+    const allEntities = innerMap.querySelectorAll('div[class*="absolute"]');
+    const finalRockEntity = Array.from(allEntities).find(el => {
+      return el.style && (el.style.top === '78%' || el.style.top === '88%' || el.style.top === '95%') && el.innerHTML.includes('polygon');
+    });
+
+    if (finalRockEntity) {
+      expect(finalRockEntity.className).toContain('opacity-0');
+      expect(finalRockEntity.className).toContain('invisible');
+    }
   });
 });

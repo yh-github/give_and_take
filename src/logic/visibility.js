@@ -49,7 +49,8 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
     mapNodes.forEach(node => {
       // gatekeeper rocks should be wide enough to block most of the corridor (wall to pillar)
       if (node.isGatekeeper && !defeated.includes(node.id)) {
-          const y = node.y * screens;
+          const yTop = (node.y - 1.5) * screens;
+          const yBottom = (node.y + 1.5) * screens;
           let minX, maxX;
           if (caveWallVertices) {
             const bounds = getCorridorBounds(node.y, caveWallVertices, node.x >= 50);
@@ -61,19 +62,19 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
           } else {
             minX = 31; maxX = 69;
           }
-          segments.push({ a: { x: minX, y: y - 1.5 }, b: { x: maxX, y: y - 1.5 } });
-          segments.push({ a: { x: maxX, y: y - 1.5 }, b: { x: maxX, y: y + 1.5 } });
-          segments.push({ a: { x: maxX, y: y + 1.5 }, b: { x: minX, y: y + 1.5 } });
-          segments.push({ a: { x: minX, y: y + 1.5 }, b: { x: minX, y: y - 1.5 } });
+          segments.push({ a: { x: minX, y: yTop }, b: { x: maxX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
+          segments.push({ a: { x: maxX, y: yTop }, b: { x: maxX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+          segments.push({ a: { x: maxX, y: yBottom }, b: { x: minX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+          segments.push({ a: { x: minX, y: yBottom }, b: { x: minX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
       } else if (node.isExtraRock && !defeated.includes(node.id)) {
           const sizeX = 2.5;
-          const sizeY = 1.5;
+          const yTop = (node.y - 1.5) * screens;
+          const yBottom = (node.y + 1.5) * screens;
           const x = node.x;
-          const y = node.y * screens;
-          segments.push({ a: { x: x - sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y - sizeY } });
-          segments.push({ a: { x: x + sizeX, y: y - sizeY }, b: { x: x + sizeX, y: y + sizeY } });
-          segments.push({ a: { x: x + sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y + sizeY } });
-          segments.push({ a: { x: x - sizeX, y: y + sizeY }, b: { x: x - sizeX, y: y - sizeY } });
+          segments.push({ a: { x: x - sizeX, y: yTop }, b: { x: x + sizeX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
+          segments.push({ a: { x: x + sizeX, y: yTop }, b: { x: x + sizeX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+          segments.push({ a: { x: x + sizeX, y: yBottom }, b: { x: x - sizeX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
+          segments.push({ a: { x: x - sizeX, y: yBottom }, b: { x: x - sizeX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
       }
     });
   }
