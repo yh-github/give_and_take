@@ -18,24 +18,28 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
   segments.push({ a: { x: 0, y: height }, b: { x: 0, y: 0 } });
 
   // 2. Cave Walls (Scaled to fit map height)
-  const processPath = (vertices) => {
+  const processPath = (vertices, isPillar = false) => {
     for (let i = 0; i < vertices.length - 1; i++) {
         segments.push({
             a: { x: vertices[i].x, y: vertices[i].y * screens },
-            b: { x: vertices[i+1].x, y: vertices[i+1].y * screens }
+            b: { x: vertices[i+1].x, y: vertices[i+1].y * screens },
+            isPillar,
+            isOuterWall: !isPillar
         });
     }
   };
 
   if (caveWallVertices) {
-    if (caveWallVertices.leftWall) processPath(caveWallVertices.leftWall);
-    if (caveWallVertices.rightWall) processPath(caveWallVertices.rightWall);
+    if (caveWallVertices.leftWall) processPath(caveWallVertices.leftWall, false);
+    if (caveWallVertices.rightWall) processPath(caveWallVertices.rightWall, false);
     if (caveWallVertices.centralPillar) {
-        processPath(caveWallVertices.centralPillar);
+        processPath(caveWallVertices.centralPillar, true);
         const p = caveWallVertices.centralPillar;
         segments.push({
             a: { x: p[p.length-1].x, y: p[p.length-1].y * screens },
-            b: { x: p[0].x, y: p[0].y * screens }
+            b: { x: p[0].x, y: p[0].y * screens },
+            isPillar: true,
+            isOuterWall: false
         });
     }
   }

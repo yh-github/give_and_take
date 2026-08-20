@@ -84,10 +84,19 @@ export function isPointInPolygon(p, poly) {
  * @param {number} resolution Density of the grid (lower is more precise)
  */
 export function findGlobalPath(start, end, segments, bounds, polygons = [], resolution = 3) {
-    if ((!segments || segments.length === 0) && (!polygons || polygons.length === 0)) return [end];
+    const actualPolys = Array.isArray(polygons) ? polygons : [];
+    if ((!segments || segments.length === 0) && actualPolys.length === 0) return [end];
 
-    const width = bounds.width;
-    const height = bounds.height;
+    // Direct line-of-sight fast path: if no wall obstacles intersect start->end, go directly
+    if (!checkCollision(start, end, segments || []) && !checkPolygonCollision(start, end, actualPolys)) {
+        return [end];
+    }
+
+    const actualBounds = typeof bounds === 'number'
+        ? { width: 100, height: bounds * 100 }
+        : (bounds || { width: 100, height: 250 });
+    const width = actualBounds.width || 100;
+    const height = actualBounds.height || 250;
     const cols = Math.ceil(width / resolution);
     const rows = Math.ceil(height / resolution);
 

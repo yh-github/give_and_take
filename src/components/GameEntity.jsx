@@ -35,8 +35,9 @@ export function GameEntity({
   const depthFilter = (ent.depth === 1) ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : (ent.depth === 2) ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
   const isAnimating = animatingEntities.includes(ent.id);
 
+  const screens = level.mechanics.screens || 1;
   const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal);
-  const isRock = ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate';
+  const isRock = (ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate') || ent.isExtraRock;
   const isCurrent = ent.id === 'current' || (ent.isGatekeeper && ent.id?.startsWith('current_'));
 
   const inFog = (level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)))) || inkFogEntities.has(ent.id);
@@ -46,16 +47,21 @@ export function GameEntity({
   const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
   const inDarkness = !isVisible;
 
-  const isBlockedByWall = inLightRadius && wallSegments.length > 0 &&
-    checkCollision(
-      { x: displayPlayerPos.x, y: displayPlayerPos.y * (level.mechanics.screens || 1) },
-      { x: ent.x, y: ent.y * (level.mechanics.screens || 1) },
-      wallSegments
-    );
+  // In the underground cave, the central pillar separates left corridor (x < 50) and right corridor (x >= 50) for y in [20, 75].
+  const isOppositeChannel = level.id === 'underground' && displayPlayerPos.y >= 20 && ent.y >= 20 && ((displayPlayerPos.x < 50 && ent.x >= 50) || (displayPlayerPos.x >= 50 && ent.x < 50));
+  const pillarSegments = wallSegments ? wallSegments.filter(s => s.isPillar) : [];
 
-  const isRockVisible = (isRock || ent.isGatekeeper) && inLightRadius && !isBlockedByWall;
+  const isBlockedByWall = inLightRadius && (
+    isOppositeChannel || (pillarSegments.length > 0 && checkCollision(
+      { x: displayPlayerPos.x, y: displayPlayerPos.y * screens },
+      { x: ent.x, y: ent.y * screens },
+      pillarSegments
+    ))
+  );
+
+  const isRockVisible = (isRock || ent.isGatekeeper) && inLightRadius && !isOppositeChannel;
   const hideInDarkness = (inDarkness || isBlockedByWall) && !isRock && !ent.isGatekeeper;
-  const hideRockBehindWall = (isRock || ent.isGatekeeper) && isBlockedByWall;
+  const hideRockBehindWall = (isRock || ent.isGatekeeper) && isOppositeChannel;
 
   const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper) ? (isRockVisible ? 165 : 110) : ((inLightRadius && !inFog && !inDarkness && !isBlockedByWall) ? 170 : ((ent.depth || 3) * 10 + 5)));
   const isInteractable = !inFog && (!inDarkness || (inLightRadius && !isBlockedByWall));

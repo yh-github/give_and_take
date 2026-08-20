@@ -45,8 +45,107 @@ async function runSmokeTests() {
 
     console.log('  ✅ Game container & gear button rendered');
 
-    // Verify language flags exist and test language toggle
-    console.log('🧪 Test 2: Testing Language Toggle (🇮🇱 / 🇺🇸)...');
+    // 2. Physical Click & Hero Movement Test in Underground Cave
+    console.log('🧪 Test 2: Testing Hero Movement and Pathfinding in Underground level...');
+    
+    // Check initial hero position
+    const initialPos = await page.evaluate(() => {
+      const heroContainer = Array.from(document.querySelectorAll('div')).find(el => {
+        return el.style && el.style.left && el.style.top && el.textContent.includes('🤠');
+      });
+      if (!heroContainer) return null;
+      return {
+        left: heroContainer.style.left,
+        top: heroContainer.style.top
+      };
+    });
+    
+    if (!initialPos || initialPos.top !== '2%') {
+      throw new Error(`Expected initial hero top to be 2%, received ${JSON.stringify(initialPos)}`);
+    }
+    console.log(`  ✅ Hero initial position verified at top=${initialPos.top}, left=${initialPos.left}`);
+
+    // Click on the cave map inside the torch light circle (e.g. click at y=10%)
+    await page.evaluate(() => {
+      const heroContainer = Array.from(document.querySelectorAll('div')).find(el => {
+        return el.style && el.style.left && el.style.top && el.textContent.includes('🤠');
+      });
+      const innerMap = heroContainer.parentElement;
+      const rect = innerMap.getBoundingClientRect();
+      
+      // Simulate click at x=50%, y=10% (well within torch radius and above gatekeeper rocks)
+      const clickEvent = new MouseEvent('click', {
+        clientX: rect.left + rect.width * 0.5,
+        clientY: rect.top + rect.height * 0.10,
+        bubbles: true,
+        cancelable: true
+      });
+      innerMap.dispatchEvent(clickEvent);
+    });
+
+    // Wait for movement animation
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Verify hero has moved to new position
+    const updatedPos = await page.evaluate(() => {
+      const heroContainer = Array.from(document.querySelectorAll('div')).find(el => {
+        return el.style && el.style.left && el.style.top && el.textContent.includes('🤠');
+      });
+      if (!heroContainer) return null;
+      return {
+        left: heroContainer.style.left,
+        top: heroContainer.style.top
+      };
+    });
+
+    console.log(`  ✅ Hero updated position after click: top=${updatedPos?.top}, left=${updatedPos?.left}`);
+    if (!updatedPos || updatedPos.top === '2%') {
+      throw new Error(`Hero did not move! Position stayed at ${JSON.stringify(updatedPos)}`);
+    }
+
+    // Step towards left rocks: click at x=30%, y=18%
+    console.log('🧪 Test 2b: Verifying Left Gatekeeper Rocks visibility when standing in front of them...');
+    await page.evaluate(() => {
+      const heroContainer = Array.from(document.querySelectorAll('div')).find(el => {
+        return el.style && el.style.left && el.style.top && el.textContent.includes('🤠');
+      });
+      const innerMap = heroContainer.parentElement;
+      const rect = innerMap.getBoundingClientRect();
+      
+      const clickEvent = new MouseEvent('click', {
+        clientX: rect.left + rect.width * 0.30,
+        clientY: rect.top + rect.height * 0.18,
+        bubbles: true,
+        cancelable: true
+      });
+      innerMap.dispatchEvent(clickEvent);
+    });
+
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Check visibility of left gatekeeper rock at y=22%
+    const rockVisibility = await page.evaluate(() => {
+      const heroContainer = Array.from(document.querySelectorAll('div')).find(el => {
+        return el.style && el.style.left && el.style.top && el.textContent.includes('🤠');
+      });
+      const innerMap = heroContainer.parentElement;
+      const allDivs = Array.from(innerMap.querySelectorAll('div[class*="absolute"]'));
+      const leftRock = allDivs.find(el => el.style && el.style.top === '22%' && el.innerHTML.includes('polygon'));
+      if (!leftRock) return { found: false };
+      const isHidden = leftRock.className.includes('opacity-0') || leftRock.className.includes('invisible');
+      return { found: true, isHidden, className: leftRock.className };
+    });
+
+    if (!rockVisibility.found) {
+      throw new Error('Left gatekeeper rock element not found on page');
+    }
+    if (rockVisibility.isHidden) {
+      throw new Error(`Left gatekeeper rock is unexpectedly hidden: ${rockVisibility.className}`);
+    }
+    console.log('  ✅ Left gatekeeper rocks are clearly visible in front of hero');
+
+    // 3. Language Toggle Test
+    console.log('🧪 Test 3: Testing Language Toggle (🇮🇱 / 🇺🇸)...');
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
       const usBtn = btns.find(b => b.textContent.includes('🇺🇸'));
@@ -78,8 +177,8 @@ async function runSmokeTests() {
       if (ilBtn) ilBtn.click();
     });
 
-    // 3. Switch to Underwater Level
-    console.log('🧪 Test 3: Switching to Underwater Level...');
+    // 4. Switch to Underwater Level
+    console.log('🧪 Test 4: Switching to Underwater Level...');
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
       const gear = btns.find(b => b.textContent.includes('⚙️'));
@@ -119,8 +218,8 @@ async function runSmokeTests() {
 
     console.log('  ✅ Switched to Underwater level successfully');
 
-    // 4. Switch to River Crossing Level
-    console.log('🧪 Test 4: Switching to River Crossing Level...');
+    // 5. Switch to River Crossing Level
+    console.log('🧪 Test 5: Switching to River Crossing Level...');
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
       const gear = btns.find(b => b.textContent.includes('⚙️'));
@@ -157,8 +256,8 @@ async function runSmokeTests() {
 
     console.log('  ✅ Switched to River Crossing level successfully');
 
-    // 5. Level Editor Query Param Test
-    console.log('🧪 Test 5: Testing Level Editor mode (?editor=true)...');
+    // 6. Level Editor Query Param Test
+    console.log('🧪 Test 6: Testing Level Editor mode (?editor=true)...');
     await page.goto(`${baseUrl}/?editor=true`, { waitUntil: 'networkidle0' });
     
     await page.waitForFunction(() => {
@@ -168,7 +267,7 @@ async function runSmokeTests() {
 
     console.log('  ✅ Level editor mode active with Save Level button');
 
-    // 6. Check for uncaught runtime errors
+    // 7. Check for uncaught runtime errors
     if (uncaughtErrors.length > 0) {
       throw new Error(`Encountered ${uncaughtErrors.length} uncaught page errors: ${uncaughtErrors.join('; ')}`);
     }

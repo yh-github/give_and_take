@@ -35,23 +35,27 @@ const underground = {
     segments.push({ a: { x: 0, y: height }, b: { x: 0, y: 0 } });
 
     // 2. Cave Walls
-    const processPath = (vertices) => {
+    const processPath = (vertices, isPillar = false) => {
       for (let i = 0; i < vertices.length - 1; i++) {
           segments.push({
               a: { x: vertices[i].x, y: vertices[i].y * screens },
-              b: { x: vertices[i+1].x, y: vertices[i+1].y * screens }
+              b: { x: vertices[i+1].x, y: vertices[i+1].y * screens },
+              isPillar,
+              isOuterWall: !isPillar
           });
       }
     };
 
-    if (CAVE_WALL_VERTICES.leftWall) processPath(CAVE_WALL_VERTICES.leftWall);
-    if (CAVE_WALL_VERTICES.rightWall) processPath(CAVE_WALL_VERTICES.rightWall);
+    if (CAVE_WALL_VERTICES.leftWall) processPath(CAVE_WALL_VERTICES.leftWall, false);
+    if (CAVE_WALL_VERTICES.rightWall) processPath(CAVE_WALL_VERTICES.rightWall, false);
     if (CAVE_WALL_VERTICES.centralPillar) {
-        processPath(CAVE_WALL_VERTICES.centralPillar);
+        processPath(CAVE_WALL_VERTICES.centralPillar, true);
         const p = CAVE_WALL_VERTICES.centralPillar;
         segments.push({
             a: { x: p[p.length-1].x, y: p[p.length-1].y * screens },
-            b: { x: p[0].x, y: p[0].y * screens }
+            b: { x: p[0].x, y: p[0].y * screens },
+            isPillar: true,
+            isOuterWall: false
         });
     }
 

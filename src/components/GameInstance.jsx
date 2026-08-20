@@ -110,11 +110,13 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     if (!polyPoints || !puzzle) return null;
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
     const visible = new Set();
+    const pillarSegments = obstacleSegments.filter(s => s.isPillar);
+
     const isRayBlockedByWalls = (p1, p2) => {
+      if (pillarSegments.length === 0) return false;
       const p1Scaled = { x: p1.x, y: p1.y * screens };
       const p2Scaled = { x: p2.x, y: p2.y * screens };
-      const nonRockSegments = obstacleSegments.filter(s => !s.isRock);
-      return checkCollision(p1Scaled, p2Scaled, nonRockSegments);
+      return checkCollision(p1Scaled, p2Scaled, pillarSegments);
     };
 
     puzzle.puzzleEntities.forEach(e => {
@@ -178,9 +180,23 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     
     if (level.mechanics.isCaveType && lastPos) {
       const dynamicObstacles = obstacleSegments;
+      let finalTargetX = targetX;
+      let finalTargetY = targetY;
+
+      if (isInteract) {
+        const dx = finalTargetX - lastPos.x;
+        const dy = finalTargetY - lastPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+          finalTargetX = finalTargetX - (dx / dist) * 3.5;
+          finalTargetY = finalTargetY - (dy / dist) * 3.5;
+        }
+      }
+
       const startPt = { x: lastPos.x, y: lastPos.y * screens };
-      const endPt = { x: targetX, y: targetY * screens };
-      const rawPath = findGlobalPath(startPt, endPt, dynamicObstacles, screens, isInteract, occluderType);
+      const endPt = { x: finalTargetX, y: finalTargetY * screens };
+      const bounds = { width: 100, height: screens * 100 };
+      const rawPath = findGlobalPath(startPt, endPt, dynamicObstacles, bounds);
       
       return rawPath.map(p => ({
         x: p.x,
