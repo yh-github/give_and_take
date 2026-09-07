@@ -170,6 +170,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     setDefeated([]);
     setSelectedItemTypes([]);
     setAir(MAX_AIR);
+    setIsAnimatingLoot(false);
+    setTempPlayerPos(null);
+    setAlertEntityId(null);
+    setAttachedEntityId(null);
   }, [level, targetSteps, numDiggers]);
 
   const mapRef = useRef(null);
@@ -627,11 +631,11 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   };
 
   const handleCampClick = (e) => {
-    e.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
-
     const itemToDrop = selectedItemTypes[0];
     if (!itemToDrop && !level.mechanics.hasAir) return;
+
+    e.stopPropagation();
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
     if (dolphinStateRef.current === 'idle_deep') {
       startDolphinReturn(false);

@@ -82,6 +82,44 @@ describe('Underground Level Movement Suite', () => {
     expect(heroContainer.style.top).toBe('8%');
   });
 
+  it('moves hero when clicking right below starting position near camp tent', async () => {
+    render(<App />);
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+
+    const heroFace = screen.getByText('🤠');
+    const heroContainer = heroFace.closest('[class*="transform"]');
+    const innerMap = heroContainer.parentElement;
+
+    vi.spyOn(innerMap, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 1000,
+      right: 400,
+      bottom: 1000,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    });
+
+    // Simulate click at x=50% (200px), y=3.5% (35px) right below starting position
+    await act(async () => {
+      fireEvent.click(innerMap, {
+        clientX: 200,
+        clientY: 35
+      });
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(parseFloat(heroContainer.style.top)).toBeCloseTo(3.5);
+  });
+
   it('moves hero when clicking on an accessible entity in Zone 1', async () => {
     render(<App />);
 

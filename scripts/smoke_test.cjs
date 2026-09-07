@@ -35,7 +35,7 @@ async function runSmokeTests() {
 
     // 1. Initial Load Test (Underground Cave)
     console.log('🧪 Test 1: Loading default level (Underground)...');
-    await page.goto(baseUrl, { waitUntil: 'networkidle0' });
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
     
     // Wait for the app to finish generating and show the settings button ⚙️
     await page.waitForFunction(() => {
