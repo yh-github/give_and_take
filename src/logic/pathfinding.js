@@ -35,8 +35,13 @@ export function smoothPath(path, segments, polygons = []) {
     while (current < path.length - 1) {
         let furthest = current + 1;
         for (let next = path.length - 1; next > current + 1; next--) {
-            const hasSegColl = segments && segments.length > 0 && checkCollision(path[current], path[next], segments);
-            const hasPolyColl = polygons && polygons.length > 0 && checkPolygonCollision(path[current], path[next], polygons);
+            const p1 = path[current];
+            const p2 = path[next];
+            const hasSegColl = segments && segments.length > 0 && (
+                checkCollision(p1, p2, segments) ||
+                hasCornerClearanceCollision(p1, p2, segments, 1.2)
+            );
+            const hasPolyColl = polygons && polygons.length > 0 && checkPolygonCollision(p1, p2, polygons);
             if (!hasSegColl && !hasPolyColl) {
                 furthest = next;
                 break;
@@ -46,6 +51,29 @@ export function smoothPath(path, segments, polygons = []) {
         current = furthest;
     }
     return smoothed;
+}
+
+/**
+ * Checks if the interior of segment (p1 -> p2) passes too close to any obstacle vertex.
+ */
+function hasCornerClearanceCollision(p1, p2, segments, clearance = 1.2) {
+    const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
+    if (l2 < 1e-6) return false;
+    const c2 = clearance * clearance;
+
+    for (const seg of segments) {
+        for (const pt of [seg.a, seg.b]) {
+            if (!pt) continue;
+            const t = ((pt.x - p1.x) * (p2.x - p1.x) + (pt.y - p1.y) * (p2.y - p1.y)) / l2;
+            if (t > 0.15 && t < 0.85) {
+                const projX = p1.x + t * (p2.x - p1.x);
+                const projY = p1.y + t * (p2.y - p1.y);
+                const d2 = (pt.x - projX) ** 2 + (pt.y - projY) ** 2;
+                if (d2 < c2) return true;
+            }
+        }
+    }
+    return false;
 }
 
 /**
@@ -138,21 +166,33 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     };
 
     // A* State
+    const key = (p) => `${p.x},${p.y}`;
     const openSet = [startG];
+    const openSetKeys = new Set([key(startG)]);
     const cameFrom = new Map();
     const gScore = new Map();
     const fScore = new Map();
 
-    const key = (p) => `${p.x},${p.y}`;
     gScore.set(key(startG), 0);
     fScore.set(key(startG), Math.abs(startG.x - endG.x) + Math.abs(startG.y - endG.y));
 
     let count = 0;
     while (openSet.length > 0 && count < 10000) {
         count++;
-        // Get node with lowest fScore
-        openSet.sort((a, b) => (fScore.get(key(a)) || Infinity) - (fScore.get(key(b)) || Infinity));
-        const current = openSet.shift();
+        // Find node in openSet with lowest fScore in O(N) instead of O(N log N) sort
+        let bestIdx = 0;
+        let bestF = fScore.get(key(openSet[0])) ?? Infinity;
+        for (let i = 1; i < openSet.length; i++) {
+            const f = fScore.get(key(openSet[i])) ?? Infinity;
+            if (f < bestF) {
+                bestF = f;
+                bestIdx = i;
+            }
+        }
+        const current = openSet[bestIdx];
+        openSet[bestIdx] = openSet[openSet.length - 1];
+        openSet.pop();
+        openSetKeys.delete(key(current));
 
         if (current.x === endG.x && current.y === endG.y) {
             // Reconstruct path
@@ -198,8 +238,9 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
                     const dxH = Math.abs(neighbor.x - endG.x);
                     const dyH = Math.abs(neighbor.y - endG.y);
                     fScore.set(neighborKey, tentativeGScore + Math.max(dxH, dyH) + 0.414 * Math.min(dxH, dyH));
-                    if (!openSet.find(p => p.x === neighbor.x && p.y === neighbor.y)) {
+                    if (!openSetKeys.has(neighborKey)) {
                         openSet.push(neighbor);
+                        openSetKeys.add(neighborKey);
                     }
                 }
             }

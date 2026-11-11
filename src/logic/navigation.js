@@ -72,3 +72,31 @@ export const computeWaypoints = (fromZone, toZone, startPos = null, endPos = nul
   return waypoints;
 };
 
+/**
+ * Infers which zone a clicked (x, y) coordinate belongs to for vertical/cave levels.
+ *
+ * @param {Object} level
+ * @param {number} targetX
+ * @param {number} targetY
+ * @param {number} [currentZone=1]
+ * @returns {number}
+ */
+export const inferTargetZone = (level, targetX, targetY, currentZone = 1) => {
+  if (level?.mechanics?.isCaveType) {
+    if (targetY < 20) return 1;
+    if (targetY < 45) return targetX < 50 ? 2 : 3;
+    if (targetY < 68) return targetX < 50 ? 4 : 5;
+    if (targetY < 80) return 6;
+    if (targetY < 88) return 7;
+    if (targetY < 95) return 8;
+    return 9;
+  }
+  if (level?.id === 'underwater') {
+    if (targetY < 46) return 1;
+    if (targetY < 75) return 2;
+    return 3;
+  }
+  return currentZone;
+};
+
+
