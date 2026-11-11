@@ -21,6 +21,13 @@ import { findGlobalPath } from '../logic/pathfinding.js';
 import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.js';
 import { createShuffleBag } from '../logic/rng.js';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
+import {
+  createSavePayload,
+  saveToAutoSave,
+  clearAutoSave,
+  exportStateToString,
+  importStateFromString
+} from '../logic/saveState.js';
 
 import { GameMenu, GeneratingScreen, GenerationFailedScreen, DEFAULT_LIGHTING } from './GameMenu.jsx';
 import InventoryBar from './InventoryBar.jsx';
@@ -32,7 +39,7 @@ import LevelEditorOverlay from './LevelEditorOverlay.jsx';
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
 
-export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, lang, setLang }) {
+export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, onLoadState, savedState, lang, setLang }) {
   const [puzzle, setPuzzle] = useState(null);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [isLevelEditor] = useState(() => new URLSearchParams(window.location.search).get('editor') === 'true');
@@ -61,6 +68,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   const [isDemonstrating, setIsDemonstrating] = useState(false);
   const [isAnimatingLoot, setIsAnimatingLoot] = useState(false);
   const [alertEntityId, setAlertEntityId] = useState(null);
+  const [alertReason, setAlertReason] = useState(null);
+  const [isInventoryFullAlert, setIsInventoryFullAlert] = useState(false);
   const [selectedEntityId, setSelectedEntityId] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
   const [tempPlayerPos, setTempPlayerPos] = useState(null);
@@ -195,6 +204,36 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
 
   useEffect(() => {
     setGenerationFailed(false);
+    if (savedState && savedState.puzzle) {
+      setPuzzle(savedState.puzzle);
+      setInventory(savedState.inventory || savedState.puzzle.startItems || []);
+      setPathHistory(savedState.pathHistory || [{ ...level.campPos, zone: 1 }]);
+      setUnlockedZones(savedState.unlockedZones || [1]);
+      setDefeated(savedState.defeated || []);
+      setHistoryStack((savedState.historyStack || []).map(entry => ({
+        ...entry,
+        inkFogEntities: new Set(entry.inkFogEntities || [])
+      })));
+      setCampItems(savedState.campItems || []);
+      setBuriedEntities(savedState.buriedEntities || []);
+      setAir(savedState.air ?? MAX_AIR);
+      setIsTransformed(Boolean(savedState.isTransformed));
+      setHasDeepTreasure(Boolean(savedState.hasDeepTreasure));
+      setEnvItemState(savedState.envItemState || 'active');
+      setEnvItemCaughtPos(savedState.envItemCaughtPos || { x: 50, y: 50 });
+      setDolphinState(savedState.dolphinState || 'idle_surface');
+      setDolphinYPos(typeof savedState.dolphinYPos === 'number' ? savedState.dolphinYPos : 16);
+      if (savedState.lightingSettings) setLightingSettings(savedState.lightingSettings);
+      if (savedState.debugMode !== undefined) setDebugMode(savedState.debugMode);
+      if (savedState.inkFogEntities) setInkFogEntities(new Set(savedState.inkFogEntities));
+      setSelectedItemTypes([]);
+      setIsAnimatingLoot(false);
+      setTempPlayerPos(null);
+      setAlertEntityId(null);
+      setAttachedEntityId(null);
+      return;
+    }
+
     const p = generateLevelPuzzle(level, targetSteps, numDiggers);
     if (!p) {
       setGenerationFailed(true);
@@ -205,13 +244,16 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     setPathHistory([{ ...level.campPos, zone: 1 }]);
     setUnlockedZones([1]);
     setDefeated([]);
+    setHistoryStack([]);
+    setCampItems([]);
+    setBuriedEntities([]);
     setSelectedItemTypes([]);
     setAir(MAX_AIR);
     setIsAnimatingLoot(false);
     setTempPlayerPos(null);
     setAlertEntityId(null);
     setAttachedEntityId(null);
-  }, [level, targetSteps, numDiggers]);
+  }, [level, targetSteps, numDiggers, savedState]);
 
   const mapRef = useRef(null);
   const innerMapRef = useRef(null);
@@ -468,6 +510,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   const handleUndo = () => {
     if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot) return;
     clearManagedTimeouts();
+    setAlertReason(null);
+    setIsInventoryFullAlert(false);
     const prevState = historyStack[historyStack.length - 1];
     setInventory(prevState.inventory); setDefeated(prevState.defeated); setPathHistory(prevState.pathHistory);
     setEnvItemState(prevState.envItemState);
@@ -506,6 +550,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     setIsDemonstrating(false);
     setIsAnimatingLoot(false);
     setAlertEntityId(null);
+    setAlertReason(null);
+    setIsInventoryFullAlert(false);
     setFlyingItem(null);
     setTempPlayerPos(null);
     setEnvItemState('active');
@@ -522,6 +568,86 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     setIsMagicAnimating(false);
     setHeroBubbleBursts([]);
   };
+
+  const triggerInventoryFullAlert = useCallback((targetId) => {
+    setAlertEntityId(targetId);
+    setAlertReason('inventory_full');
+    setIsInventoryFullAlert(true);
+    scheduleTimeout(() => {
+      setAlertEntityId(null);
+      setAlertReason(null);
+      setIsInventoryFullAlert(false);
+    }, 1800);
+  }, [scheduleTimeout]);
+
+  const getGameStatePayload = useCallback(() => {
+    if (!puzzle) return null;
+    return createSavePayload({
+      levelId: level.id,
+      targetSteps,
+      numDiggers,
+      puzzle,
+      inventory,
+      unlockedZones,
+      defeated,
+      pathHistory,
+      historyStack,
+      campItems,
+      buriedEntities,
+      air,
+      isTransformed,
+      hasDeepTreasure,
+      envItemState,
+      envItemCaughtPos,
+      dolphinState,
+      dolphinYPos,
+      lightingSettings,
+      debugMode,
+      inkFogEntities
+    });
+  }, [
+    level.id, targetSteps, numDiggers, puzzle, inventory, unlockedZones, defeated,
+    pathHistory, historyStack, campItems, buriedEntities, air, isTransformed,
+    hasDeepTreasure, envItemState, envItemCaughtPos, dolphinState, dolphinYPos,
+    lightingSettings, debugMode, inkFogEntities
+  ]);
+
+  // Auto-save whenever game state updates
+  useEffect(() => {
+    if (!puzzle || isVictorious || isDemonstrating || generationFailed) return;
+    const payload = getGameStatePayload();
+    if (payload) {
+      saveToAutoSave(payload);
+    }
+  }, [
+    puzzle, inventory, unlockedZones, defeated, pathHistory, historyStack,
+    campItems, buriedEntities, air, isTransformed, hasDeepTreasure,
+    envItemState, dolphinState, dolphinYPos, lightingSettings, debugMode,
+    isVictorious, isDemonstrating, generationFailed, getGameStatePayload
+  ]);
+
+  // Clear auto-save when quest is successfully completed
+  useEffect(() => {
+    if (isVictorious) {
+      clearAutoSave();
+    }
+  }, [isVictorious]);
+
+  const handleExportStateString = useCallback(() => {
+    const payload = getGameStatePayload();
+    return payload ? exportStateToString(payload) : '';
+  }, [getGameStatePayload]);
+
+  const handleImportStateString = useCallback((jsonString) => {
+    const res = importStateFromString(jsonString, LEVEL_DICTIONARY);
+    if (!res.success) {
+      return res;
+    }
+    if (onLoadState) {
+      onLoadState(res.state);
+    }
+    return { success: true };
+  }, [onLoadState]);
 
   const handleReplay = () => { demoRef.current = false; resetGameState(); setIsMenuOpen(false); };
 
@@ -707,7 +833,11 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   const handleCatchRiverFish = (e) => {
     e.stopPropagation();
     const { fits } = canFitInInventory(inventory, [], 'fish');
-    if (envItemState !== 'active' || !fits || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+    if (!fits) {
+      triggerInventoryFullAlert('river_fish');
+      return;
+    }
+    if (envItemState !== 'active' || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     saveHistory();
     const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
     setEnvItemCaughtPos({ x: ((e.clientX - parentRect.left) / parentRect.width) * 100, y: ((e.clientY - parentRect.top) / parentRect.height) * 100 });
@@ -722,7 +852,11 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   const handleCatchSchoolFish = (e, fishObj) => {
     e.stopPropagation();
     const { fits } = canFitInInventory(inventory, [], fishObj.type);
-    if (!fits || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+    if (!fits) {
+      triggerInventoryFullAlert('school_fish');
+      return;
+    }
+    if (isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     if (!mapRef.current) return;
     const rect = mapRef.current.getBoundingClientRect();
     saveHistory(); setIsAnimatingLoot(true);
@@ -749,6 +883,11 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     e.stopPropagation();
     const tradeReq = boat.reqItem || 'fish';
     const { fits } = canFitInInventory(inventory, [tradeReq], boat.offeredItem);
+
+    if (inventory.includes(tradeReq) && !fits) {
+      triggerInventoryFullAlert(boat.id);
+      return;
+    }
 
     if (!inventory.includes(tradeReq) || !fits || isDemonstrating || isAnimatingLoot || isRefillingAir) {
       setAlertEntityId(boat.id);
@@ -838,8 +977,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
 
     const { fits } = canFitInInventory(inventory, [], campItem.id);
     if (!fits) {
-      setAlertEntityId(campItem.uid);
-      scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
+      triggerInventoryFullAlert(campItem.uid);
       return;
     }
 
@@ -1118,8 +1256,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     if (entity.isPreset && !entity.isGatekeeper) {
       const { fits } = canFitInInventory(inventory, [], entity.reward);
       if (entity.reward && !fits) {
-        setAlertEntityId(entity.id);
-        scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
+        triggerInventoryFullAlert(entity.id);
         return;
       }
 
@@ -1178,8 +1315,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     }
 
     if (tradeResult.exceedsCapacity) {
-      setAlertEntityId(entity.id);
-      scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
+      triggerInventoryFullAlert(entity.id);
       return;
     }
 
@@ -1367,7 +1503,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   }
 
   const isSubmerged = level.id === 'underwater' && playerVisualY > (level.campPos.y + 2);
-  const heroFace = isDrowning ? '😵' : (isTransformed ? '🧜‍♂️' : (isSubmerged ? '🤿' : '🤠'));
+  const heroFace = isDrowning ? '😵' : (isTransformed ? '🧜‍♂️' : (isInventoryFullAlert ? '😥' : (isSubmerged ? '🤿' : '🤠')));
 
   const handleSwimToSurface = (e) => {
     e.stopPropagation();
@@ -1454,6 +1590,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
             roamingBoats={roamingBoats}
             handleBoatTrade={handleBoatTrade}
             alertEntityId={alertEntityId}
+            alertReason={alertReason}
+            isInventoryFullAlert={isInventoryFullAlert}
             pathHistory={pathHistory}
             tempPlayerPos={tempPlayerPos}
             playerPos={playerPos}
@@ -1523,6 +1661,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
           historyStack={historyStack}
           level={level}
           dict={dict}
+          isInventoryFullAlert={isInventoryFullAlert}
         />
       </div>
 
@@ -1539,6 +1678,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
         onReplay={handleReplay}
         onShowSolution={handleShowSolution}
         onGenerateNew={(newSettings) => { setIsMenuOpen(false); onGenerateNew(newSettings); }}
+        onExportState={handleExportStateString}
+        onImportState={handleImportStateString}
         isVictorious={isVictorious}
         isDemonstrating={isDemonstrating}
         isAnimatingLoot={isAnimatingLoot}

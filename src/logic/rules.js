@@ -125,6 +125,74 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
 }
 
 /**
+ * Checks whether an entity adheres to universal domain trading rules:
+ * An entity must NEVER ask for the item it is guarding / offering as a reward.
+ *
+ * @param {Object} entity
+ * @returns {boolean} True if valid
+ */
+export function isValidEntityTrade(entity) {
+  if (!entity) return true;
+  if (!entity.reward) return true;
+  if (!Array.isArray(entity.requires) || entity.requires.length === 0) return true;
+  return !entity.requires.includes(entity.reward);
+}
+
+/**
+ * Universal Level Builder Sanitizer:
+ * Enforces across all current and future levels that no entity asks for the item it guards / rewards.
+ * If a violation is found, it replaces the conflicting requirement with a valid alternative
+ * from the entity's allowed requirements or available items in the level.
+ *
+ * @param {Array<Object>} entities - Level entities to sanitize
+ * @param {Array<Object|string>} [levelItems=[]] - Available items in the level
+ * @returns {Array<Object>} Sanitized entities
+ */
+export function sanitizePuzzleEntities(entities, levelItems = []) {
+  if (!Array.isArray(entities)) return entities;
+
+  const standardItemIds = (levelItems || [])
+    .map(i => (typeof i === 'string' ? i : i?.id))
+    .filter(id => id && id !== 'pickaxe' && id !== 'key');
+
+  return entities.map(entity => {
+    if (!entity || !entity.reward || !Array.isArray(entity.requires) || entity.requires.length === 0) {
+      return entity;
+    }
+
+    if (!entity.requires.includes(entity.reward)) {
+      return entity;
+    }
+
+    // Violation found: entity asks for the item it guards / rewards!
+    const filteredReqs = entity.requires.filter(req => req !== entity.reward);
+    if (filteredReqs.length > 0) {
+      return {
+        ...entity,
+        requires: filteredReqs
+      };
+    }
+
+    // Requires became empty: select a valid replacement requirement
+    const allowed = (entity.allowedReqs || []).filter(
+      r => r !== entity.reward && r !== 'pickaxe' && r !== 'key'
+    );
+    const fallbacks = standardItemIds.filter(
+      id => id !== entity.reward && id !== 'pickaxe' && id !== 'key'
+    );
+
+    const replacement = allowed.length > 0
+      ? allowed[0]
+      : (fallbacks.length > 0 ? fallbacks[0] : (entity.reward === 'bone' ? 'rope' : 'bone'));
+
+    return {
+      ...entity,
+      requires: [replacement]
+    };
+  });
+}
+
+/**
  * Returns updated list of unlocked zones after defeating `entity`.
  *
  * @param {number[]} unlockedZones

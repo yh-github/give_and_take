@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createRNG, shuffle, createShuffleBag } from '../src/logic/rng.js';
-import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../src/logic/rules.js';
+import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones, isValidEntityTrade, sanitizePuzzleEntities } from '../src/logic/rules.js';
 import { generateLevelPuzzle } from '../src/logic/generator.js';
+import { importStateFromString } from '../src/logic/saveState.js';
 import LEVEL_REGISTRY from '../src/levels/index.js';
 
 describe('RNG & Shuffle Bag Unit Suite', () => {
@@ -93,6 +94,44 @@ describe('Domain Rules (Single Source of Truth) Suite', () => {
     expect(computeUnlockedZones([1], { unlocksZones: [2, 3] })).toEqual([1, 2, 3]);
     expect(computeUnlockedZones([1, 2], { unlocksZone: 4 })).toEqual([1, 2, 4]);
   });
+
+  it('validates that an entity must never require the item it guards or rewards', () => {
+    // Presets (e.g. pickaxe on ground) and gatekeepers (e.g. rock requiring pickaxe) are valid
+    expect(isValidEntityTrade({ id: 'preset_pick', reward: 'pickaxe', requires: [] })).toBe(true);
+    expect(isValidEntityTrade({ id: 'rock_1', reward: null, requires: ['pickaxe'] })).toBe(true);
+
+    // Standard valid trade: requires rope, rewards gem
+    expect(isValidEntityTrade({ id: 'trader_1', reward: 'gem', requires: ['rope'] })).toBe(true);
+
+    // Invalid trade: ghost/scorpion requiring mushroom to give mushroom
+    expect(isValidEntityTrade({ id: 'ghost_1', reward: 'mushroom', requires: ['mushroom'] })).toBe(false);
+    expect(isValidEntityTrade({ id: 'trader_bad', reward: 'gold_nugget', requires: ['bone', 'gold_nugget'] })).toBe(false);
+  });
+
+  it('sanitizes entities so conflicting requirements are replaced with valid alternatives', () => {
+    const rawEntities = [
+      { id: 'ghost_1', name: 'Ghost', reward: 'mushroom', requires: ['mushroom'], allowedReqs: ['bone', 'crystal'] },
+      { id: 'scorpion_5', name: 'Scorpion', reward: 'mushroom', requires: ['mushroom'], allowedReqs: [] },
+      { id: 'normal_miner', name: 'Miner', reward: 'gem', requires: ['bone'], allowedReqs: ['bone'] }
+    ];
+    const levelItems = [{ id: 'emerald' }, { id: 'relic' }, { id: 'bone' }, { id: 'mushroom' }];
+
+    const sanitized = sanitizePuzzleEntities(rawEntities, levelItems);
+
+    // ghost_1 replacement should come from allowedReqs ('bone')
+    expect(sanitized[0].requires).toEqual(['bone']);
+    expect(sanitized[0].reward).toBe('mushroom');
+    expect(isValidEntityTrade(sanitized[0])).toBe(true);
+
+    // scorpion_5 has empty allowedReqs so fallback should come from levelItems (not mushroom)
+    expect(sanitized[1].requires[0]).not.toBe('mushroom');
+    expect(sanitized[1].reward).toBe('mushroom');
+    expect(isValidEntityTrade(sanitized[1])).toBe(true);
+
+    // normal_miner was already valid and should remain untouched
+    expect(sanitized[2].requires).toEqual(['bone']);
+    expect(sanitized[2].reward).toBe('gem');
+  });
 });
 
 describe('Deterministic Level Generation & Underwater Fixes', () => {
@@ -148,5 +187,73 @@ describe('Deterministic Level Generation & Underwater Fixes', () => {
     expect(puzzle.solution.length).toBeGreaterThan(0);
     expect(puzzle.solution.some(step => step.entityId === 'sea_witch')).toBe(true);
     expect(puzzle.solution.some(step => step.entityId === 'clam_3')).toBe(true);
+  });
+
+  it('strictly enforces across all levels and seeds that no entity ever asks for the item it guards/rewards', () => {
+    // Test across all registered levels and varied seeds
+    for (const levelId of ['river_crossing', 'underground', 'underwater']) {
+      const level = LEVEL_REGISTRY[levelId];
+      for (let s = 1; s <= 15; s++) {
+        const seed = `invariant-test-${levelId}-${s}`;
+        const puzzle = generateLevelPuzzle(level, 5, 1, seed);
+
+        expect(puzzle).toBeDefined();
+        expect(puzzle.puzzleEntities.length).toBeGreaterThan(0);
+
+        puzzle.puzzleEntities.forEach(ent => {
+          // Rule: An entity must never ask for what it guards/rewards
+          if (ent.reward && Array.isArray(ent.requires) && ent.requires.length > 0) {
+            expect(ent.requires.includes(ent.reward)).toBe(false);
+          }
+          expect(isValidEntityTrade(ent)).toBe(true);
+
+          // Underground specific: traders must not reward mushrooms (which grow freely as floor presets)
+          if (levelId === 'underground' && !ent.isPreset && !ent.isGatekeeper && ent.reward) {
+            expect(ent.reward).not.toBe('mushroom');
+          }
+        });
+      }
+    }
+  });
+
+  it('repairs/sanitizes old save states on import that had entities requiring their reward', () => {
+    // Simulate user-uploaded save file with ghost_1 requiring mushroom for mushroom
+    const rawLegacySave = JSON.stringify({
+      version: 1,
+      savedAt: new Date().toISOString(),
+      levelId: 'underground',
+      targetSteps: 5,
+      numDiggers: 1,
+      puzzle: {
+        puzzleEntities: [
+          {
+            id: 'ghost_1',
+            name: 'Miner Ghost',
+            emoji: '👻',
+            allowedReqs: ['gold_nugget', 'bone', 'emerald', 'rope', 'crystal'],
+            requires: ['mushroom'],
+            reqType: 'OR',
+            reward: 'mushroom',
+            x: 66,
+            y: 56,
+            zone: 5,
+            isGatekeeper: false
+          }
+        ],
+        goalEntityId: 'vault_rock',
+        startItems: ['rope', 'bone', 'gem'],
+        solution: []
+      },
+      inventory: ['rope', 'relic', 'crystal', 'mushroom'],
+      pathHistory: [{ x: 50, y: 10 }]
+    });
+
+    const result = importStateFromString(rawLegacySave, LEVEL_REGISTRY);
+    expect(result.success).toBe(true);
+    const sanitizedGhost = result.state.puzzle.puzzleEntities.find(e => e.id === 'ghost_1');
+    expect(sanitizedGhost).toBeDefined();
+    // ghost_1 must no longer require mushroom!
+    expect(sanitizedGhost.requires.includes('mushroom')).toBe(false);
+    expect(isValidEntityTrade(sanitizedGhost)).toBe(true);
   });
 });

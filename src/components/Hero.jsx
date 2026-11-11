@@ -14,7 +14,8 @@ export function Hero({
   isDrowning,
   heroFace,
   level,
-  isAnimatingLoot
+  isAnimatingLoot,
+  isInventoryFullAlert = false
 }) {
   return (
     <div 
@@ -27,6 +28,17 @@ export function Hero({
         ...(playerTransitionDuration ? { transitionDuration: playerTransitionDuration } : {})
       }}
     >
+      {/* Cartoon Thought Bubble when Inventory is Full */}
+      {isInventoryFullAlert && (
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-[220] pointer-events-none animate-bounce flex flex-col items-center">
+          <div className="bg-white border-2 border-amber-600 rounded-2xl px-2 py-0.5 flex items-center gap-1 shadow-2xl text-sm font-black whitespace-nowrap">
+            <span className="text-base">🎒</span>
+            <span className="text-red-600 text-xs font-black">✕</span>
+          </div>
+          <div className="w-2 h-2 bg-white border-b-2 border-r-2 border-amber-600 rotate-45 -mt-1" />
+        </div>
+      )}
+
       <div 
         className={`text-white w-[10cqw] h-[10cqw] rounded-full flex items-center justify-center shadow-[0_1cqw_2cqw_rgba(0,0,0,0.8)] text-[6cqw] relative ${
           isTransformed 

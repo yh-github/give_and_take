@@ -31,6 +31,8 @@ export function WorldViewport({
   roamingBoats,
   handleBoatTrade,
   alertEntityId,
+  alertReason,
+  isInventoryFullAlert,
   pathHistory,
   tempPlayerPos,
   playerPos,
@@ -139,7 +141,7 @@ export function WorldViewport({
             <span className="text-sm font-bold">➡️</span>
             <span className="text-xl">{level.items.find(i => i.id === b.offeredItem)?.emoji}</span>
           </div>
-          {alertEntityId === b.id && <div className="absolute inset-0 flex items-center justify-center text-4xl animate-troll-mad">🚫</div>}
+          {alertEntityId === b.id && <div className="absolute inset-0 flex items-center justify-center text-4xl animate-troll-mad">{alertReason === 'inventory_full' ? '🎒' : '🚫'}</div>}
         </div>
       ))}
 
@@ -156,7 +158,7 @@ export function WorldViewport({
         const isAlerting = alertEntityId === item.uid;
         return (
           <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[15] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${item.y}%` }}>
-            <div className="text-3xl drop-shadow-md">{isAlerting ? '🚫' : itemData.emoji}</div>
+            <div className="text-3xl drop-shadow-md">{isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}</div>
           </div>
         );
       })}
@@ -203,6 +205,7 @@ export function WorldViewport({
           level={level}
           defeated={defeated}
           alertEntityId={alertEntityId}
+          alertReason={alertReason}
           selectedEntityId={selectedEntityId}
           animatingEntities={animatingEntities}
           buriedEntities={buriedEntities}
@@ -231,6 +234,7 @@ export function WorldViewport({
         isTransformed={isTransformed}
         isSubmerged={isSubmerged}
         isDrowning={isDrowning}
+        isInventoryFullAlert={isInventoryFullAlert}
         heroFace={heroFace}
         level={level}
         isAnimatingLoot={isAnimatingLoot}

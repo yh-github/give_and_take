@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import App from '../index.jsx';
 import STRINGS from '../src/strings.js';
+import LEVEL_REGISTRY from '../src/levels/index.js';
+import InventoryBar from '../src/components/InventoryBar.jsx';
 
 describe('GUI Component & Integration Tests', () => {
   beforeEach(() => {
@@ -135,5 +137,50 @@ describe('GUI Component & Integration Tests', () => {
     // 4 inventory slot buttons exist
     const slotButtons = document.querySelectorAll('button[class*="rounded-[2.5cqw]"]');
     expect(slotButtons.length).toBe(4);
+  });
+
+  it('renders visual backpack capacity pill and full alert banner', () => {
+    const level = LEVEL_REGISTRY.underground;
+    const { rerender } = render(
+      <InventoryBar
+        inventory={['crystal', 'emerald']}
+        selectedItemTypes={[]}
+        toggleInventoryType={() => {}}
+        handleUndo={() => {}}
+        isDemonstrating={false}
+        isAnimatingLoot={false}
+        isRefillingAir={false}
+        historyStack={[]}
+        level={level}
+        dict={STRINGS.en}
+        isInventoryFullAlert={false}
+      />
+    );
+
+    // Shows 2/4 capacity
+    expect(screen.getByText('2/4')).toBeDefined();
+    expect(screen.getByText('🎒')).toBeDefined();
+
+    // Rerender with 4 unique items (Full) and isInventoryFullAlert=true
+    rerender(
+      <InventoryBar
+        inventory={['crystal', 'emerald', 'relic', 'rope']}
+        selectedItemTypes={[]}
+        toggleInventoryType={() => {}}
+        handleUndo={() => {}}
+        isDemonstrating={false}
+        isAnimatingLoot={false}
+        isRefillingAir={false}
+        historyStack={[]}
+        level={level}
+        dict={STRINGS.en}
+        isInventoryFullAlert={true}
+      />
+    );
+
+    // Shows 4/4 capacity
+    expect(screen.getByText('4/4')).toBeDefined();
+    // Shows alert banner with tent drop tip
+    expect(screen.getByText(STRINGS.en.inventoryFullTip)).toBeDefined();
   });
 });

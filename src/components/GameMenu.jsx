@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export const GAME_VERSION = 'v1.7.10-secret-passage-sealed';
 
@@ -51,6 +51,8 @@ export function GameMenu({
   onReplay,
   onShowSolution,
   onGenerateNew,
+  onExportState,
+  onImportState,
   isVictorious,
   isDemonstrating,
   isAnimatingLoot,
@@ -60,6 +62,59 @@ export function GameMenu({
   lightingSettings,
   setLightingSettings
 }) {
+  const [copied, setCopied] = useState(false);
+  const [exportString, setExportString] = useState('');
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState(null);
+
+  useEffect(() => {
+    if (menuView === 'export' && onExportState) {
+      setExportString(onExportState());
+    }
+  }, [menuView, onExportState]);
+
+  const handleCopy = async () => {
+    const text = exportString || (onExportState ? onExportState() : '');
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const handleDownload = () => {
+    const text = exportString || (onExportState ? onExportState() : '');
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `give_and_take_save_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportSubmit = () => {
+    setImportError(null);
+    if (!importText.trim()) {
+      setImportError(dict.invalidState || 'Invalid state');
+      return;
+    }
+    const res = onImportState ? onImportState(importText) : { success: false, error: 'No handler' };
+    if (res && res.success) {
+      setImportText('');
+      setImportError(null);
+      onClose();
+    } else {
+      setImportError(res?.error || dict.invalidState || 'Invalid state');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -71,10 +126,26 @@ export function GameMenu({
         {menuView === 'main' ? (
           <>
             <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.menu}</h2>
-            <button onClick={onReplay} className="w-full bg-stone-600 py-4 rounded-xl font-bold text-xl hover:bg-stone-500 shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1">{dict.restart}</button>
-            <button onClick={onShowSolution} disabled={isVictorious || isDemonstrating || isAnimatingLoot || !puzzle} className="w-full bg-indigo-600 py-4 rounded-xl font-bold text-xl hover:bg-indigo-500 shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50">{dict.showSolution}</button>
-            <button onClick={() => setMenuView('settings')} className="w-full bg-amber-600 py-4 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">{dict.generateMap}</button>
-            <button onClick={onClose} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.resume}</button>
+            <button onClick={onReplay} className="w-full bg-stone-600 py-3.5 rounded-xl font-bold text-lg hover:bg-stone-500 shadow-lg border-b-4 border-stone-800 active:border-b-0 active:translate-y-1">{dict.restart}</button>
+            <button onClick={onShowSolution} disabled={isVictorious || isDemonstrating || isAnimatingLoot || !puzzle} className="w-full bg-indigo-600 py-3.5 rounded-xl font-bold text-lg hover:bg-indigo-500 shadow-lg border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1 disabled:opacity-50">{dict.showSolution}</button>
+            <button onClick={() => setMenuView('settings')} className="w-full bg-amber-600 py-3.5 rounded-xl font-bold text-lg hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1">{dict.generateMap}</button>
+            
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button 
+                onClick={() => { setCopied(false); setMenuView('export'); }} 
+                className="w-full bg-emerald-700 py-3 rounded-xl font-bold text-base hover:bg-emerald-600 shadow-lg border-b-4 border-emerald-900 active:border-b-0 active:translate-y-1 transition-all"
+              >
+                {dict.exportState}
+              </button>
+              <button 
+                onClick={() => { setImportError(null); setImportText(''); setMenuView('import'); }} 
+                className="w-full bg-cyan-700 py-3 rounded-xl font-bold text-base hover:bg-cyan-600 shadow-lg border-b-4 border-cyan-900 active:border-b-0 active:translate-y-1 transition-all"
+              >
+                {dict.importState}
+              </button>
+            </div>
+
+            <button onClick={onClose} className="mt-2 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.resume}</button>
           </>
         ) : menuView === 'settings' ? (
           <>
@@ -128,6 +199,60 @@ export function GameMenu({
               </button>
             </div>
             <button onClick={() => setMenuView('main')} className="mt-4 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.back}</button>
+          </>
+        ) : menuView === 'export' ? (
+          <>
+            <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.exportTitle}</h2>
+            <p className="text-sm text-stone-300 text-center leading-relaxed">{dict.exportDesc}</p>
+            <div className="flex flex-col gap-3">
+              <textarea
+                readOnly
+                value={exportString}
+                onFocus={(e) => e.target.select()}
+                className="w-full h-44 bg-stone-900 border-2 border-stone-600 rounded-lg p-3 font-mono text-xs text-amber-300 outline-none select-all custom-scrollbar resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCopy}
+                  className="flex-1 bg-amber-600 hover:bg-amber-500 py-3 rounded-xl font-bold text-sm sm:text-base text-white shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1 transition-all"
+                >
+                  {copied ? dict.copied : dict.copyToClipboard}
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className="bg-stone-700 hover:bg-stone-600 px-4 py-3 rounded-xl font-bold text-sm sm:text-base text-stone-200 shadow-lg border-b-4 border-stone-900 active:border-b-0 active:translate-y-1 transition-all"
+                  title={dict.downloadFile}
+                >
+                  {dict.downloadFile}
+                </button>
+              </div>
+            </div>
+            <button onClick={() => setMenuView('main')} className="mt-2 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.back}</button>
+          </>
+        ) : menuView === 'import' ? (
+          <>
+            <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.importTitle}</h2>
+            <p className="text-sm text-stone-300 text-center leading-relaxed">{dict.importDesc}</p>
+            <div className="flex flex-col gap-3">
+              <textarea
+                value={importText}
+                onChange={(e) => { setImportText(e.target.value); setImportError(null); }}
+                placeholder={dict.pastePlaceholder}
+                className="w-full h-44 bg-stone-900 border-2 border-stone-600 rounded-lg p-3 font-mono text-xs text-stone-200 outline-none focus:border-amber-500 custom-scrollbar resize-none"
+              />
+              {importError && (
+                <div className="bg-red-950/80 border border-red-500 text-red-200 px-3 py-2 rounded-lg text-xs font-sans">
+                  ⚠️ {importError}
+                </div>
+              )}
+              <button
+                onClick={handleImportSubmit}
+                className="w-full bg-cyan-700 hover:bg-cyan-600 py-3 rounded-xl font-bold text-base text-white shadow-lg border-b-4 border-cyan-900 active:border-b-0 active:translate-y-1 transition-all"
+              >
+                {dict.loadState}
+              </button>
+            </div>
+            <button onClick={() => setMenuView('main')} className="mt-2 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.back}</button>
           </>
         ) : (
           <>

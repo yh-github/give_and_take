@@ -9,6 +9,7 @@ export function GameEntity({
   level,
   defeated,
   alertEntityId,
+  alertReason,
   selectedEntityId,
   animatingEntities,
   buriedEntities,
@@ -135,6 +136,16 @@ export function GameEntity({
           </div>
         )}
 
+        {isAlerting && alertReason === 'inventory_full' && (
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-[200] pointer-events-none animate-bounce flex flex-col items-center">
+            <div className="bg-amber-500 text-stone-900 border-2 border-amber-200 rounded-full px-2.5 py-0.5 shadow-2xl flex items-center gap-1 text-sm font-black whitespace-nowrap">
+              <span>🎒</span>
+              <span className="text-red-700 text-xs font-black">✕</span>
+            </div>
+            <div className="w-2 h-2 bg-amber-500 border-b-2 border-r-2 border-amber-200 rotate-45 -mt-1" />
+          </div>
+        )}
+
         <div className="relative">
           {ent.isGatekeeper && !isRock && !isCurrent && GatekeeperProp && <GatekeeperProp />}
 
@@ -195,8 +206,13 @@ export function GameEntity({
                 <div className={`text-[12cqw] animate-spin-slow ${isAlerting ? 'animate-troll-mad text-red-500' : 'text-cyan-400'}`}>🌀</div>
               ) : (
                 <div className={`${ent.filterClass || ''} ${isFlipped ? 'scale-x-[-1]' : ''} ${isAnimating ? 'animate-dog-dig' : ''}`}>
-                  {isAlerting && !ent.isPreset ? (ent.id.startsWith('mermaid') ? '🥺' : '😡') :
-                    isAlerting ? '🚫' :
+                  {isAlerting && !ent.isPreset ? (
+                    alertReason === 'inventory_full' ? '🎒' :
+                    (ent.id.startsWith('mermaid') ? '🥺' : '😡')
+                  ) :
+                    isAlerting ? (
+                      alertReason === 'inventory_full' ? '🎒' : '🚫'
+                    ) :
                       level.id === 'underwater' ? (
                         ent.id === 'sea_witch' ? (
                           <div className="relative flex flex-col items-center">

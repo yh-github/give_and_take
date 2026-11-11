@@ -1,6 +1,7 @@
 import { SOLVER_TIME_LIMIT_MS, GENERATOR_MAX_ATTEMPTS } from '../../constants.js';
 import { solvePuzzle } from '../../logic/solver.js';
 import { createRNG, shuffle } from '../../logic/rng.js';
+import { sanitizePuzzleEntities } from '../../logic/rules.js';
 
 /**
  * Procedural, solver-verified puzzle generator for the Underwater level.
@@ -243,20 +244,26 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
         t.reward = 'gold_fish';
       } else {
         const reward = safeRewards[idx % safeRewards.length] || startItems[0];
-        const req = chainPool[(chainCursor + idx) % chainPool.length] || 'gold_fish';
-        t.requires = [req === reward ? 'fish' : req];
+        let req = chainPool[(chainCursor + idx) % chainPool.length] || 'gold_fish';
+        if (req === reward) {
+          req = reward === 'fish' ? 'shell' : 'fish';
+        }
+        t.requires = [req];
         t.reqType = 'OR';
         t.reward = reward;
       }
     });
 
     puzzleEntities.push(...reefTraders, ...deepTraders, goalClam);
+    const sanitizedEntities = sanitizePuzzleEntities(puzzleEntities, level.items);
+    puzzleEntities.length = 0;
+    puzzleEntities.push(...sanitizedEntities);
 
     const solved = solvePuzzle(startItems, puzzleEntities, 'clam_3', level);
     if (solved) {
       const candidate = {
         startItems,
-        puzzleEntities,
+        puzzleEntities: sanitizePuzzleEntities(puzzleEntities, level.items),
         goalEntityId: 'clam_3',
         solution: solved.path,
         steps: solved.steps
@@ -277,5 +284,8 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
     }
   }
 
+  if (bestPuzzle && bestPuzzle.puzzleEntities) {
+    bestPuzzle.puzzleEntities = sanitizePuzzleEntities(bestPuzzle.puzzleEntities, level.items);
+  }
   return bestPuzzle;
 }

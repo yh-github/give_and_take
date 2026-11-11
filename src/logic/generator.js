@@ -1,9 +1,16 @@
 import { SOLVER_TIME_LIMIT_MS, GENERATOR_MAX_ATTEMPTS } from '../constants.js';
 import { solvePuzzle } from './solver.js';
 import { createRNG, shuffle } from './rng.js';
+import { sanitizePuzzleEntities } from './rules.js';
 
 export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed = null) {
-  if (level.generatePuzzle) return level.generatePuzzle(level, targetSteps, numDiggers, seed);
+  if (level.generatePuzzle) {
+    const customPuzzle = level.generatePuzzle(level, targetSteps, numDiggers, seed);
+    if (customPuzzle && customPuzzle.puzzleEntities) {
+      customPuzzle.puzzleEntities = sanitizePuzzleEntities(customPuzzle.puzzleEntities, level.items);
+    }
+    return customPuzzle;
+  }
 
   const rng = createRNG(seed);
   let bestPuzzle = null;
@@ -123,9 +130,10 @@ export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed
       const pos = availableNodes[idx];
       const reward = standardItems[Math.floor(rng() * standardItems.length)].id;
       const availableReqs = (e.allowedReqs || []).filter(req => req !== reward && req !== 'pickaxe' && req !== 'key');
+      const fallbackReqs = standardItems.map(i => i.id).filter(id => id !== reward && id !== 'pickaxe' && id !== 'key');
       const reqs = availableReqs.length > 0
         ? shuffle(availableReqs, rng).slice(0, 1)
-        : [standardItems[0].id];
+        : [fallbackReqs[0] || (reward === 'bone' ? 'rope' : 'bone')];
 
       let color = e.color || '#2dd4bf';
       if (e.id.startsWith('mermaid') && !e.color) {
@@ -198,7 +206,11 @@ export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed
       const unusedTraders = [...z1Traders.slice(k1), ...z2Traders.slice(k2)];
       unusedTraders.forEach((t, i) => {
         const rhReward = safeRedHerringPool[i % safeRedHerringPool.length] || startItems[0];
-        const rhReq = nonStartItems[(itemCursor + i) % nonStartItems.length] || startItems[2];
+        let rhReq = nonStartItems[(itemCursor + i) % nonStartItems.length] || startItems[2];
+        if (rhReq === rhReward) {
+          const alt = nonStartItems.find(id => id !== rhReward) || startItems.find(id => id !== rhReward) || 'fish';
+          rhReq = alt;
+        }
         t.requires = [rhReq];
         t.reqType = 'OR';
         t.reward = rhReward;
@@ -298,13 +310,26 @@ export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed
       });
 
       // Remaining traders act as red herrings whose rewards do not short-circuit the main chain
-      const forbiddenRewards = new Set([...usedChainRewards, startItems[0], startItems[1], startItems[2], prevItem]);
+      const forbiddenRewards = new Set([...usedChainRewards, startItems[0], startItems[1], startItems[2], prevItem, 'mushroom', 'pickaxe', 'key']);
       const safeRewards = standardItems.map(i => i.id).filter(id => !forbiddenRewards.has(id));
+      const fallbackRewards = standardItems.map(i => i.id).filter(id => id !== 'mushroom' && id !== 'pickaxe' && id !== 'key');
+      const redHerringRewards = safeRewards.length > 0 ? safeRewards : fallbackRewards;
+
       traderEntities.forEach((t, i) => {
         if (!assigned.has(t.id)) {
-          const reward = safeRewards[i % safeRewards.length] || 'mushroom';
+          const reward = redHerringRewards[i % redHerringRewards.length] || 'emerald';
+          const allowed = (t.allowedReqs || []).filter(r => r !== reward && r !== 'pickaxe' && r !== 'key');
+          const fallbackReqs = standardItems.map(item => item.id).filter(id => id !== reward && id !== 'pickaxe' && id !== 'key');
+          let chosenReq;
+          if (allowed.length > 0) {
+            chosenReq = allowed[i % allowed.length];
+          } else if (fallbackReqs.length > 0) {
+            chosenReq = fallbackReqs[i % fallbackReqs.length];
+          } else {
+            chosenReq = reward === 'bone' ? 'rope' : 'bone';
+          }
           t.reward = reward;
-          t.requires = ['mushroom'];
+          t.requires = [chosenReq];
           t.reqType = 'OR';
         }
       });
@@ -313,15 +338,28 @@ export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed
       if (firstStepEnt) {
         firstStepEnt.requires = [startItems[0]];
         firstStepEnt.reqType = 'OR';
-        if (level.mechanics.hasPickaxe) firstStepEnt.reward = 'pickaxe';
+        if (level.mechanics.hasPickaxe) {
+          firstStepEnt.reward = 'pickaxe';
+        } else if (firstStepEnt.reward === startItems[0]) {
+          const altReward = standardItems.find(i => i.id !== startItems[0])?.id || 'bone';
+          firstStepEnt.reward = altReward;
+        }
       }
       if (level.mechanics.hasPickaxe) {
         const z1NonGoal = traderEntities.find(e => e.zone === 1 && !e.isGatekeeper && e.id !== goalTemplate.id && e.id !== firstStepEnt?.id);
-        if (z1NonGoal) z1NonGoal.reward = 'pickaxe';
+        if (z1NonGoal) {
+          z1NonGoal.reward = 'pickaxe';
+          if (z1NonGoal.requires && z1NonGoal.requires.includes('pickaxe')) {
+            z1NonGoal.requires = [startItems[0]];
+          }
+        }
       }
     }
 
-    const puzzleEntities = [...activeGatekeepers, ...presetEntities, ...traderEntities];
+    const puzzleEntities = sanitizePuzzleEntities(
+      [...activeGatekeepers, ...presetEntities, ...traderEntities],
+      level.items
+    );
     const targetGoalId = (level.mechanics.isVertical && level.mechanics.hasPickaxe) ? 'vault_rock' : goalTemplate.id;
 
     // 3. Verify solvability and shortest-path step count with BFS Solver
@@ -337,7 +375,8 @@ export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed
         }
       });
 
-      const candidate = { startItems, puzzleEntities, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps };
+      const sanitizedPuzzle = sanitizePuzzleEntities(puzzleEntities, level.items);
+      const candidate = { startItems, puzzleEntities: sanitizedPuzzle, goalEntityId: targetGoalId, solution: solutionPath, steps: solutionSteps };
 
       if (solutionSteps >= targetSteps && solutionSteps <= targetSteps + 1) {
         return candidate;
@@ -352,6 +391,9 @@ export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed
         bestPuzzle = candidate;
       }
     }
+  }
+  if (bestPuzzle && bestPuzzle.puzzleEntities) {
+    bestPuzzle.puzzleEntities = sanitizePuzzleEntities(bestPuzzle.puzzleEntities, level.items);
   }
   return bestPuzzle;
 }
