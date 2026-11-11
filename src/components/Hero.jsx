@@ -8,6 +8,7 @@ export function Hero({
   playerFilter,
   playerZ,
   playerTransition,
+  playerTransitionDuration,
   isTransformed,
   isSubmerged,
   isDrowning,
@@ -22,7 +23,8 @@ export function Hero({
         left: `${playerVisualX}%`, 
         top: `${playerVisualY}%`, 
         zIndex: Math.max(playerZ, 160), 
-        transform: `translate(-50%, -50%) rotate(${playerRotation}deg)` 
+        transform: `translate(-50%, -50%) rotate(${playerRotation}deg)`,
+        ...(playerTransitionDuration ? { transitionDuration: playerTransitionDuration } : {})
       }}
     >
       <div 

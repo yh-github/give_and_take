@@ -1,11 +1,25 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MAX_AIR } from '../constants.js';
+import {
+  MAX_AIR,
+  MAX_UNIQUE_ITEMS,
+  FISH_SPAWN_INTERVAL_MS,
+  BOAT_SPAWN_INTERVAL_MS,
+  INK_FOG_DURATION_MS,
+  DIGGER_BURY_DELAY_MS,
+  DIGGER_BURY_ANIM_MS,
+  ACTION_ANIM_MS,
+  ALERT_DURATION_MS,
+  AIR_REFILL_INTERVAL_MS,
+  DROWNING_ALERT_DELAY_MS
+} from '../constants.js';
 import STRINGS from '../strings.js';
 import LEVEL_REGISTRY from '../levels/index.js';
 import { generateLevelPuzzle } from '../logic/generator.js';
-import { computeWaypoints } from '../logic/navigation.js';
+import { computeWaypoints, uniqueCount, inferTargetZone } from '../logic/navigation.js';
 import { getVisibilityPolygon, getObstacleSegments, isPointInVisibilityPolygon, checkCollision } from '../logic/visibility.js';
 import { findGlobalPath } from '../logic/pathfinding.js';
+import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.js';
+import { createShuffleBag } from '../logic/rng.js';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
 
 import { GameMenu, GeneratingScreen, GenerationFailedScreen, DEFAULT_LIGHTING } from './GameMenu.jsx';
@@ -90,6 +104,29 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
   const stateRefs = useRef({});
   const activeDigTimers = useRef({});
+  const managedTimeoutsRef = useRef(new Set());
+  const walkSessionRef = useRef(0);
+
+  const scheduleTimeout = useCallback((fn, delayMs) => {
+    const id = setTimeout(() => {
+      managedTimeoutsRef.current.delete(id);
+      fn();
+    }, delayMs);
+    managedTimeoutsRef.current.add(id);
+    return id;
+  }, []);
+
+  const clearManagedTimeouts = useCallback(() => {
+    managedTimeoutsRef.current.forEach(clearTimeout);
+    managedTimeoutsRef.current.clear();
+    Object.values(activeDigTimers.current).forEach(clearTimeout);
+    activeDigTimers.current = {};
+    walkSessionRef.current += 1;
+  }, []);
+
+  useEffect(() => {
+    return () => clearManagedTimeouts();
+  }, [clearManagedTimeouts]);
 
   const screens = level.mechanics.screens || 1;
 
@@ -250,19 +287,19 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       }
     } else if (airRef.current <= 1) {
       setAir(0);
-      setTimeout(() => {
+      scheduleTimeout(() => {
         setAlertEntityId('out_of_air');
         setIsAnimatingLoot(true);
         const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
         setPathHistory(prev => [...prev, ...returnPath]);
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setIsAnimatingLoot(false);
           setAlertEntityId(null);
           setIsRefillingAir(true);
         }, 3000);
-      }, 800);
+      }, DROWNING_ALERT_DELAY_MS);
     } else setAir(a => a - 1);
-  }, [level.id, level.mechanics.hasAir, level.campPos, navigateTo, isTransformed, hasDeepTreasure, triggerVictory]);
+  }, [level.id, level.mechanics.hasAir, level.campPos, navigateTo, isTransformed, hasDeepTreasure, triggerVictory, scheduleTimeout]);
 
   const startDolphinDive = useCallback(() => {
     setAttachedEntityId('dolphin_1');
@@ -295,6 +332,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   }, []);
 
   useEffect(() => {
+    if (level.id !== 'underwater') return;
     let frameId;
     const update = (time) => {
       setGameTime(time / 1000);
@@ -334,7 +372,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     };
     frameId = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frameId);
-  }, [handlePostActionAir]);
+  }, [level.id, handlePostActionAir]);
 
   useEffect(() => {
     if (!level.mechanics.hasSchoolsOfFish) return;
@@ -356,48 +394,58 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     const intervalId = setInterval(() => {
       spawnFish(false);
       if (Math.random() > 0.3) spawnFish(false);
-    }, 1200);
+    }, FISH_SPAWN_INTERVAL_MS);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.mechanics.hasSchoolsOfFish, level.id]);
 
   useEffect(() => {
     if (level.id !== 'underwater') return;
     let timeoutIds = [];
+    const junkBag = createShuffleBag(['comb', 'mirror', 'boot', 'locket']);
     const spawnBoat = () => {
       if (isDemoRef.current || isVicRef.current) return;
-      const id = Date.now() + Math.random();
-      const junkItems = ['comb', 'mirror', 'boot', 'locket'];
-      const offeredItem = junkItems[Math.floor(Math.random() * junkItems.length)];
+      const spawnTime = Date.now();
+      const id = spawnTime + Math.random();
+      const offeredItem = junkBag.next();
       const reqItem = Math.random() > 0.5 ? 'gold_fish' : 'fish';
       const isRight = Math.random() > 0.5;
-      setRoamingBoats(prev => [...prev, { id, offeredItem, reqItem, x: isRight ? -10 : 110, isRight }]);
-      const tId = setTimeout(() => { setRoamingBoats(prev => prev.filter(b => b.id !== id)); }, 15000);
+      setRoamingBoats(prev => [...prev, { id, spawnTime, offeredItem, reqItem, x: isRight ? -20 : 120, isRight }]);
+      const tId = setTimeout(() => { setRoamingBoats(prev => prev.filter(b => b.id !== id)); }, 20000);
       timeoutIds.push(tId);
     };
-    const intervalId = setInterval(spawnBoat, 12000);
+    // Spawn an initial boat shortly after entering Underwater so the player doesn't wait 12s
+    const initialBoatTimer = setTimeout(spawnBoat, 1500);
+    timeoutIds.push(initialBoatTimer);
+    const intervalId = setInterval(spawnBoat, BOAT_SPAWN_INTERVAL_MS);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.id]);
 
   useEffect(() => {
     if (!puzzle || isDemonstrating || isAnimatingLoot) return;
+    const currentPos = pathHistory[pathHistory.length - 1];
     const diggersToBury = puzzle.puzzleEntities.filter(ent => {
       const isDigger = level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal;
-      return isDigger && unlockedZones.includes(ent.zone) && pathHistory.length > 1 && !buriedEntities.includes(ent.id) && !animatingEntities.includes(ent.id) && !defeated.includes(ent.id);
+      const isVisibleToPlayer = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
+      const isZoneAccessible = level.mechanics.hasTransformation
+        ? (ent.zone <= 2 || (isTransformed && currentPos && currentPos.y >= 65))
+        : unlockedZones.includes(ent.zone);
+      return isDigger && isVisibleToPlayer && isZoneAccessible && pathHistory.length > 1 && !buriedEntities.includes(ent.id) && !animatingEntities.includes(ent.id) && !defeated.includes(ent.id);
     });
 
     diggersToBury.forEach(ent => {
       if (!activeDigTimers.current[ent.id]) {
         activeDigTimers.current[ent.id] = setTimeout(() => {
           setAnimatingEntities(prev => [...prev, ent.id]);
-          setTimeout(() => {
+          activeDigTimers.current[`${ent.id}_anim`] = setTimeout(() => {
             setAnimatingEntities(prev => prev.filter(id => id !== ent.id));
             setBuriedEntities(prev => [...new Set([...prev, ent.id])]);
             delete activeDigTimers.current[ent.id];
-          }, 700);
-        }, 3000);
+            delete activeDigTimers.current[`${ent.id}_anim`];
+          }, DIGGER_BURY_ANIM_MS);
+        }, DIGGER_BURY_DELAY_MS);
       }
     });
-  }, [pathHistory, unlockedZones, puzzle, isDemonstrating, isAnimatingLoot, buriedEntities, animatingEntities, defeated, level]);
+  }, [pathHistory, unlockedZones, puzzle, isDemonstrating, isAnimatingLoot, buriedEntities, animatingEntities, defeated, level, visibleEntitiesSet]);
 
   const saveHistory = useCallback(() => {
     setHistoryStack(prev => [...prev, {
@@ -419,8 +467,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
 
   const handleUndo = () => {
     if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot) return;
-    Object.values(activeDigTimers.current).forEach(clearTimeout);
-    activeDigTimers.current = {};
+    clearManagedTimeouts();
     const prevState = historyStack[historyStack.length - 1];
     setInventory(prevState.inventory); setDefeated(prevState.defeated); setPathHistory(prevState.pathHistory);
     setEnvItemState(prevState.envItemState);
@@ -438,53 +485,106 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     setMassFlyingTreasures([]);
   };
 
-  const INITIAL_STATE = { unlockedZones: [1], air: MAX_AIR, defeated: [], selectedItemTypes: [], selectedEntityId: null, historyStack: [], isVictorious: false, showTrophy: false, showVictoryMsg: false, isDemonstrating: false, isAnimatingLoot: false, alertEntityId: null, flyingItem: null, tempPlayerPos: null, envItemState: 'active', schoolsOfFish: [], animatingEntities: [], campItems: [], buriedEntities: [], massFlyingTreasures: [], isTransformed: false, hasDeepTreasure: false, inkFogEntities: new Set(), roamingBoats: [], attachedEntityId: null, isMagicAnimating: false, heroBubbleBursts: [] };
-  
   const resetGameState = () => {
     if (!puzzle) return;
-    Object.values(activeDigTimers.current).forEach(clearTimeout);
-    activeDigTimers.current = {};
-    setInventory(puzzle.startItems || []); setPathHistory([{ ...level.campPos, zone: 1 }]); setBreakingRockIds({});
-    setDolphinState('idle_surface'); setDolphinYPos(16);
+    clearManagedTimeouts();
+    setInventory(puzzle.startItems || []);
+    setPathHistory([{ ...level.campPos, zone: 1 }]);
+    setBreakingRockIds({});
+    setDolphinState('idle_surface');
+    setDolphinYPos(16);
     dolphinAnimRef.current = { startTime: 0, startY: 16, targetY: 16, duration: 0, isDiving: false, attachPlayer: false };
-    Object.entries(INITIAL_STATE).forEach(([k, v]) => {
-      if (k === 'unlockedZones') setUnlockedZones(v); else if (k === 'air') setAir(v); else if (k === 'defeated') setDefeated(v); else if (k === 'selectedItemTypes') setSelectedItemTypes(v); else if (k === 'selectedEntityId') setSelectedEntityId(v); else if (k === 'historyStack') setHistoryStack(v); else if (k === 'isVictorious') setIsVictorious(v); else if (k === 'showTrophy') setShowTrophy(v); else if (k === 'showVictoryMsg') setShowVictoryMsg(v); else if (k === 'isDemonstrating') setIsDemonstrating(v); else if (k === 'isAnimatingLoot') setIsAnimatingLoot(v); else if (k === 'alertEntityId') setAlertEntityId(v); else if (k === 'flyingItem') setFlyingItem(v); else if (k === 'tempPlayerPos') setTempPlayerPos(v); else if (k === 'envItemState') setEnvItemState(v); else if (k === 'schoolsOfFish') setSchoolsOfFish(v); else if (k === 'animatingEntities') setAnimatingEntities(v); else if (k === 'campItems') setCampItems(v); else if (k === 'buriedEntities') setBuriedEntities(v); else if (k === 'isTransformed') setIsTransformed(v); else if (k === 'hasDeepTreasure') setHasDeepTreasure(v); else if (k === 'inkFogEntities') setInkFogEntities(v); else if (k === 'roamingBoats') setRoamingBoats(v); else if (k === 'attachedEntityId') setAttachedEntityId(v); else if (k === 'isMagicAnimating') setIsMagicAnimating(v); else if (k === 'heroBubbleBursts') setHeroBubbleBursts(v);
-    });
+    setUnlockedZones([1]);
+    setAir(MAX_AIR);
+    setDefeated([]);
+    setSelectedItemTypes([]);
+    setSelectedEntityId(null);
+    setHistoryStack([]);
+    setIsVictorious(false);
+    setShowTrophy(false);
+    setShowVictoryMsg(false);
+    setIsDemonstrating(false);
+    setIsAnimatingLoot(false);
+    setAlertEntityId(null);
+    setFlyingItem(null);
+    setTempPlayerPos(null);
+    setEnvItemState('active');
+    setSchoolsOfFish([]);
+    setAnimatingEntities([]);
+    setCampItems([]);
+    setBuriedEntities([]);
+    setMassFlyingTreasures([]);
+    setIsTransformed(false);
+    setHasDeepTreasure(false);
+    setInkFogEntities(new Set());
+    setRoamingBoats([]);
+    setAttachedEntityId(null);
+    setIsMagicAnimating(false);
+    setHeroBubbleBursts([]);
   };
 
   const handleReplay = () => { demoRef.current = false; resetGameState(); setIsMenuOpen(false); };
 
   const handleShowSolution = async () => {
     if (!puzzle || !puzzle.solution || demoRef.current || isAnimatingLoot) return;
-    setIsDemonstrating(true); demoRef.current = true; resetGameState(); setIsMenuOpen(false);
+    resetGameState();
+    setIsDemonstrating(true);
+    demoRef.current = true;
+    setIsMenuOpen(false);
 
-    let currentInv = [...(puzzle.startItems || [])]; let currentDefeated = []; let currentPath = [{ ...level.campPos, zone: 1 }];
-    let currentZoneSim = 1; let unlockedZonesSim = new Set([1]);
+    let currentInv = [...(puzzle.startItems || [])];
+    let currentDefeated = [];
+    let currentPath = [{ ...level.campPos, zone: 1 }];
+    let currentZoneSim = 1;
+    let unlockedZonesSim = new Set([1]);
+    let transformedSim = false;
+    let hasTreasureSim = false;
 
     for (const step of puzzle.solution) {
       if (!demoRef.current) break;
       if (step.isEnvironmentAction) {
-        setEnvItemState('caught'); setEnvItemCaughtPos({ x: 50, y: 53 });
-        await new Promise(r => setTimeout(r, 800));
-        setEnvItemState('hidden'); currentInv.push(step.itemId); setInventory([...currentInv]);
-        await new Promise(r => setTimeout(r, 400));
+        if (step.itemId === 'fish') {
+          setEnvItemState('caught');
+          setEnvItemCaughtPos({ x: 50, y: 53 });
+          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          if (!demoRef.current) break;
+          setEnvItemState('hidden');
+        } else {
+          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji, x: 50, y: 19 });
+          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          if (!demoRef.current) break;
+          setFlyingItem(null);
+        }
+        currentInv.push(step.itemId);
+        setInventory([...currentInv]);
+        await new Promise(r => scheduleTimeout(r, 400));
         continue;
       }
 
       const entity = puzzle.puzzleEntities.find(e => e.id === step.entityId);
+      if (!entity) continue;
+
       let waypoints = computeWaypoints(currentZoneSim, entity.zone);
 
       for (let wp of waypoints) {
-        currentPath.push(wp); setPathHistory([...currentPath]); currentZoneSim = wp.zone;
-        await new Promise(r => setTimeout(r, 400));
+        if (!demoRef.current) break;
+        currentPath.push(wp);
+        setPathHistory([...currentPath]);
+        currentZoneSim = wp.zone;
+        await new Promise(r => scheduleTimeout(r, 400));
       }
 
-      await new Promise(r => setTimeout(r, 600));
-      if (step.reqType === 'AND') {
-        setSelectedItemTypes(Array.from(new Set(step.usedItems)));
-      } else { setSelectedItemTypes([step.itemId]); }
+      await new Promise(r => scheduleTimeout(r, 600));
+      if (!demoRef.current) break;
 
-      await new Promise(r => setTimeout(r, 600));
+      if (step.reqType === 'AND') {
+        setSelectedItemTypes(Array.from(new Set(step.usedItems || [])));
+      } else if (step.itemId) {
+        setSelectedItemTypes([step.itemId]);
+      }
+
+      await new Promise(r => scheduleTimeout(r, 600));
+      if (!demoRef.current) break;
 
       const lastSimPos = currentPath[currentPath.length - 1];
       const prevPoint = waypoints.length > 0 ? waypoints[waypoints.length - 1] : lastSimPos;
@@ -501,34 +601,75 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
         }
       }
 
-      currentPath.push({ x: targetX, y: targetY, depth: entity.depth || 3, zone: entity.zone }); setPathHistory([...currentPath]);
+      currentPath.push({ x: targetX, y: targetY, depth: entity.depth || 3, zone: entity.zone });
+      setPathHistory([...currentPath]);
       currentZoneSim = entity.zone;
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+      if (!demoRef.current) break;
 
       if (step.reqType === 'AND') {
-        step.usedItems.forEach(req => { const idx = currentInv.indexOf(req); if (idx > -1) currentInv.splice(idx, 1); });
-      } else { currentInv.splice(currentInv.indexOf(step.itemId), 1); }
+        (step.usedItems || []).forEach(req => {
+          const idx = currentInv.indexOf(req);
+          if (idx > -1) currentInv.splice(idx, 1);
+        });
+      } else if (step.itemId) {
+        const idx = currentInv.indexOf(step.itemId);
+        if (idx > -1) currentInv.splice(idx, 1);
+      }
 
-      setInventory([...currentInv]); setSelectedItemTypes([]);
+      setInventory([...currentInv]);
+      setSelectedItemTypes([]);
+
+      if (entity.id === 'sea_witch') {
+        transformedSim = !transformedSim;
+        setIsTransformed(transformedSim);
+      }
+      if (entity.isGoal && level.mechanics.hasTransformation) {
+        hasTreasureSim = true;
+        setHasDeepTreasure(true);
+      }
 
       if (entity.reward) {
         const entityX = entity.roamClass ? 50 : entity.x;
         setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: entity.y });
-        await new Promise(r => setTimeout(r, 800));
-        setFlyingItem(null); currentInv.push(entity.reward);
+        await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+        if (!demoRef.current) break;
+        setFlyingItem(null);
+        currentInv.push(entity.reward);
         setInventory([...currentInv]);
       }
 
-      currentDefeated.push(entity.id); setDefeated([...currentDefeated]); setSelectedEntityId(null);
+      if (entity.id !== 'sea_witch') {
+        currentDefeated.push(entity.id);
+        setDefeated([...currentDefeated]);
+      }
+      setSelectedEntityId(null);
 
       if (entity.isGatekeeper && entity.unlocksZones) {
         entity.unlocksZones.forEach(z => unlockedZonesSim.add(z));
         unlockedZonesSim.add(entity.zone);
         setUnlockedZones(Array.from(unlockedZonesSim));
       }
-      if (!level.mechanics.isVertical && entity.id === puzzle.goalEntityId) triggerVictory();
+
+      if (entity.id === puzzle.goalEntityId && !level.mechanics.hasTransformation) {
+        if (level.mechanics.isCaveType) {
+          const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
+          setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji, x: t.x, y: t.y, delay: idx * 150 })));
+          currentDefeated.push(...allTreasures.map(t => t.id));
+          setDefeated([...currentDefeated]);
+          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          setMassFlyingTreasures([]);
+        }
+        triggerVictory();
+      } else if (level.mechanics.hasTransformation && hasTreasureSim && !transformedSim && step.isReturnTrip) {
+        currentPath.push({ x: level.campPos.x, y: level.campPos.y, depth: 3, zone: 1 });
+        setPathHistory([...currentPath]);
+        await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+        triggerVictory();
+      }
     }
-    setIsDemonstrating(false); demoRef.current = false;
+    setIsDemonstrating(false);
+    demoRef.current = false;
   };
 
   const triggerAirLossBubbles = useCallback((x, y) => {
@@ -543,10 +684,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       speed: 0.9 + Math.random() * 0.4
     }));
     setHeroBubbleBursts(prev => [...prev, { id: burstId, x, y, bubbles }]);
-    setTimeout(() => {
+    scheduleTimeout(() => {
       setHeroBubbleBursts(prev => prev.filter(b => b.id !== burstId));
     }, 1600);
-  }, [level.mechanics.hasAir, isTransformed]);
+  }, [level.mechanics.hasAir, isTransformed, scheduleTimeout]);
 
   useEffect(() => {
     if (!isRefillingAir) return;
@@ -559,24 +700,29 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
         }
         return prev + 1;
       });
-    }, 500);
+    }, AIR_REFILL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [isRefillingAir]);
 
   const handleCatchRiverFish = (e) => {
     e.stopPropagation();
-    const uniqueInvCount = Array.from(new Set(inventory)).length;
-    if (envItemState !== 'active' || (uniqueInvCount >= 4 && !inventory.includes('fish')) || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+    const { fits } = canFitInInventory(inventory, [], 'fish');
+    if (envItemState !== 'active' || !fits || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     saveHistory();
     const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
     setEnvItemCaughtPos({ x: ((e.clientX - parentRect.left) / parentRect.width) * 100, y: ((e.clientY - parentRect.top) / parentRect.height) * 100 });
-    setEnvItemState('caught'); setTimeout(() => { setEnvItemState('hidden'); setInventory(prev => [...prev, 'fish']); handlePostActionAir(53); }, 800);
+    setEnvItemState('caught');
+    scheduleTimeout(() => {
+      setEnvItemState('hidden');
+      setInventory(prev => [...prev, 'fish']);
+      handlePostActionAir(53);
+    }, ACTION_ANIM_MS);
   };
 
   const handleCatchSchoolFish = (e, fishObj) => {
     e.stopPropagation();
-    const uniqueInvCount = Array.from(new Set(inventory)).length;
-    if ((uniqueInvCount >= 4 && !inventory.includes(fishObj.type)) || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+    const { fits } = canFitInInventory(inventory, [], fishObj.type);
+    if (!fits || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     if (!mapRef.current) return;
     const rect = mapRef.current.getBoundingClientRect();
     saveHistory(); setIsAnimatingLoot(true);
@@ -586,9 +732,12 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     const targetX = ((e.clientX - rect.left) / rect.width) * 100;
     const targetY = fishObj.y;
     setPathHistory(prev => [...prev, { x: targetX, y: targetY, depth: fishObj.depth, zone: currentZone }]);
-    setTimeout(() => {
+    scheduleTimeout(() => {
       setSchoolsOfFish(currentFish => {
-        if (currentFish.some(f => f.id === fishObj.id)) { setInventory(prev => [...prev, fishObj.type]); return currentFish.filter(f => f.id !== fishObj.id); }
+        if (currentFish.some(f => f.id === fishObj.id)) {
+          setInventory(prev => [...prev, fishObj.type]);
+          return currentFish.filter(f => f.id !== fishObj.id);
+        }
         return currentFish;
       });
       setIsAnimatingLoot(false);
@@ -599,34 +748,36 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   const handleBoatTrade = (e, boat) => {
     e.stopPropagation();
     const tradeReq = boat.reqItem || 'fish';
+    const { fits } = canFitInInventory(inventory, [tradeReq], boat.offeredItem);
 
-    const futureInv = [...inventory];
-    const tradeIdx = futureInv.indexOf(tradeReq);
-    if (tradeIdx > -1) futureInv.splice(tradeIdx, 1);
-    if (boat.offeredItem) futureInv.push(boat.offeredItem);
-    const willExceed = Array.from(new Set(futureInv)).length > 4;
-
-    if (!inventory.includes(tradeReq) || willExceed || isDemonstrating || isAnimatingLoot || isRefillingAir) {
+    if (!inventory.includes(tradeReq) || !fits || isDemonstrating || isAnimatingLoot || isRefillingAir) {
       setAlertEntityId(boat.id);
-      setTimeout(() => setAlertEntityId(null), 600);
+      scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
       return;
     }
     saveHistory(); setIsAnimatingLoot(true);
     const startPos = pathHistory[pathHistory.length - 1];
     triggerAirLossBubbles(startPos.x, startPos.y);
-    const boatX = boat.isRight ? ((-10 + (Date.now() - boat.id) / 15000 * 120)) : ((110 - (Date.now() - boat.id) / 15000 * 120));
-    setPathHistory(prev => [...prev, { x: boatX, y: 19, depth: 3, zone: 1 }]);
+    const elapsed = Date.now() - (boat.spawnTime || Math.floor(boat.id));
+    const progress = Math.min(1, Math.max(0, elapsed / 20000));
+    const boatX = boat.isRight ? (-20 + progress * 140) : (120 - progress * 140);
+    setPathHistory(prev => [...prev, { x: Math.max(10, Math.min(90, boatX)), y: 19, depth: 3, zone: 1 }]);
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
       setInventory(prev => {
         const newInv = [...prev];
-        newInv.splice(newInv.indexOf(tradeReq), 1);
+        const idx = newInv.indexOf(tradeReq);
+        if (idx > -1) newInv.splice(idx, 1);
         newInv.push(boat.offeredItem);
         return newInv;
       });
       setRoamingBoats(prev => prev.filter(b => b.id !== boat.id));
-      setFlyingItem({ emoji: level.items.find(i => i.id === boat.offeredItem)?.emoji, x: boatX, y: 19 });
-      setTimeout(() => { setFlyingItem(null); setIsAnimatingLoot(false); handlePostActionAir(19); }, 800);
+      setFlyingItem({ emoji: level.items.find(i => i.id === boat.offeredItem)?.emoji, x: Math.max(10, Math.min(90, boatX)), y: 19 });
+      scheduleTimeout(() => {
+        setFlyingItem(null);
+        setIsAnimatingLoot(false);
+        handlePostActionAir(19);
+      }, ACTION_ANIM_MS);
     }, 700);
   };
 
@@ -660,7 +811,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       return [...prev, ...newPath];
     });
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
       if (itemToDrop) {
         setInventory(prev => {
           const newInv = [...prev];
@@ -678,16 +829,17 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       if (level.id === 'underwater' && !isTransformed && hasDeepTreasure) {
         triggerVictory();
       }
-    }, 800);
+    }, ACTION_ANIM_MS);
   };
 
   const handleCampItemClick = (e, campItem) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
-    if (!inventory.includes(campItem.id) && Array.from(new Set(inventory)).length >= 4) {
+    const { fits } = canFitInInventory(inventory, [], campItem.id);
+    if (!fits) {
       setAlertEntityId(campItem.uid);
-      setTimeout(() => setAlertEntityId(null), 600);
+      scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
       return;
     }
 
@@ -714,12 +866,12 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       return [...prev, ...newPath];
     });
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
       setCampItems(prev => prev.filter(i => i.uid !== campItem.uid));
       setInventory(prev => [...prev, campItem.id]);
       setIsAnimatingLoot(false);
       if (level.mechanics.hasAir) setAir(MAX_AIR);
-    }, 800);
+    }, ACTION_ANIM_MS);
   };
 
   const handleCellClick = async (e, targetX, targetY) => {
@@ -738,7 +890,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
 
       const indicatorId = Date.now();
       setClickIndicator({ x: targetX, y: targetY, isValid: isValidClick, id: indicatorId });
-      setTimeout(() => {
+      scheduleTimeout(() => {
         setClickIndicator(prev => prev?.id === indicatorId ? null : prev);
       }, 750);
 
@@ -751,16 +903,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       saveHistory();
 
       const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
-      let targetZone = currentZone;
-      if (level.mechanics.isCaveType) {
-        if (targetY < 20) targetZone = 1;
-        else if (targetY < 45) targetZone = targetX < 50 ? 2 : 3;
-        else if (targetY < 68) targetZone = targetX < 50 ? 4 : 5;
-        else if (targetY < 80) targetZone = 6;
-        else if (targetY < 88) targetZone = 7;
-        else if (targetY < 95) targetZone = 8;
-        else targetZone = 9;
-      }
+      const targetZone = inferTargetZone(level, targetX, targetY, currentZone);
 
       const newPath = navigateTo(targetX, targetY, targetZone, 3, false);
       if (!newPath || newPath.length === 0) return;
@@ -770,8 +913,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
 
       setIsAnimatingLoot(true);
       let lastP = pathHistory[pathHistory.length - 1];
+      const sessionId = ++walkSessionRef.current;
 
       for (let i = 0; i < newPath.length; i++) {
+        if (walkSessionRef.current !== sessionId) return;
         const wp = newPath[i];
         const dx = wp.x - lastP.x;
         const dy = wp.y - lastP.y;
@@ -782,9 +927,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
         setPathHistory(prev => [...prev, wp]);
         lastP = wp;
 
-        await new Promise(r => setTimeout(r, duration));
+        await new Promise(r => scheduleTimeout(r, duration));
       }
 
+      if (walkSessionRef.current !== sessionId) return;
       setIsAnimatingLoot(false);
 
       if (level.mechanics.hasAir) {
@@ -891,13 +1037,25 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       if (cm) targetY = cm.y;
     }
 
-    if (level.id !== 'underwater' && !unlockedZones.includes(entity.zone) && !isReverseAccess) {
-      setSelectedItemTypes([]); setSelectedEntityId(null); setIsAnimatingLoot(true);
+    const witchEnt = level.mechanics.hasTransformation ? puzzle.puzzleEntities.find(ent => ent.id === 'sea_witch') : null;
+    const isBlockedByTransformation = Boolean(witchEnt && !isTransformed && entity.zone > (witchEnt.zone || 2));
 
-      const targetAlert = puzzle.puzzleEntities.filter(ent =>
-        ent.isGatekeeper && !defeated.includes(ent.id) &&
-        (ent.unlocksZones?.includes(entity.zone) || (ent.zone === entity.zone && ent.unlocksZones?.some(z => unlockedZones.includes(z))))
-      ).sort((a, b) => Math.abs(a.y - pathHistory[pathHistory.length - 1].y) - Math.abs(b.y - pathHistory[pathHistory.length - 1].y))[0] || entity;
+    if (isBlockedByTransformation && selectedItemTypes.length === 0) {
+      setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
+      return;
+    }
+
+    if ((level.id !== 'underwater' && !unlockedZones.includes(entity.zone) && !isReverseAccess) || isBlockedByTransformation) {
+      setSelectedItemTypes([]);
+      setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
+      setIsAnimatingLoot(true);
+
+      const targetAlert = isBlockedByTransformation
+        ? witchEnt
+        : (puzzle.puzzleEntities.filter(ent =>
+            ent.isGatekeeper && !defeated.includes(ent.id) &&
+            (ent.unlocksZones?.includes(entity.zone) || (ent.zone === entity.zone && ent.unlocksZones?.some(z => unlockedZones.includes(z))))
+          ).sort((a, b) => Math.abs(a.y - pathHistory[pathHistory.length - 1].y) - Math.abs(b.y - pathHistory[pathHistory.length - 1].y))[0] || entity);
 
       const prevPoint = pathHistory[pathHistory.length - 1];
       let alertX = (targetAlert.roamClass && !targetAlert.roamClass.includes('elevator')) ? 50 : targetAlert.x;
@@ -914,7 +1072,14 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       }
 
       setTempPlayerPos({ x: alertX, y: alertY, depth: 3 });
-      setTimeout(() => { setAlertEntityId(targetAlert.id); setTimeout(() => { setAlertEntityId(null); setTempPlayerPos(null); setTimeout(() => setIsAnimatingLoot(false), 700); }, 600); }, 700);
+      scheduleTimeout(() => {
+        setAlertEntityId(targetAlert.id);
+        scheduleTimeout(() => {
+          setAlertEntityId(null);
+          setTempPlayerPos(null);
+          scheduleTimeout(() => setIsAnimatingLoot(false), 700);
+        }, ALERT_DURATION_MS);
+      }, 700);
       return;
     }
 
@@ -951,9 +1116,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     }
 
     if (entity.isPreset && !entity.isGatekeeper) {
-      if (entity.reward && !inventory.includes(entity.reward) && Array.from(new Set(inventory)).length >= 4) {
+      const { fits } = canFitInInventory(inventory, [], entity.reward);
+      if (entity.reward && !fits) {
         setAlertEntityId(entity.id);
-        setTimeout(() => setAlertEntityId(null), 600);
+        scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
         return;
       }
 
@@ -963,12 +1129,12 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
         const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
         setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji, x: t.x, y: t.y, delay: idx * 150 })));
         setDefeated(prev => [...prev, ...allTreasures.map(t => t.id)]);
-        setTimeout(() => {
+        scheduleTimeout(() => {
           triggerVictory();
           setMassFlyingTreasures([]);
           setIsAnimatingLoot(false);
           handlePostActionAir(targetY);
-        }, 800 + (allTreasures.length * 150));
+        }, ACTION_ANIM_MS + (allTreasures.length * 150));
         return;
       }
 
@@ -985,71 +1151,54 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       if (entity.reward) {
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
         setFlyingItem({ emoji: entity.emoji, x: entityX, y: targetY, zIndex: 60 });
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setInventory(prev => [...prev, entity.reward]);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
-          handlePostActionAir(targetY);
-        }, 800);
+          handlePostActionAir(targetY, entity.isVent);
+        }, ACTION_ANIM_MS);
       } else {
         setIsAnimatingLoot(false);
-        setTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), 800);
-        handlePostActionAir(targetY);
+        scheduleTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), ACTION_ANIM_MS);
+        handlePostActionAir(targetY, entity.isVent);
       }
       return;
     }
 
-    const isFreeUnTransform = level.id === 'underwater' && entity.id === 'sea_witch' && isTransformed && hasDeepTreasure;
+    const tradeResult = evaluateEntityTrade(inventory, entity, selectedItemTypes, {
+      levelId: level.id,
+      isTransformed,
+      hasDeepTreasure
+    });
 
-    if (!isFreeUnTransform && selectedItemTypes.length === 0 && entity.requires && entity.requires.length > 0) {
+    if (!tradeResult.isFreeUnTransform && selectedItemTypes.length === 0 && entity.requires && entity.requires.length > 0) {
       setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
       handlePostActionAir(targetY);
       setIsAnimatingLoot(false);
       return;
     }
 
-    let canDefeat = false; let itemsToConsume = [];
-    const availableItems = [...inventory];
-    const takeItems = (reqArray) => {
-      let tempAvail = [...availableItems]; let consumed = [];
-      for (const req of reqArray) { const idx = tempAvail.indexOf(req); if (idx > -1) { tempAvail.splice(idx, 1); consumed.push(req); } else { return null; } }
-      return consumed;
-    };
-
-    if (entity.reqType === 'AND') {
-      if (entity.requires.length === 0 || Array.from(new Set(entity.requires || [])).every(t => selectedItemTypes.includes(t))) {
-        const consumed = takeItems(entity.requires || []);
-        if (consumed) { canDefeat = true; itemsToConsume = consumed; }
-      }
-    } else {
-      for (const req of (entity.requires || [])) { if (selectedItemTypes.includes(req) && availableItems.includes(req)) { canDefeat = true; itemsToConsume.push(req); break; } }
+    if (tradeResult.exceedsCapacity) {
+      setAlertEntityId(entity.id);
+      scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
+      return;
     }
 
-    if (isFreeUnTransform) canDefeat = true;
-
-    if (canDefeat) {
-      let futureInv = [...inventory];
-      itemsToConsume.forEach(itemToDel => { const idx = futureInv.indexOf(itemToDel); if (idx > -1) futureInv.splice(idx, 1); });
-      if (entity.reward) futureInv.push(entity.reward);
-
-      if (entity.reward && Array.from(new Set(futureInv)).length > 4) {
-        setAlertEntityId(entity.id);
-        setTimeout(() => setAlertEntityId(null), 600);
-        return;
-      }
+    if (tradeResult.canDefeat) {
+      const { itemsToConsume } = tradeResult;
 
       if (level.id === 'underwater') {
         if (entity.id === 'sea_witch') {
           if (!isTransformed) {
             setIsMagicAnimating(true);
-            setTimeout(() => setIsMagicAnimating(false), 1500);
+            scheduleTimeout(() => setIsMagicAnimating(false), 1500);
             setIsTransformed(true);
           } else if (hasDeepTreasure) {
             setIsMagicAnimating(true);
-            setTimeout(() => setIsMagicAnimating(false), 1500);
+            scheduleTimeout(() => setIsMagicAnimating(false), 1500);
             setIsTransformed(false);
           } else {
             setAlertEntityId(entity.id);
-            setTimeout(() => setAlertEntityId(null), 600);
+            scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
             return;
           }
         }
@@ -1071,7 +1220,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
 
       if (isRock) {
         setBreakingRockIds(prev => ({ ...prev, [entity.id]: true }));
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setBreakingRockIds(prev => {
             const copy = { ...prev };
             delete copy[entity.id];
@@ -1085,7 +1234,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
         if (entity.id === 'dolphin_1') return [...prev, entity.id];
         const newDef = [...prev, entity.id];
         if (entity.isGatekeeper && entity.unlocksZones) {
-          setUnlockedZones(uz => [...new Set([...uz, ...(entity.unlocksZones || []), entity.zone])]);
+          setUnlockedZones(uz => computeUnlockedZones(uz, entity));
         }
         return newDef;
       });
@@ -1103,15 +1252,15 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
       if (entity.reward) {
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
         setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: targetY, zIndex: 60 });
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setInventory(prev => [...prev, entity.reward]);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
           handlePostActionAir(targetY);
           if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
-        }, 800);
+        }, ACTION_ANIM_MS);
       } else {
         setIsAnimatingLoot(false);
-        setTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), 800);
+        scheduleTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), ACTION_ANIM_MS);
         handlePostActionAir(targetY);
         if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
       }
@@ -1129,26 +1278,26 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
           return next;
         });
         setAlertEntityId(`ink_${entity.id}`);
-        setTimeout(() => {
+        scheduleTimeout(() => {
           setAlertEntityId(null);
-          setTimeout(() => {
+          scheduleTimeout(() => {
             setInkFogEntities(prev => {
               const next = new Set(prev);
               affected.forEach(e => next.delete(e.id));
               return next;
             });
-          }, 8000);
-        }, 600);
+          }, INK_FOG_DURATION_MS);
+        }, ALERT_DURATION_MS);
         setIsAnimatingLoot(false);
         setSelectedItemTypes([]);
       } else {
         setAlertEntityId(entity.id);
-        setTimeout(() => setAlertEntityId(null), 600);
+        scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
         setSelectedItemTypes([]);
         setIsAnimatingLoot(false);
       }
+      handlePostActionAir(targetY);
     }
-    handlePostActionAir(entity.y);
   };
 
   if (generationFailed) {
@@ -1195,7 +1344,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
   }
 
   const isDrowning = alertEntityId === 'out_of_air';
-  const playerTransition = attachedEntityId ? 'transition-none' : (isDrowning ? 'duration-[3000ms] ease-linear' : `duration-[${moveDurationMs}ms] ease-out`);
+  const playerTransition = attachedEntityId ? 'transition-none' : (isDrowning ? 'ease-linear' : 'ease-out');
+  const playerTransitionDuration = attachedEntityId ? '0ms' : (isDrowning ? '3000ms' : `${moveDurationMs}ms`);
 
   let playerVisualX = displayPlayerPos.x;
   let playerVisualY = displayPlayerPos.y;
@@ -1234,7 +1384,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
     setIsAnimatingLoot(true);
     const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
     setPathHistory(prev => [...prev, ...returnPath]);
-    setTimeout(() => { setIsAnimatingLoot(false); setAir(MAX_AIR); }, 800);
+    scheduleTimeout(() => { setIsAnimatingLoot(false); setAir(MAX_AIR); }, ACTION_ANIM_MS);
   };
 
   return (
@@ -1332,6 +1482,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, la
             playerFilter={playerFilter}
             playerZ={playerZ}
             playerTransition={playerTransition}
+            playerTransitionDuration={playerTransitionDuration}
             isSubmerged={isSubmerged}
             isDrowning={isDrowning}
             heroFace={heroFace}

@@ -19,7 +19,7 @@ const underwater = {
     isVertical: true,
     screens: 3.5,
   },
-  specialEntityTemplate: null,
+  specialEntityTemplate: 'clam',
   BackgroundComponent: UnderwaterBackground,
   GatekeeperPropComponent: () => null,
   CampIcon,

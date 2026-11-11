@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, memo } from 'react';
 import { getCorridorBounds, generateProceduralOrganicRock, calculateFacetLighting, hashSeed } from '../../logic/geometry.js';
 
 export const CAVE_WALL_VERTICES = {
@@ -67,10 +67,16 @@ export const CaveBackground = () => (
   </div>
 );
 
-export const RockSVG = ({ isDefeated, isAlerting, isBreaking, seed = 0, size = 'large', heroPos, yNode = 50, nodeX = 50 }) => {
+export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, size = 'large', heroPos, yNode = 50, nodeX = 50 }) => {
   const isRightChannel = nodeX >= 50;
-  const bounds = getCorridorBounds(yNode, CAVE_WALL_VERTICES, isRightChannel);
-  const mesh = generateProceduralOrganicRock(bounds.xLeft, bounds.xRight, yNode, size === 'small' ? 2.5 : size === 'medium' ? 3.2 : 4.2, seed);
+  const bounds = useMemo(
+    () => getCorridorBounds(yNode, CAVE_WALL_VERTICES, isRightChannel),
+    [yNode, isRightChannel]
+  );
+  const mesh = useMemo(
+    () => generateProceduralOrganicRock(bounds.xLeft, bounds.xRight, yNode, size === 'small' ? 2.5 : size === 'medium' ? 3.2 : 4.2, seed),
+    [bounds.xLeft, bounds.xRight, yNode, size, seed]
+  );
 
   // 1. DEBRIS STATE (Illuminated procedural ground rubble)
   if (isDefeated && !isBreaking) {
@@ -214,7 +220,7 @@ export const RockSVG = ({ isDefeated, isAlerting, isBreaking, seed = 0, size = '
       </svg>
     </div>
   );
-};
+});
 
 export const CampIcon = () => (
   <div className="text-6xl drop-shadow-lg -translate-y-4">⛺</div>

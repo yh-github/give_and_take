@@ -149,8 +149,10 @@ export function GameEntity({
           }`}>
 
             {!isGoal && !ent.isRepeatable && !ent.isPreset && (
-              level.id === 'underwater' ? (
-                null
+              (ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam')) ? (
+                (!isDefeated && rewardItem && isBuried && isSelected) ? (
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[7cqw] drop-shadow-md pointer-events-none z-20 animate-bounce">❓</div>
+                ) : null
               ) : (!isDefeated && rewardItem && isBuried) ? (
                 <>
                   <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
@@ -208,10 +210,15 @@ export function GameEntity({
                               {ent.emoji}
                             </div>
                           ) :
-                            ent.id.startsWith('clam') ? <GiantClamSVG isDefeated={isCurrent} isAlerting={isAlerting} rewardEmoji={isCurrent ? rewardItem?.emoji : null} /> :
-                              isDigger ? <GiantClamSVG isDefeated={!isBuried} isAlerting={isAlerting} rewardEmoji={isDefeated ? null : rewardItem?.emoji} /> :
-                                ent.isVent ? <BubbleVentSVG /> :
-                                  ent.emoji
+                            (ent.id.startsWith('clam') || ent.id.startsWith('giant_clam')) ? (
+                              <GiantClamSVG
+                                isDefeated={!isBuried}
+                                isAlerting={isAlerting}
+                                rewardEmoji={(!isDefeated && !isBuried) ? rewardItem?.emoji : null}
+                              />
+                            ) :
+                              ent.isVent ? <BubbleVentSVG /> :
+                                ent.emoji
                       ) : ent.emoji}
                 </div>
               )}

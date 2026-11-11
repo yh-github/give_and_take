@@ -1,6 +1,6 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.js';
 import { CaveBackground, CampIcon, RockSVG, CAVE_WALL_VERTICES } from './components.jsx';
-import { getCorridorBounds } from '../../logic/geometry.js';
+import { getObstacleSegments } from '../../logic/visibility.js';
 
 const underground = {
   id: 'underground',
@@ -24,71 +24,8 @@ const underground = {
   RockComponent: RockSVG,
   GatekeeperPropComponent: () => null,
   CampIcon,
-  getObstacleSegments: (puzzleEntities, unlockedZones, defeated, screens = 2.5) => {
-    const segments = [];
-    const height = screens * 100;
-
-    // 1. Map Boundaries
-    segments.push({ a: { x: 0, y: 0 }, b: { x: 100, y: 0 } });
-    segments.push({ a: { x: 100, y: 0 }, b: { x: 100, y: height } });
-    segments.push({ a: { x: 100, y: height }, b: { x: 0, y: height } });
-    segments.push({ a: { x: 0, y: height }, b: { x: 0, y: 0 } });
-
-    // 2. Cave Walls
-    const processPath = (vertices, isPillar = false) => {
-      for (let i = 0; i < vertices.length - 1; i++) {
-          segments.push({
-              a: { x: vertices[i].x, y: vertices[i].y * screens },
-              b: { x: vertices[i+1].x, y: vertices[i+1].y * screens },
-              isPillar,
-              isOuterWall: !isPillar
-          });
-      }
-    };
-
-    if (CAVE_WALL_VERTICES.leftWall) processPath(CAVE_WALL_VERTICES.leftWall, false);
-    if (CAVE_WALL_VERTICES.rightWall) processPath(CAVE_WALL_VERTICES.rightWall, false);
-    if (CAVE_WALL_VERTICES.centralPillar) {
-        processPath(CAVE_WALL_VERTICES.centralPillar, true);
-        const p = CAVE_WALL_VERTICES.centralPillar;
-        segments.push({
-            a: { x: p[p.length-1].x, y: p[p.length-1].y * screens },
-            b: { x: p[0].x, y: p[0].y * screens },
-            isPillar: true,
-            isOuterWall: false
-        });
-    }
-
-    // 3. Dynamic Rocks (Synchronized 100% to wall corridor bounds)
-    if (puzzleEntities) {
-      puzzleEntities.forEach(node => {
-        if (node.isGatekeeper && !defeated.includes(node.id)) {
-            const isRightChannel = node.x >= 50;
-            const bounds = getCorridorBounds(node.y, CAVE_WALL_VERTICES, isRightChannel);
-            const minX = bounds.xLeft;
-            const maxX = bounds.xRight;
-            const yTop = (node.y - 1.5) * screens;
-            const yBottom = (node.y + 1.5) * screens;
-            
-            segments.push({ a: { x: minX, y: yTop }, b: { x: maxX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
-            segments.push({ a: { x: maxX, y: yTop }, b: { x: maxX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
-            segments.push({ a: { x: maxX, y: yBottom }, b: { x: minX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
-            segments.push({ a: { x: minX, y: yBottom }, b: { x: minX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
-        } else if (node.isExtraRock && !defeated.includes(node.id)) {
-            const sizeX = 2.5;
-            const x = node.x;
-            const yTop = (node.y - 1.5) * screens;
-            const yBottom = (node.y + 1.5) * screens;
-            segments.push({ a: { x: x - sizeX, y: yTop }, b: { x: x + sizeX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
-            segments.push({ a: { x: x + sizeX, y: yTop }, b: { x: x + sizeX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
-            segments.push({ a: { x: x + sizeX, y: yBottom }, b: { x: x - sizeX, y: yBottom }, isRock: true, rockId: node.id, yNode: node.y });
-            segments.push({ a: { x: x - sizeX, y: yBottom }, b: { x: x - sizeX, y: yTop }, isRock: true, rockId: node.id, yNode: node.y });
-        }
-      });
-    }
-
-    return segments;
-  }
+  getObstacleSegments: (puzzleEntities, unlockedZones, defeated, screens = 2.5) =>
+    getObstacleSegments(puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, screens),
 };
 
 export default underground;

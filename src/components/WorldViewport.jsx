@@ -59,6 +59,7 @@ export function WorldViewport({
   playerFilter,
   playerZ,
   playerTransition,
+  playerTransitionDuration,
   isSubmerged,
   isDrowning,
   heroFace,
@@ -134,7 +135,7 @@ export function WorldViewport({
         <div key={b.id} onClick={(e) => handleBoatTrade(e, b)} className={`absolute cursor-pointer z-[120] hover:scale-110 drop-shadow-xl ${b.isRight ? 'animate-boat-glide-right' : 'animate-boat-glide-left'}`} style={{ top: '11%' }}>
           <BoatSVG />
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/90 border-2 border-amber-600 rounded-full p-2 flex items-center gap-1 shadow-lg animate-bounce">
-            <span className="text-xl">🐟</span>
+            <span className="text-xl">{level.items.find(i => i.id === (b.reqItem || 'fish'))?.emoji || '🐟'}</span>
             <span className="text-sm font-bold">➡️</span>
             <span className="text-xl">{level.items.find(i => i.id === b.offeredItem)?.emoji}</span>
           </div>
@@ -226,6 +227,7 @@ export function WorldViewport({
         playerFilter={playerFilter}
         playerZ={playerZ}
         playerTransition={playerTransition}
+        playerTransitionDuration={playerTransitionDuration}
         isTransformed={isTransformed}
         isSubmerged={isSubmerged}
         isDrowning={isDrowning}

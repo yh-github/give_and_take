@@ -68,6 +68,7 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = 
           points={pointsString} 
           fill={ambientColor}
           fillOpacity={ambientOpacity}
+          className={flickerIntensity > 0 ? 'animate-torch-flicker' : ''}
         />
       )}
     </svg>

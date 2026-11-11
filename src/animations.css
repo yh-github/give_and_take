@@ -170,12 +170,12 @@
 
 /* === Underwater: Boats === */
 @keyframes boatGlideRight {
-  0% { left: -20%; transform: translate(-50%, -50%) scale-x(-1); }
-  100% { left: 120%; transform: translate(-50%, -50%) scale-x(-1); }
+  0% { left: -20%; transform: translate(-50%, -50%) scaleX(-1); }
+  100% { left: 120%; transform: translate(-50%, -50%) scaleX(-1); }
 }
 @keyframes boatGlideLeft {
-  0% { left: 120%; transform: translate(-50%, -50%) scale-x(1); }
-  100% { left: -20%; transform: translate(-50%, -50%) scale-x(1); }
+  0% { left: 120%; transform: translate(-50%, -50%) scaleX(1); }
+  100% { left: -20%; transform: translate(-50%, -50%) scaleX(1); }
 }
 .animate-boat-glide-right { animation: boatGlideRight 20s linear infinite; }
 .animate-boat-glide-left { animation: boatGlideLeft 20s linear infinite; }
