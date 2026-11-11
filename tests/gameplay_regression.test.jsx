@@ -41,44 +41,43 @@ describe('Gameplay Actions & State Regression Suite', () => {
 
     const slots = document.querySelectorAll('button[class*="rounded-[2.5cqw]"]');
     const filledSlot = Array.from(slots).find(s => s.textContent.trim() !== '');
+    expect(filledSlot).toBeDefined();
 
-    if (filledSlot) {
-      const itemEmoji = [...filledSlot.textContent.trim()][0];
+    const itemEmoji = [...filledSlot.textContent.trim()][0];
 
-      // 1. Select the item
-      await act(async () => {
-        fireEvent.click(filledSlot);
-      });
-      expect(filledSlot.className).toContain('bg-amber-400');
+    // 1. Select the item
+    await act(async () => {
+      fireEvent.click(filledSlot);
+    });
+    expect(filledSlot.className).toContain('bg-amber-400');
 
-      // 2. Click the camp to drop the selected item
-      const camp = screen.getByText('⛺');
-      const campButton = camp.parentElement.parentElement;
-      await act(async () => {
-        fireEvent.click(campButton);
-      });
-      await act(async () => {
-        vi.advanceTimersByTime(1000);
-      });
+    // 2. Click the camp to drop the selected item
+    const camp = screen.getByText('⛺');
+    const campButton = camp.parentElement.parentElement;
+    await act(async () => {
+      fireEvent.click(campButton);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
 
-      // The dropped item should now be rendered near the camp
-      const droppedItems = screen.getAllByText(itemEmoji);
-      expect(droppedItems.length).toBeGreaterThan(0);
+    // The dropped item should now be rendered near the camp
+    const droppedItems = screen.getAllByText(itemEmoji);
+    expect(droppedItems.length).toBeGreaterThan(0);
 
-      // 3. Click the dropped camp item to pick it back up
-      const campDroppedItem = droppedItems[0];
-      await act(async () => {
-        fireEvent.click(campDroppedItem.closest('div'));
-      });
-      await act(async () => {
-        vi.advanceTimersByTime(1000);
-      });
+    // 3. Click the dropped camp item to pick it back up
+    const campDroppedItem = droppedItems[0];
+    await act(async () => {
+      fireEvent.click(campDroppedItem.closest('div'));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
 
-      // Item should be back in inventory slot
-      const slotsAfter = document.querySelectorAll('button[class*="rounded-[2.5cqw]"]');
-      const hasItem = Array.from(slotsAfter).some(s => s.textContent.includes(itemEmoji));
-      expect(hasItem).toBe(true);
-    }
+    // Item should be back in inventory slot
+    const slotsAfter = document.querySelectorAll('button[class*="rounded-[2.5cqw]"]');
+    const hasItem = Array.from(slotsAfter).some(s => s.textContent.includes(itemEmoji));
+    expect(hasItem).toBe(true);
   });
 
   it('restores previous game state when clicking Undo button', async () => {
@@ -92,38 +91,37 @@ describe('Gameplay Actions & State Regression Suite', () => {
 
     const slots = document.querySelectorAll('button[class*="rounded-[2.5cqw]"]');
     const filledSlot = Array.from(slots).find(s => s.textContent.trim() !== '');
+    expect(filledSlot).toBeDefined();
 
-    if (filledSlot) {
-      // Select item
-      await act(async () => {
-        fireEvent.click(filledSlot);
-      });
+    // Select item
+    await act(async () => {
+      fireEvent.click(filledSlot);
+    });
 
-      // Click camp button
-      const camp = screen.getByText('⛺');
-      const campButton = camp.parentElement.parentElement;
-      await act(async () => {
-        fireEvent.click(campButton);
-      });
-      await act(async () => {
-        vi.advanceTimersByTime(1000);
-      });
+    // Click camp button
+    const camp = screen.getByText('⛺');
+    const campButton = camp.parentElement.parentElement;
+    await act(async () => {
+      fireEvent.click(campButton);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
 
-      // Undo button should now be enabled
-      const undoBtnActive = screen.getByText('↩️').closest('button');
-      expect(undoBtnActive.disabled).toBe(false);
+    // Undo button should now be enabled
+    const undoBtnActive = screen.getByText('↩️').closest('button');
+    expect(undoBtnActive.disabled).toBe(false);
 
-      // Click Undo
-      await act(async () => {
-        fireEvent.click(undoBtnActive);
-      });
-      await act(async () => {
-        vi.advanceTimersByTime(500);
-      });
+    // Click Undo
+    await act(async () => {
+      fireEvent.click(undoBtnActive);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
 
-      // Undo button should now be disabled again
-      expect(screen.getByText('↩️').closest('button').disabled).toBe(true);
-    }
+    // Undo button should now be disabled again
+    expect(screen.getByText('↩️').closest('button').disabled).toBe(true);
   });
 
   it('triggers replay and restarts game state cleanly from menu', async () => {

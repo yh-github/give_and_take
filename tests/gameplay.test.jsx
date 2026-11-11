@@ -28,10 +28,8 @@ describe('Gameplay Integration & Mechanics Tests', () => {
         expect(puzzle).toBeDefined();
         expect(puzzle.puzzleEntities.length).toBeGreaterThan(0);
         expect(puzzle.goalEntityId).toBeDefined();
-        if (id !== 'underwater') {
-          expect(puzzle.solution).toBeDefined();
-          expect(puzzle.solution.length).toBeGreaterThan(0);
-        }
+        expect(puzzle.solution).toBeDefined();
+        expect(puzzle.solution.length).toBeGreaterThan(0);
       }
     }
   });
@@ -86,20 +84,19 @@ describe('Gameplay Integration & Mechanics Tests', () => {
       // Find any rendered inventory slot item button that has an emoji
       const slotButtons = document.querySelectorAll('button[class*="rounded-[2.5cqw]"]');
       const activeSlot = Array.from(slotButtons).find(btn => btn.textContent.trim() !== '');
+      expect(activeSlot).toBeDefined();
 
-      if (activeSlot) {
-        // Clicking slot toggles selection state
-        await act(async () => {
-          fireEvent.click(activeSlot);
-        });
-        expect(activeSlot.className).toContain('bg-amber-400');
+      // Clicking slot toggles selection state
+      await act(async () => {
+        fireEvent.click(activeSlot);
+      });
+      expect(activeSlot.className).toContain('bg-amber-400');
 
-        // Clicking again deselects
-        await act(async () => {
-          fireEvent.click(activeSlot);
-        });
-        expect(activeSlot.className).not.toContain('bg-amber-400');
-      }
+      // Clicking again deselects
+      await act(async () => {
+        fireEvent.click(activeSlot);
+      });
+      expect(activeSlot.className).not.toContain('bg-amber-400');
     });
   });
 });

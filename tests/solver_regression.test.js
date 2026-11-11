@@ -107,4 +107,41 @@ describe('Solver Comprehensive Regression Suite', () => {
     const solution = solvePuzzle(startItems, entities, 'e2', dummyLevel);
     expect(solution).toBeNull();
   });
+
+  it('does not prune valid solutions when a non-pickaxe preset would prematurely fill the 4th inventory slot', () => {
+    // Player starts with 3 items: a, b, c.
+    // Zone 1 has a mushroom preset (reward: 'mushroom') AND an entity e1 that requires ['a'] and rewards ['d', 'e'] via chain,
+    // or e1 requires ['a'] -> rewards 'd', e2 requires ['b'] -> rewards 'e', goal requires ['d', 'e', 'mushroom'].
+    // Specifically: if mushroom is forced first, inventory becomes [a, b, c, mushroom] (4 unique items).
+    // Now suppose entity 'miner' requires [] (free pickup or trade that needs an empty slot) -> rewards 'key',
+    // and goal requires ['a', 'b', 'c', 'key']!
+    // If mushroom is forced into slot 4, 'miner' cannot give 'key' because inventory has 4 unique items [a, b, c, mushroom].
+    // Delaying or skipping mushroom allows picking up 'key' and solving 'goal'.
+    const startItems = ['a', 'b', 'c'];
+    const entities = [
+      { id: 'preset_mush', isPreset: 'mushroom', requires: [], reqType: 'AND', reward: 'mushroom', zone: 1, isGatekeeper: false },
+      { id: 'free_key', requires: [], reqType: 'AND', reward: 'key', zone: 1, isGatekeeper: false },
+      { id: 'vault', requires: ['a', 'b', 'c', 'key'], reqType: 'AND', reward: 'treasure', zone: 1, isGatekeeper: false }
+    ];
+    const solution = solvePuzzle(startItems, entities, 'vault', dummyLevel);
+    expect(solution).not.toBeNull();
+    expect(solution.path.map(p => p.entityId)).toContain('vault');
+  });
+
+  it('ignores non-reward presets like bubble vents and preserves transformation state across preset pickups', () => {
+    const levelWithTransform = {
+      mechanics: { hasTransformation: true }
+    };
+    const startItems = ['fish'];
+    const entities = [
+      { id: 'vent_1', isPreset: 'bubble_vent', requires: [], reqType: 'AND', reward: null, zone: 1, isGatekeeper: false },
+      { id: 'sea_witch', requires: ['fish'], reqType: 'AND', reward: null, zone: 1, isGatekeeper: false },
+      { id: 'preset_pick', isPreset: 'pickaxe', requires: [], reqType: 'AND', reward: 'pickaxe', zone: 2, isGatekeeper: false },
+      { id: 'deep_clam', requires: ['pickaxe'], reqType: 'AND', reward: null, zone: 2, isGoal: true, isGatekeeper: false }
+    ];
+    const solution = solvePuzzle(startItems, entities, 'deep_clam', levelWithTransform);
+    expect(solution).not.toBeNull();
+    expect(solution.path.map(p => p.entityId)).not.toContain('vent_1');
+    expect(solution.path.map(p => p.entityId)).toEqual(['sea_witch', 'preset_pick', 'deep_clam', 'sea_witch']);
+  });
 });

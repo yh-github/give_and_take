@@ -25,11 +25,11 @@ The application is structured as a modern React single-page application focused 
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) with PostCSS
 - **Animations**: CSS Keyframes and SVG-based components for smooth, integrated visuals.
 
-### Key Components in `index.jsx`
-- **`LEVEL_DICTIONARY`**: The source of truth for level configurations, defining items, entity pools, and unique mechanics.
-- **`solvePuzzle`**: The heart of the game's logic. It uses BFS to find the shortest path from the starting inventory to the goal.
-- **`generateLevelPuzzle`**: Handles the procedural generation, placing entities and items based on the level's theme and difficulty settings.
-- **SVG Entities**: Custom-built SVG components (like `CrabSVG`, `OctopusSVG`, `BridgeSVG`) that handle their own internal animations and state-based styling.
+### Key Architecture Modules
+- **[`LEVEL_REGISTRY`](file:///home/yoavh/code/antigravity/give_and_take/src/levels/index.js)**: The plugin registry for level configurations, defining items, entity pools, and declarative `mechanics` flags.
+- **[`rules.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/rules.js) & [`solver.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/solver.js)**: Pure domain rule evaluators and Breadth-First Search (BFS) solver that guarantee every generated puzzle is solvable.
+- **[`generator.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/generator.js) & [`rng.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/rng.js)**: Seedable procedural puzzle generation with Fisher-Yates shuffling and shuffle-bag item distribution.
+- **[`GameInstance.jsx`](file:///home/yoavh/code/antigravity/give_and_take/src/components/GameInstance.jsx) & [`WorldViewport.jsx`](file:///home/yoavh/code/antigravity/give_and_take/src/components/WorldViewport.jsx)**: Modular UI and state controllers with 2D A* pathfinding, raycast cave lighting, and custom SVG entities.
 
 ---
 

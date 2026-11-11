@@ -138,20 +138,19 @@ describe('Underground Level Movement Suite', () => {
       return el !== innerMap && el.textContent && (el.textContent.includes('🍄') || el.textContent.includes('🧌') || el.textContent.includes('🦴'));
     });
 
-    if (targetEntity) {
-      const initialTop = heroContainer.style.top;
+    expect(targetEntity).toBeDefined();
+    const initialTop = heroContainer.style.top;
 
-      await act(async () => {
-        fireEvent.click(targetEntity);
-      });
+    await act(async () => {
+      fireEvent.click(targetEntity);
+    });
 
-      await act(async () => {
-        vi.advanceTimersByTime(1500);
-      });
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
 
-      // Hero should move towards the entity
-      expect(heroContainer.style.top).not.toBe(initialTop);
-    }
+    // Hero should move towards the entity
+    expect(heroContainer.style.top).not.toBe(initialTop);
   });
 
   it('renders left channel gatekeeper rocks as visible when hero is standing in front of them', async () => {
@@ -220,10 +219,9 @@ describe('Underground Level Movement Suite', () => {
       return el.style && el.style.top === '78%' && el.innerHTML.includes('polygon');
     });
 
-    if (finalRockEntity) {
-      expect(finalRockEntity.className).toContain('opacity-0');
-      expect(finalRockEntity.className).toContain('invisible');
-    }
+    expect(finalRockEntity).toBeDefined();
+    expect(finalRockEntity.className).toContain('opacity-0');
+    expect(finalRockEntity.className).toContain('invisible');
   });
 
   it('hides big rocks at the end of paths when standing behind normal rocks in either corridor', async () => {
@@ -266,9 +264,8 @@ describe('Underground Level Movement Suite', () => {
       return el.style && (el.style.top === '78%' || el.style.top === '88%' || el.style.top === '95%') && el.innerHTML.includes('polygon');
     });
 
-    if (finalRockEntity) {
-      expect(finalRockEntity.className).toContain('opacity-0');
-      expect(finalRockEntity.className).toContain('invisible');
-    }
+    expect(finalRockEntity).toBeDefined();
+    expect(finalRockEntity.className).toContain('opacity-0');
+    expect(finalRockEntity.className).toContain('invisible');
   });
 });
