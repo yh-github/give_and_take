@@ -7,7 +7,9 @@ export function generateLevelPuzzle(level, targetSteps = 5, numDiggers = 1, seed
   if (level.generatePuzzle) {
     const customPuzzle = level.generatePuzzle(level, targetSteps, numDiggers, seed);
     if (customPuzzle && customPuzzle.puzzleEntities) {
-      customPuzzle.puzzleEntities = sanitizePuzzleEntities(customPuzzle.puzzleEntities, level.items);
+      const sanitized = sanitizePuzzleEntities(customPuzzle.puzzleEntities, level.items);
+      if (customPuzzle.boatOfferedItem) sanitized.boatOfferedItem = customPuzzle.boatOfferedItem;
+      customPuzzle.puzzleEntities = sanitized;
     }
     return customPuzzle;
   }

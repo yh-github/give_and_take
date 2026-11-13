@@ -86,8 +86,8 @@ export const inferTargetZone = (level, targetX, targetY, currentZone = 1) => {
     if (targetY < 20) return 1;
     if (targetY < 45) return targetX < 50 ? 2 : 3;
     if (targetY < 68) return targetX < 50 ? 4 : 5;
-    if (targetY < 80) return 6;
-    if (targetY < 88) return 7;
+    if (targetY < 83) return 6;
+    if (targetY < 90) return 7;
     if (targetY < 95) return 8;
     return 9;
   }

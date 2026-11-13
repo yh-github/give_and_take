@@ -1,5 +1,6 @@
 import React, { Fragment } from 'react';
-import { GiantClamSVG, BubbleVentSVG } from '../levels/underwater/components.jsx';
+import { UNDERWATER_INSPECT_RADIUS } from '../constants.js';
+import { GiantClamSVG, BubbleVentSVG, SeaWitchGateSVG, InkCloudSVG } from '../levels/underwater/components.jsx';
 import { getCorridorBounds } from '../logic/geometry.js';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
 
@@ -19,7 +20,8 @@ export function GameEntity({
   wallSegments,
   displayPlayerPos,
   breakingRockIds,
-  gameTime,
+  isTransformed,
+  hasDeepTreasure,
   getCustomEntityMovement,
   handleInteract,
   dict
@@ -31,28 +33,30 @@ export function GameEntity({
   const rewardItem = ent.reward ? level.items.find(i => i.id === ent.reward) : null;
   const isAlerting = alertEntityId === ent.id;
   const isSelected = selectedEntityId === ent.id;
-  const depthScale = (ent.depth === 1) ? 'scale-50' : (ent.depth === 2) ? 'scale-75' : 'scale-100';
-  const depthFilter = (ent.depth === 1) ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : (ent.depth === 2) ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
   const isAnimating = animatingEntities.includes(ent.id);
 
-  const screens = level.mechanics.screens || 1;
   const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal);
   const isRock = (ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate') || ent.isExtraRock;
   const isCurrent = ent.id === 'current' || (ent.isGatekeeper && ent.id?.startsWith('current_'));
 
-  const inFog = (level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)))) || inkFogEntities.has(ent.id);
+  const inZoneFog = level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
+  const inInkFog = inkFogEntities.has(ent.id);
 
   const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
   const inDarkness = !isVisible;
 
-  const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper) ? 110 : ((isVisible && !inFog) ? 110 : ((ent.depth || 3) * 10 + 5)));
-  const isInteractable = !inFog && !inDarkness;
+  const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper || ent.id === 'sea_witch') ? 110 : ((isVisible && !inZoneFog) ? 105 : 35));
+  const isInteractable = !inZoneFog && !inDarkness && !inInkFog;
 
-  const interactableHover = (inDarkness || inFog)
+  const interactableHover = (inDarkness || inZoneFog)
     ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
-    : !isInteractable
-      ? (isRock || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
-      : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1') || (isRock && isDefeated) || (isCurrent && isDefeated) ? 'cursor-default' : 'hover:scale-110 cursor-pointer';
+    : inInkFog
+      ? 'pointer-events-none cursor-default'
+      : !isInteractable
+        ? (isRock || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
+        : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1' && ent.id !== 'sea_witch') || (isRock && isDefeated) || (isCurrent && isDefeated)
+          ? 'cursor-default'
+          : 'hover:scale-110 cursor-pointer';
 
   const isGatekeeperRock = (isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES;
   let rockBounds = null;
@@ -63,18 +67,9 @@ export function GameEntity({
   const isBuried = isDigger && buriedEntities.includes(ent.id);
   const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
   const customMove = getCustomEntityMovement ? getCustomEntityMovement(ent) : null;
-  const isCustomEntity = !!customMove;
+  const isCustomEntity = Boolean(customMove && customMove.isActiveMotion);
   const wrapperClasses = `absolute flex flex-col items-center ${isCustomEntity ? 'transition-none' : 'transition-all duration-300'} ${isGatekeeperRock ? 'transform -translate-y-1/2' : (ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
 
-  const isNearLeft = !ent.roamClass && ent.x <= 20;
-  const isNearRight = !ent.roamClass && ent.x >= 80;
-  const isNearTop = ent.y <= 25;
-  const tooltipAlign = isNearLeft ? "left-0" : isNearRight ? "right-0" : "left-1/2 -translate-x-1/2";
-  const tooltipY = isNearTop ? "top-full mt-2" : "bottom-full mb-2";
-  const arrowAlign = isNearLeft ? "left-4" : isNearRight ? "right-4" : "left-1/2 -translate-x-1/2";
-  const arrowY = isNearTop ? "-top-[7px] border-t-2 border-l-2" : "-bottom-[7px] border-b-2 border-r-2";
-
-  const isElevator = ent.roamClass?.includes('elevator');
   let visualX = ent.x;
   let visualY = ent.y;
   let visualRotation = 0;
@@ -83,11 +78,32 @@ export function GameEntity({
   if (customMove) {
     visualX = customMove.x;
     visualY = customMove.y;
-    visualRotation = customMove.rotate;
-    isFlipped = customMove.flip;
-  } else if (isElevator) {
-    visualY += Math.sin(gameTime * 1.5 + (ent.id.length * 0.7)) * 20;
+    visualRotation = customMove.rotate || 0;
+    isFlipped = Boolean(customMove.flip);
   }
+
+  const heroDist = displayPlayerPos
+    ? Math.hypot(visualX - displayPlayerPos.x, visualY - displayPlayerPos.y)
+    : 0;
+  const isMurkyFar = Boolean(
+    level.mechanics.hasMurkyWater &&
+    !ent.isPreset &&
+    !ent.isGatekeeper &&
+    ent.id !== 'sea_witch' &&
+    ent.id !== 'dolphin_1' &&
+    heroDist > UNDERWATER_INSPECT_RADIUS
+  );
+
+  const isNearLeft = !ent.roamClass && visualX <= 22;
+  const isNearRight = !ent.roamClass && visualX >= 78;
+  const isNearTop = visualY <= 25;
+  const tooltipAlign = isNearLeft ? "left-0" : isNearRight ? "right-0" : "left-1/2 -translate-x-1/2";
+  const tooltipY = isNearTop ? "top-full mt-2" : "bottom-full mb-2";
+  const arrowAlign = isNearLeft ? "left-4" : isNearRight ? "right-4" : "left-1/2 -translate-x-1/2";
+  const arrowY = isNearTop ? "-top-[7px] border-t-2 border-l-2" : "-bottom-[7px] border-b-2 border-r-2";
+
+  const isElevator = ent.roamClass?.includes('elevator');
+  const isClam = Boolean(ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam'));
 
   const entityStyle = isGatekeeperRock ? { 
     left: `${rockBounds.xLeft}%`, 
@@ -104,10 +120,20 @@ export function GameEntity({
 
   const GatekeeperProp = level.GatekeeperPropComponent;
 
+  // Orient floating reward item outward toward the screen center or away from walls so rewards never collide
+  const rewardOffsetSelected = visualX > 50 ? '-translate-x-11' : 'translate-x-11';
+  const rewardOffsetIdle = visualX > 50 ? '-translate-x-9' : 'translate-x-9';
+
   return (
     <div onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
-      <div className={`relative ${depthScale} ${depthFilter}`}>
-        {!isDefeated && isSelected && !ent.isPreset && (
+      <div className="relative">
+        {inInkFog && (
+          <div className="absolute inset-0 -top-4 left-1/2 -translate-x-1/2 z-[180] flex items-center justify-center pointer-events-none">
+            <InkCloudSVG />
+          </div>
+        )}
+
+        {!isDefeated && isSelected && !ent.isPreset && !inInkFog && (
           <div className={`absolute ${tooltipY} ${tooltipAlign} z-[100]`}>
             <div className="relative bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg font-bold whitespace-nowrap animate-bounce gap-1">
               {ent.id === 'final_gate' ? (
@@ -120,6 +146,11 @@ export function GameEntity({
                   <span className="emoji-shadow">⛏️</span>
                   <span className="text-sm font-black text-amber-600 shadow-none ml-1">x1</span>
                 </>
+              ) : isMurkyFar ? (
+                <span className="flex items-center gap-1 text-sky-900 text-base font-black">
+                  <span>🤿</span>
+                  <span>❓</span>
+                </span>
               ) : (
                 Object.entries(groupedReqs).map(([reqId, count], i, arr) => (
                   <Fragment key={reqId}>
@@ -146,7 +177,7 @@ export function GameEntity({
           </div>
         )}
 
-        <div className="relative">
+        <div className={`relative ${inInkFog ? 'opacity-20 blur-[2px]' : ''}`}>
           {ent.isGatekeeper && !isRock && !isCurrent && GatekeeperProp && <GatekeeperProp />}
 
           <div className={`relative transition-all duration-700 ease-in-out ${
@@ -160,17 +191,25 @@ export function GameEntity({
           }`}>
 
             {!isGoal && !ent.isRepeatable && !ent.isPreset && (
-              (ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam')) ? (
+              isClam ? (
                 (!isDefeated && rewardItem && isBuried && isSelected) ? (
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[7cqw] drop-shadow-md pointer-events-none z-20 animate-bounce">❓</div>
                 ) : null
               ) : (!isDefeated && rewardItem && isBuried) ? (
                 <>
-                  <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
-                  <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-16' : 'translate-x-16'} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : `${ent.x > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-0 opacity-0 -z-10`}`}>❓</div>
+                  <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${visualX > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-90 opacity-90 -z-20`}>🕳️</div>
+                  <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${visualX > 50 ? '-translate-x-16' : 'translate-x-16'} -translate-y-4 rotate-12 scale-110 z-0 opacity-100` : `${visualX > 50 ? '-translate-x-12' : 'translate-x-12'} translate-y-2 scale-0 opacity-0 -z-10`}`}>❓</div>
                 </>
               ) : (!isDefeated && rewardItem && !isBuried) ? (
-                <div className={`absolute top-0 left-0 text-[9cqw] drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${ent.x > 50 ? '-translate-x-10' : 'translate-x-10'} -translate-y-4 rotate-12 scale-110 z-0` : `${ent.x > 50 ? '-translate-x-8' : 'translate-x-8'} translate-y-0 rotate-0 scale-90 opacity-90 -z-10 animate-bob`}`}>{rewardItem.emoji}</div>
+                <div className={`absolute top-0 left-0 drop-shadow-md pointer-events-none transition-all duration-500 ease-out ${isSelected ? `${rewardOffsetSelected} -translate-y-4 rotate-12 scale-110 z-0` : `${rewardOffsetIdle} translate-y-0 rotate-0 scale-90 opacity-95 -z-10 animate-bob`}`}>
+                  {isMurkyFar ? (
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-sky-950/80 border border-cyan-400/50 flex items-center justify-center text-sm sm:text-base text-cyan-200 shadow-md">
+                      ❓
+                    </div>
+                  ) : (
+                    <span className="text-[8.5cqw]">{rewardItem.emoji}</span>
+                  )}
+                </div>
               ) : null
             )}
 
@@ -181,7 +220,7 @@ export function GameEntity({
                   ? (rockBounds ? 'w-full' : ((ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'small' ? 'w-[20cqw] text-[20cqw]' : (ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'medium' ? 'w-[28cqw] text-[28cqw]' : 'w-[36cqw] text-[36cqw]')) 
                   : ent.isGatekeeper || isGoal 
                     ? 'text-[15cqw]' 
-                    : 'text-[9cqw]'
+                    : 'text-[9.5cqw]'
             }`}>
               {(isRock || ent.isExtraRock) ? (
                 <div className={`flex justify-center items-center transition-transform w-full ${isRock && !isDefeated ? 'cursor-pointer' : 'pointer-events-none'}`}>
@@ -209,33 +248,48 @@ export function GameEntity({
                   {isAlerting && !ent.isPreset ? (
                     alertReason === 'inventory_full' ? '🎒' :
                     (ent.id.startsWith('mermaid') ? '🥺' : '😡')
-                  ) :
-                    isAlerting ? (
-                      alertReason === 'inventory_full' ? '🎒' : '🚫'
-                    ) :
-                      level.id === 'underwater' ? (
-                        ent.id === 'sea_witch' ? (
-                          <div className="relative flex flex-col items-center">
-                            <div className="absolute inset-0 bg-purple-600 blur-2xl opacity-60 rounded-full scale-150 animate-pulse -z-10" />
-                            <span className="text-[10cqw] z-10">{ent.emoji}</span>
-                            <div className="absolute -bottom-8 bg-black/60 rounded px-2 whitespace-nowrap text-[2.5cqw] border border-purple-500 shadow-[0_0_10px_purple] z-20">🧑 ➡️ 🧜‍♂️</div>
+                  ) : isAlerting ? (
+                    alertReason === 'inventory_full' ? '🎒' : '🚫'
+                  ) : level.id === 'underwater' ? (
+                    ent.id === 'sea_witch' ? (
+                      <SeaWitchGateSVG
+                        isTransformed={isTransformed}
+                        hasDeepTreasure={hasDeepTreasure}
+                        emoji={ent.emoji}
+                      />
+                    ) : isElevator ? (
+                      <div className="relative flex flex-col items-center">
+                        <div className={`w-[18cqw] h-[18cqw] flex items-center justify-center text-[12cqw] font-sans drop-shadow-2xl ${!isCustomEntity && !isAnimating ? 'animate-dolphin-idle' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                          {ent.emoji}
+                        </div>
+                        {isDefeated && (
+                          <div className=" -mt-2 bg-sky-950/90 border border-cyan-300 text-cyan-100 rounded-full px-2 py-0.5 text-[2.4cqw] font-black shadow-md pointer-events-none">
+                            {visualY > 40 ? '⬆️' : '⬇️'}
                           </div>
-                        ) :
-                          isElevator ? (
-                            <div className={`w-[24cqw] h-[24cqw] flex items-center justify-center text-[15cqw] font-sans drop-shadow-2xl ${!isAnimating ? 'animate-mermaid-swim' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
-                              {ent.emoji}
-                            </div>
-                          ) :
-                            (ent.id.startsWith('clam') || ent.id.startsWith('giant_clam')) ? (
-                              <GiantClamSVG
-                                isDefeated={!isBuried}
-                                isAlerting={isAlerting}
-                                rewardEmoji={(!isDefeated && !isBuried) ? rewardItem?.emoji : null}
-                              />
-                            ) :
-                              ent.isVent ? <BubbleVentSVG /> :
-                                ent.emoji
-                      ) : ent.emoji}
+                        )}
+                      </div>
+                    ) : ent.id.startsWith('mermaid') ? (
+                      <div className={`flex items-center justify-center text-[11cqw] drop-shadow-xl ${!isAnimating ? 'animate-mermaid-swim' : ''}`}>
+                        {ent.emoji}
+                      </div>
+                    ) : isClam ? (
+                      <GiantClamSVG
+                        isDefeated={isDefeated}
+                        isBuried={isBuried}
+                        isDigger={isDigger}
+                        isGoal={isGoal}
+                        isAlerting={isAlerting}
+                        rewardEmoji={!isDefeated && !isBuried ? rewardItem?.emoji : null}
+                        isMurkyFar={isMurkyFar}
+                      />
+                    ) : ent.isVent ? (
+                      <BubbleVentSVG />
+                    ) : (
+                      ent.emoji
+                    )
+                  ) : (
+                    ent.emoji
+                  )}
                 </div>
               )}
             </div>
@@ -246,7 +300,7 @@ export function GameEntity({
             {dict.blocked}
           </div>
         )}
-        {isGoal && !isDefeated && !isAlerting && level.id !== 'river_crossing' && (
+        {isGoal && !isDefeated && !isAlerting && level.id !== 'river_crossing' && level.id !== 'underwater' && (
           <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">
             {dict.exit}
           </div>

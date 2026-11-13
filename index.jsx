@@ -8,34 +8,43 @@ import STRINGS from './src/strings.js';
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
 
 const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
-  const [activeSettings, setActiveSettings] = useState({ levelId: 'underground', steps: 5, diggers: 1 });
+  const isEditor = typeof window !== 'undefined' && new URLSearchParams(window.location?.search || '').get('editor') === 'true';
+  const shouldPrompt = autoResumePrompt && !isEditor;
+
+  const [pendingResumeState, setPendingResumeState] = useState(() => {
+    if (!shouldPrompt) return null;
+    return getAutoSave(LEVEL_DICTIONARY);
+  });
+  const [showResumePrompt, setShowResumePrompt] = useState(() => Boolean(pendingResumeState));
+  const [activeSettings, setActiveSettings] = useState(() => ({
+    levelId: pendingResumeState?.levelId || 'underground',
+    steps: pendingResumeState?.targetSteps || 5,
+    diggers: pendingResumeState?.numDiggers ?? 1
+  }));
   const [gameKey, setGameKey] = useState(0);
   const [lang, setLang] = useState('he');
-  const [savedState, setSavedState] = useState(null);
-  const [pendingResumeState, setPendingResumeState] = useState(null);
-  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedState, setSavedState] = useState(() => pendingResumeState);
 
   const dict = STRINGS[lang] || STRINGS.en;
 
   useEffect(() => {
-    if (!autoResumePrompt) return;
-    const existing = getAutoSave(LEVEL_DICTIONARY);
-    if (existing) {
-      setPendingResumeState(existing);
-      setShowResumePrompt(true);
+    if (!shouldPrompt) return;
+    if (!pendingResumeState) {
+      const existing = getAutoSave(LEVEL_DICTIONARY);
+      if (existing) {
+        setPendingResumeState(existing);
+        setSavedState(existing);
+        setActiveSettings({
+          levelId: existing.levelId,
+          steps: existing.targetSteps,
+          diggers: existing.numDiggers
+        });
+        setShowResumePrompt(true);
+      }
     }
-  }, [autoResumePrompt]);
+  }, [shouldPrompt, pendingResumeState]);
 
   const handleContinueSaved = () => {
-    if (pendingResumeState) {
-      setActiveSettings({
-        levelId: pendingResumeState.levelId,
-        steps: pendingResumeState.targetSteps,
-        diggers: pendingResumeState.numDiggers
-      });
-      setSavedState(pendingResumeState);
-      setGameKey(k => k + 1);
-    }
     setShowResumePrompt(false);
   };
 
@@ -44,6 +53,7 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
     setSavedState(null);
     setPendingResumeState(null);
     setShowResumePrompt(false);
+    setGameKey(k => k + 1);
   };
 
   const applyAndGenerate = (newSettings) => {

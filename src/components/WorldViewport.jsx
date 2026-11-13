@@ -14,6 +14,8 @@ export function WorldViewport({
   mapTranslateY,
   unlockedZones,
   isTransformed,
+  hasDeepTreasure,
+  attachedEntityId,
   debugMode,
   polyPoints,
   displayPlayerPos,
@@ -70,12 +72,15 @@ export function WorldViewport({
   onCellClick,
 }) {
   const Background = level.BackgroundComponent || (() => <div className="absolute inset-0 bg-[#dcb27b]" />);
+  const viewportTransitionClass = attachedEntityId
+    ? 'transition-none'
+    : 'transition-transform duration-500 ease-out';
 
   return (
     <div 
       ref={innerMapRef}
       onClick={onCellClick}
-      className="absolute inset-x-0 top-0 transition-transform duration-1000 ease-in-out pointer-events-auto animate-map-appear cursor-pointer" 
+      className={`absolute inset-x-0 top-0 ${viewportTransitionClass} pointer-events-auto animate-map-appear cursor-pointer`} 
       style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}
     >
       <Background />
@@ -110,7 +115,7 @@ export function WorldViewport({
 
       {level.sceneryNodes?.map((sc, i) => {
         const sDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(sc.x - displayPlayerPos.x, 2) + Math.pow(sc.y - displayPlayerPos.y, 2)) : 100;
-        const sZ = sDist < 28 ? 99 : (sc.z || (sc.depth || 3) * 10);
+        const sZ = sDist < 28 ? 99 : (sc.z || 25);
         return <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: sZ }}>{sc.e}</div>;
       })}
 
@@ -122,26 +127,40 @@ export function WorldViewport({
       )}
 
       {schoolsOfFish.map(f => {
-        const fScale = f.depth === 1 ? 'scale-50' : f.depth === 2 ? 'scale-75' : 'scale-100';
-        const fFilter = f.depth === 1 ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : f.depth === 2 ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
         const animName = f.isRight ? 'swimRight' : 'swimLeft';
         const duration = f.speed ? `${f.speed}s` : '10s';
         return (
-          <div key={f.id} onClick={(e) => handleCatchSchoolFish(e, f)} className="absolute cursor-pointer text-4xl transition-transform hover:brightness-150" style={{ top: `${f.y}%`, zIndex: f.depth * 10 + 5, left: '-20%', animation: `${animName} ${duration} linear forwards` }}>
-            <div className={`inline-block ${f.isRight ? 'scale-x-[-1]' : ''} ${fScale} ${fFilter}`}>{level.items.find(i => i.id === f.type)?.emoji || '🐟'}</div>
+          <div
+            key={f.id}
+            onClick={(e) => handleCatchSchoolFish(e, f)}
+            className="absolute cursor-pointer text-4xl drop-shadow-md transition-transform hover:scale-125"
+            style={{ top: `${f.y}%`, left: '0%', zIndex: 45, animation: `${animName} ${duration} linear forwards` }}
+          >
+            <div className={`inline-block ${f.isRight ? 'scale-x-[-1]' : ''}`}>
+              {level.items.find(i => i.id === f.type)?.emoji || '🐟'}
+            </div>
           </div>
         );
       })}
 
       {roamingBoats.map(b => (
-        <div key={b.id} onClick={(e) => handleBoatTrade(e, b)} className={`absolute cursor-pointer z-[120] hover:scale-110 drop-shadow-xl ${b.isRight ? 'animate-boat-glide-right' : 'animate-boat-glide-left'}`} style={{ top: '11%' }}>
+        <div
+          key={b.id}
+          onClick={(e) => handleBoatTrade(e, b)}
+          className={`absolute cursor-pointer z-[120] hover:scale-110 drop-shadow-xl ${b.isRight ? 'animate-boat-glide-right' : 'animate-boat-glide-left'}`}
+          style={{ top: '13.8%', left: '0%' }}
+        >
           <BoatSVG />
-          <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white/90 border-2 border-amber-600 rounded-full p-2 flex items-center gap-1 shadow-lg animate-bounce">
-            <span className="text-xl">{level.items.find(i => i.id === (b.reqItem || 'fish'))?.emoji || '🐟'}</span>
-            <span className="text-sm font-bold">➡️</span>
-            <span className="text-xl">{level.items.find(i => i.id === b.offeredItem)?.emoji}</span>
+          <div className={`absolute -top-9 left-1/2 -translate-x-1/2 bg-white/95 border-2 border-amber-600 rounded-full px-2.5 py-1 flex items-center gap-1 shadow-lg animate-bounce whitespace-nowrap ${b.isRight ? 'scale-x-[-1]' : ''}`}>
+            <span className="text-lg sm:text-xl">{level.items.find(i => i.id === (b.reqItem || 'fish'))?.emoji || '🐟'}</span>
+            <span className="text-xs font-black text-stone-700">➔</span>
+            <span className="text-lg sm:text-xl">{level.items.find(i => i.id === b.offeredItem)?.emoji}</span>
           </div>
-          {alertEntityId === b.id && <div className="absolute inset-0 flex items-center justify-center text-4xl animate-troll-mad">{alertReason === 'inventory_full' ? '🎒' : '🚫'}</div>}
+          {alertEntityId === b.id && (
+            <div className={`absolute inset-0 flex items-center justify-center text-4xl animate-troll-mad ${b.isRight ? 'scale-x-[-1]' : ''}`}>
+              {alertReason === 'inventory_full' ? '🎒' : '🚫'}
+            </div>
+          )}
         </div>
       ))}
 
@@ -157,7 +176,7 @@ export function WorldViewport({
         if (!itemData) return null;
         const isAlerting = alertEntityId === item.uid;
         return (
-          <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[15] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${item.y}%` }}>
+          <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${item.y}%` }}>
             <div className="text-3xl drop-shadow-md">{isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}</div>
           </div>
         );
@@ -167,13 +186,18 @@ export function WorldViewport({
         <div 
           onClick={handleCampClick} 
           className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${(selectedItemTypes.length > 0 || (!selectedItemTypes.length && level.mechanics.hasAir)) ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] pointer-events-auto' : 'pointer-events-none'}`} 
-          style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 10 }}
+          style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 30 }}
         >
           <div className="relative">
             {level.CampIcon ? <level.CampIcon /> : <div className="text-6xl drop-shadow-lg scale-x-[-1] animate-flicker">🔥</div>}
             {selectedItemTypes.length > 0 && (
               <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white text-stone-900 text-xs font-black px-2 py-1 rounded-xl shadow-xl animate-bounce whitespace-nowrap border-2 border-stone-800 pointer-events-auto">
                 {dict.dropItem || '⬇️ Drop Item'}
+              </div>
+            )}
+            {level.id === 'underwater' && hasDeepTreasure && !isTransformed && !selectedItemTypes.length && (
+              <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-amber-300 text-stone-950 font-black tracking-wider text-sm px-2.5 py-0.5 rounded-full border-2 border-amber-700 shadow-[0_0_14px_rgba(251,191,36,0.9)] animate-bounce whitespace-nowrap">
+                👑 {dict.exit}
               </div>
             )}
           </div>
@@ -215,7 +239,8 @@ export function WorldViewport({
           wallSegments={wallSegments}
           displayPlayerPos={displayPlayerPos}
           breakingRockIds={breakingRockIds}
-          gameTime={gameTime}
+          isTransformed={isTransformed}
+          hasDeepTreasure={hasDeepTreasure}
           getCustomEntityMovement={getCustomEntityMovement}
           handleInteract={handleInteract}
           dict={dict}

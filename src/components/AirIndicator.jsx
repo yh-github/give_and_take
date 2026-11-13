@@ -13,13 +13,13 @@ export function AirIndicator({
     <div
       title="Swim back to boat"
       onClick={onSwimToSurface}
-      className="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-1 z-[150] bg-blue-900/60 p-2 sm:p-3 rounded-full border-2 border-blue-400 backdrop-blur-md shadow-lg cursor-pointer hover:bg-blue-700/80 hover:border-blue-300 transition-colors select-none"
+      className="absolute top-3 left-[54%] transform -translate-x-1/2 flex items-center gap-0.5 z-[150] bg-sky-950/85 px-2.5 py-1.5 rounded-full border-2 border-cyan-300/80 backdrop-blur-md shadow-[0_4px_15px_rgba(0,0,0,0.45)] cursor-pointer hover:bg-sky-900/90 hover:border-cyan-200 transition-colors select-none"
     >
       {[...Array(MAX_AIR)].map((_, i) => (
         <div 
           key={i} 
-          className={`text-xl sm:text-2xl transition-all duration-300 ${
-            i < air ? 'opacity-100 scale-100' : 'opacity-30 scale-75 drop-shadow-none grayscale'
+          className={`text-base leading-none transition-all duration-300 ${
+            i < air ? 'opacity-100 scale-100' : 'opacity-25 scale-75 drop-shadow-none grayscale'
           }`}
         >
           🫧

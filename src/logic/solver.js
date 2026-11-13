@@ -13,10 +13,11 @@ import { canFitInInventory } from './rules.js';
  * @param {Object} level - Level definition (uses mechanics flags + solver hooks)
  * @returns {Object|null} Solution state with path, or null if unsolvable
  */
-export function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
+export function solvePuzzle(startItems, puzzleEntities, goalEntityId, level, options = {}) {
   const hasTransformation = Boolean(level?.mechanics?.hasTransformation);
   const witchEntity = hasTransformation ? puzzleEntities.find(e => e.id === 'sea_witch') : null;
   const witchZone = witchEntity ? (witchEntity.zone || 1) : 1;
+  const boatOfferedItem = options?.boatOfferedItem || puzzleEntities?.boatOfferedItem || null;
 
   // Precompute all item IDs required by any entity so pure dead-end trades can be pruned
   const allRequiredItems = new Set();
@@ -47,11 +48,22 @@ export function solvePuzzle(startItems, puzzleEntities, goalEntityId, level) {
 
     const canHoldMore = uniqueCount(curr.inv) < MAX_UNIQUE_ITEMS;
 
-    if (level.mechanics.hasFish && !curr.def.includes('fish_node') && canHoldMore) {
+    if ((level?.mechanics?.hasFish || level?.mechanics?.hasSchoolsOfFish) && allRequiredItems.has('fish') && !curr.def.includes('fish_node') && canHoldMore) {
       queue.push({
         inv: [...curr.inv, 'fish'].sort(),
         def: [...curr.def, 'fish_node'],
         path: [...curr.path, { isEnvironmentAction: true, itemId: 'fish' }],
+        steps: curr.steps,
+        transformed: curr.transformed,
+        hasTreasure: curr.hasTreasure
+      });
+    }
+
+    if (boatOfferedItem && allRequiredItems.has(boatOfferedItem) && !curr.def.includes('roaming_boat') && (canHoldMore || curr.inv.includes(boatOfferedItem))) {
+      queue.push({
+        inv: [...curr.inv, boatOfferedItem].sort(),
+        def: [...curr.def, 'roaming_boat'],
+        path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: boatOfferedItem, reqItem: 'fish' }],
         steps: curr.steps,
         transformed: curr.transformed,
         hasTreasure: curr.hasTreasure

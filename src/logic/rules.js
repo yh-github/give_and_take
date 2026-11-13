@@ -209,3 +209,96 @@ export function computeUnlockedZones(unlockedZones, entity) {
   if (entity.zone !== undefined) combined.push(entity.zone);
   return Array.from(new Set(combined));
 }
+
+/**
+ * Validates that entities in the level maintain sufficient clearance:
+ * 1. Minimum distance between distinct entities in the same zone.
+ * 2. Minimum clearance from cave walls (if caveWallVertices provided).
+ *
+ * @param {Array<Object>} entities
+ * @param {Object} [options]
+ * @param {number} [options.minEntityDistance=8]
+ * @param {Object|null} [options.caveWallVertices=null]
+ * @param {number} [options.minWallMargin=4.5]
+ * @returns {{ isValid: boolean, violations: Array<Object> }}
+ */
+export function validateEntitySpacing(entities, options = {}) {
+  const { minEntityDistance = 8, caveWallVertices = null, minWallMargin = 4.5 } = options;
+  const violations = [];
+
+  if (!Array.isArray(entities)) return { isValid: true, violations: [] };
+
+  // 1. Check pairwise entity distance within the same zone (ignoring gatekeepers / goal rows)
+  for (let i = 0; i < entities.length; i++) {
+    for (let j = i + 1; j < entities.length; j++) {
+      const a = entities[i];
+      const b = entities[j];
+      if (a.zone !== b.zone) continue;
+      if (a.isGatekeeper || b.isGatekeeper) continue;
+      if (a.isTreasure && b.isTreasure) continue; // Treasure line in goal room
+
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist < minEntityDistance) {
+        violations.push({
+          type: 'ENTITY_DISTANCE',
+          entityA: a.id || `${a.x}_${a.y}`,
+          entityB: b.id || `${b.x}_${b.y}`,
+          zone: a.zone,
+          distance: dist,
+          required: minEntityDistance
+        });
+      }
+    }
+  }
+
+  // 2. Check wall clearance if cave vertices are provided
+  if (caveWallVertices) {
+    const distToSegment = (p, p1, p2) => {
+      const dx = p2.x - p1.x, dy = p2.y - p1.y;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) return Math.hypot(p.x - p1.x, p.y - p1.y);
+      let t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / len2;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(p.x - (aX(p1, t, dx)), p.y - (aY(p1, t, dy)));
+    };
+    function aX(p1, t, dx) { return p1.x + t * dx; }
+    function aY(p1, t, dy) { return p1.y + t * dy; }
+
+    const minDistToPoly = (p, poly) => {
+      if (!poly || poly.length < 2) return Infinity;
+      let minD = Infinity;
+      for (let i = 0; i < poly.length - 1; i++) {
+        minD = Math.min(minD, distToSegment(p, poly[i], poly[i + 1]));
+      }
+      return minD;
+    };
+
+    const polylines = [
+      caveWallVertices.leftWall,
+      caveWallVertices.rightWall,
+      caveWallVertices.centralPillar
+    ].filter(Boolean);
+
+    entities.forEach(ent => {
+      if (ent.isGatekeeper) return; // Gatekeeper rocks intentionally span wall-to-wall
+      for (const poly of polylines) {
+        const d = minDistToPoly(ent, poly);
+        if (d < minWallMargin) {
+          violations.push({
+            type: 'WALL_CLEARANCE',
+            entityId: ent.id || `${ent.x}_${ent.y}`,
+            zone: ent.zone,
+            distance: d,
+            required: minWallMargin
+          });
+          break;
+        }
+      }
+    });
+  }
+
+  return {
+    isValid: violations.length === 0,
+    violations
+  };
+}

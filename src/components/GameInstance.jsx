@@ -10,7 +10,9 @@ import {
   ACTION_ANIM_MS,
   ALERT_DURATION_MS,
   AIR_REFILL_INTERVAL_MS,
-  DROWNING_ALERT_DELAY_MS
+  DROWNING_ALERT_DELAY_MS,
+  DROWNING_RETURN_DELAY_MS,
+  UNDERWATER_INSPECT_RADIUS
 } from '../constants.js';
 import STRINGS from '../strings.js';
 import LEVEL_REGISTRY from '../levels/index.js';
@@ -21,6 +23,7 @@ import { findGlobalPath } from '../logic/pathfinding.js';
 import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.js';
 import { createShuffleBag } from '../logic/rng.js';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
+import { getCorridorBounds } from '../logic/geometry.js';
 import {
   createSavePayload,
   saveToAutoSave,
@@ -40,7 +43,7 @@ import LevelEditorOverlay from './LevelEditorOverlay.jsx';
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
 
 export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, onLoadState, savedState, lang, setLang }) {
-  const [puzzle, setPuzzle] = useState(null);
+  const [puzzle, setPuzzle] = useState(() => savedState?.puzzle || null);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [isLevelEditor] = useState(() => new URLSearchParams(window.location.search).get('editor') === 'true');
   const [editorScrollY, setEditorScrollY] = useState(0);
@@ -52,13 +55,16 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     }
   }, [isLevelEditor, level]);
 
-  const [inventory, setInventory] = useState([]);
-  const [unlockedZones, setUnlockedZones] = useState([1]);
-  const [defeated, setDefeated] = useState([]);
+  const [inventory, setInventory] = useState(() => savedState?.inventory || savedState?.puzzle?.startItems || []);
+  const [unlockedZones, setUnlockedZones] = useState(() => savedState?.unlockedZones || [1]);
+  const [defeated, setDefeated] = useState(() => savedState?.defeated || []);
   const [selectedItemTypes, setSelectedItemTypes] = useState([]);
-  const [pathHistory, setPathHistory] = useState([{ ...level.campPos, zone: 1 }]);
-  const [historyStack, setHistoryStack] = useState([]);
-  const [air, setAir] = useState(MAX_AIR);
+  const [pathHistory, setPathHistory] = useState(() => savedState?.pathHistory || [{ ...level.campPos, zone: 1 }]);
+  const [historyStack, setHistoryStack] = useState(() => (savedState?.historyStack || []).map(entry => ({
+    ...entry,
+    inkFogEntities: new Set(entry.inkFogEntities || [])
+  })));
+  const [air, setAir] = useState(() => savedState?.air ?? MAX_AIR);
 
   const dict = STRINGS[lang] || STRINGS.en;
 
@@ -73,10 +79,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
   const [selectedEntityId, setSelectedEntityId] = useState(null);
   const [flyingItem, setFlyingItem] = useState(null);
   const [tempPlayerPos, setTempPlayerPos] = useState(null);
-  const [envItemState, setEnvItemState] = useState('active');
-  const [envItemCaughtPos, setEnvItemCaughtPos] = useState({ x: 50, y: 50 });
+  const [envItemState, setEnvItemState] = useState(() => savedState?.envItemState || 'active');
+  const [envItemCaughtPos, setEnvItemCaughtPos] = useState(() => savedState?.envItemCaughtPos || { x: 50, y: 50 });
   const [schoolsOfFish, setSchoolsOfFish] = useState([]);
-  const [campItems, setCampItems] = useState([]);
+  const [campItems, setCampItems] = useState(() => savedState?.campItems || []);
   const [massFlyingTreasures, setMassFlyingTreasures] = useState([]);
   const [clickIndicator, setClickIndicator] = useState(null);
   const [heroBubbleBursts, setHeroBubbleBursts] = useState([]);
@@ -87,26 +93,26 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
   const [menuSettings, setMenuSettings] = useState({ levelId: level.id, steps: targetSteps, diggers: numDiggers });
 
   const [animatingEntities, setAnimatingEntities] = useState([]);
-  const [buriedEntities, setBuriedEntities] = useState([]);
-  const [isTransformed, setIsTransformed] = useState(false);
+  const [buriedEntities, setBuriedEntities] = useState(() => savedState?.buriedEntities || []);
+  const [isTransformed, setIsTransformed] = useState(() => Boolean(savedState?.isTransformed));
   const [isRefillingAir, setIsRefillingAir] = useState(false);
-  const [hasDeepTreasure, setHasDeepTreasure] = useState(false);
-  const [inkFogEntities, setInkFogEntities] = useState(new Set());
+  const [hasDeepTreasure, setHasDeepTreasure] = useState(() => Boolean(savedState?.hasDeepTreasure));
+  const [inkFogEntities, setInkFogEntities] = useState(() => new Set(savedState?.inkFogEntities || []));
   const [roamingBoats, setRoamingBoats] = useState([]);
   const [gameTime, setGameTime] = useState(0);
   const [attachedEntityId, setAttachedEntityId] = useState(null);
   const [isMagicAnimating, setIsMagicAnimating] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
-  const [lightingSettings, setLightingSettings] = useState(DEFAULT_LIGHTING);
+  const [debugMode, setDebugMode] = useState(() => Boolean(savedState?.debugMode));
+  const [lightingSettings, setLightingSettings] = useState(() => savedState?.lightingSettings || DEFAULT_LIGHTING);
 
-  const [dolphinState, setDolphinState] = useState('idle_surface');
-  const [dolphinYPos, setDolphinYPos] = useState(16);
+  const [dolphinState, setDolphinState] = useState(() => savedState?.dolphinState || 'idle_surface');
+  const [dolphinYPos, setDolphinYPos] = useState(() => typeof savedState?.dolphinYPos === 'number' ? savedState.dolphinYPos : 22);
   const [breakingRockIds, setBreakingRockIds] = useState({});
   const dolphinStateRef = useRef('idle_surface');
-  const dolphinYPosRef = useRef(16);
+  const dolphinYPosRef = useRef(22);
   useEffect(() => { dolphinStateRef.current = dolphinState; }, [dolphinState]);
   useEffect(() => { dolphinYPosRef.current = dolphinYPos; }, [dolphinYPos]);
-  const dolphinAnimRef = useRef({ startTime: 0, startY: 16, targetY: 16, duration: 0, isDiving: false, attachPlayer: false });
+  const dolphinAnimRef = useRef({ startTime: 0, startY: 22, targetY: 22, duration: 0, isDiving: false, attachPlayer: false });
 
   const airRef = useRef(air); airRef.current = air;
   const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
@@ -164,9 +170,14 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       let targetPoint;
       let dist;
       if (isRock || e.isGatekeeper) {
+        let rockX = e.x;
+        if (level.id === 'underground' && CAVE_WALL_VERTICES) {
+          const bounds = getCorridorBounds(e.y, CAVE_WALL_VERTICES, e.x >= 50);
+          rockX = Math.max(bounds.xLeft + 2, Math.min(bounds.xRight - 2, pPos.x));
+        }
         const facingY = pPos.y < e.y ? (e.y - 1.5) : (e.y + 1.5);
-        targetPoint = { x: e.x, y: facingY * screens };
-        dist = Math.sqrt(Math.pow(e.x - pPos.x, 2) + Math.pow(facingY - pPos.y, 2));
+        targetPoint = { x: rockX, y: facingY * screens };
+        dist = Math.sqrt(Math.pow(rockX - pPos.x, 2) + Math.pow(facingY - pPos.y, 2));
       } else {
         targetPoint = { x: e.x, y: e.y * screens };
         dist = Math.sqrt(Math.pow(e.x - pPos.x, 2) + Math.pow(e.y - pPos.y, 2));
@@ -222,7 +233,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       setEnvItemState(savedState.envItemState || 'active');
       setEnvItemCaughtPos(savedState.envItemCaughtPos || { x: 50, y: 50 });
       setDolphinState(savedState.dolphinState || 'idle_surface');
-      setDolphinYPos(typeof savedState.dolphinYPos === 'number' ? savedState.dolphinYPos : 16);
+      setDolphinYPos(typeof savedState.dolphinYPos === 'number' ? savedState.dolphinYPos : 22);
       if (savedState.lightingSettings) setLightingSettings(savedState.lightingSettings);
       if (savedState.debugMode !== undefined) setDebugMode(savedState.debugMode);
       if (savedState.inkFogEntities) setInkFogEntities(new Set(savedState.inkFogEntities));
@@ -273,6 +284,39 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       const dynamicObstacles = obstacleSegments;
       let finalTargetX = targetX;
       let finalTargetY = targetY;
+
+      if (occluderType === 'rock') {
+        const bounds = getCorridorBounds(targetY, CAVE_WALL_VERTICES, targetX >= 50);
+        finalTargetX = Math.max(bounds.xLeft + 3, Math.min(bounds.xRight - 3, lastPos.x));
+        const isAbove = lastPos.y <= targetY;
+        finalTargetY = isAbove ? (targetY - 1.5 - 1.2) : (targetY + 1.5 + 1.2);
+
+        const xDist = Math.max(0, Math.max(bounds.xLeft - lastPos.x, lastPos.x - bounds.xRight));
+        const yDist = Math.abs(lastPos.y - targetY);
+        const isAlreadyInRange = xDist <= 2 && yDist <= 3.8;
+
+        const startPt = { x: lastPos.x, y: lastPos.y * screens };
+        const endPt = { x: finalTargetX, y: finalTargetY * screens };
+        const pathBounds = { width: 100, height: screens * 100 };
+        const rawPath = findGlobalPath(startPt, endPt, dynamicObstacles, pathBounds);
+
+        if (rawPath.length > 0) {
+          return rawPath.map(p => ({
+            x: p.x,
+            y: p.y / screens,
+            depth: targetDepth || 3,
+            zone: targetZone
+          }));
+        } else if (isAlreadyInRange) {
+          return [{
+            x: lastPos.x,
+            y: lastPos.y,
+            depth: targetDepth || 3,
+            zone: targetZone
+          }];
+        }
+        return [];
+      }
 
       if (isInteract) {
         const dx = finalTargetX - lastPos.x;
@@ -332,13 +376,13 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       scheduleTimeout(() => {
         setAlertEntityId('out_of_air');
         setIsAnimatingLoot(true);
-        const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
+        const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, 3, false);
         setPathHistory(prev => [...prev, ...returnPath]);
         scheduleTimeout(() => {
           setIsAnimatingLoot(false);
           setAlertEntityId(null);
           setIsRefillingAir(true);
-        }, 3000);
+        }, DROWNING_RETURN_DELAY_MS);
       }, DROWNING_ALERT_DELAY_MS);
     } else setAir(a => a - 1);
   }, [level.id, level.mechanics.hasAir, level.campPos, navigateTo, isTransformed, hasDeepTreasure, triggerVictory, scheduleTimeout]);
@@ -350,8 +394,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     dolphinAnimRef.current = {
       startTime: performance.now(),
       startY: dolphinYPosRef.current,
-      targetY: 60,
-      duration: 2000,
+      targetY: 58,
+      duration: 1500,
       isDiving: true,
       attachPlayer: true
     };
@@ -366,8 +410,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     dolphinAnimRef.current = {
       startTime: performance.now(),
       startY: dolphinYPosRef.current,
-      targetY: 16,
-      duration: 1800,
+      targetY: 22,
+      duration: 1400,
       isDiving: false,
       attachPlayer
     };
@@ -375,10 +419,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
 
   useEffect(() => {
     if (level.id !== 'underwater') return;
-    let frameId;
-    const update = (time) => {
-      setGameTime(time / 1000);
+    if (dolphinState !== 'diving' && dolphinState !== 'rising') return;
 
+    let frameId;
+    const update = () => {
       const anim = dolphinAnimRef.current;
       const state = dolphinStateRef.current;
 
@@ -396,25 +440,24 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
             setDolphinState('idle_deep');
             setAttachedEntityId(null);
             setIsAnimatingLoot(false);
-            setPathHistory(prev => [...prev, { x: 50, y: 60, zone: 2 }]);
-            handlePostActionAir(60);
+            setPathHistory(prev => [...prev, { x: 50, y: 58, zone: 2 }]);
           } else if (state === 'rising') {
             setDolphinState('idle_surface');
             if (anim.attachPlayer) {
               setAttachedEntityId(null);
               setIsAnimatingLoot(false);
-              setPathHistory(prev => [...prev, { x: 50, y: 16, zone: 1 }]);
-              handlePostActionAir(16);
+              setPathHistory(prev => [...prev, { x: 50, y: 20, zone: 1 }]);
+              handlePostActionAir(20);
             }
           }
+          return;
         }
+        frameId = requestAnimationFrame(update);
       }
-
-      frameId = requestAnimationFrame(update);
     };
     frameId = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frameId);
-  }, [level.id, handlePostActionAir]);
+  }, [level.id, dolphinState, handlePostActionAir]);
 
   useEffect(() => {
     if (!level.mechanics.hasSchoolsOfFish) return;
@@ -422,11 +465,10 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     const spawnFish = (isInitial = false) => {
       if (isDemoRef.current || isVicRef.current) return;
       const id = Date.now() + Math.random();
-      const type = Math.random() > 0.6 && level.id === 'underwater' ? 'gold_fish' : 'fish';
-      const depth = Math.floor(Math.random() * 3) + 1;
-      const yPos = isInitial ? (15 + Math.random() * 20) : (20 + Math.random() * 70);
+      const type = Math.random() > 0.65 && level.id === 'underwater' ? 'gold_fish' : 'fish';
+      const yPos = isInitial ? (18 + Math.random() * 18) : (18 + Math.random() * 68);
       const isRight = Math.random() > 0.5;
-      setSchoolsOfFish(prev => [...prev, { id, type, y: yPos, depth, isRight, speed: 8 + Math.random() * 10 }]);
+      setSchoolsOfFish(prev => [...prev.slice(-10), { id, type, y: yPos, depth: 3, isRight, speed: 9 + Math.random() * 7 }]);
       const tId = setTimeout(() => { setSchoolsOfFish(prev => prev.filter(f => f.id !== id)); }, 12000);
       timeoutIds.push(tId);
     };
@@ -435,32 +477,39 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     }
     const intervalId = setInterval(() => {
       spawnFish(false);
-      if (Math.random() > 0.3) spawnFish(false);
     }, FISH_SPAWN_INTERVAL_MS);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.mechanics.hasSchoolsOfFish, level.id]);
 
   useEffect(() => {
-    if (level.id !== 'underwater') return;
+    if (level.id !== 'underwater' || !puzzle) return;
     let timeoutIds = [];
-    const junkBag = createShuffleBag(['comb', 'mirror', 'boot', 'locket']);
+    const primaryBoatItem = puzzle.boatOfferedItem || 'boot';
+    const safePool = Array.isArray(puzzle.safeBoatItems) && puzzle.safeBoatItems.length > 0
+      ? puzzle.safeBoatItems
+      : [primaryBoatItem];
+    const junkBag = createShuffleBag(safePool);
+    let boatSpawnCount = 0;
+
     const spawnBoat = () => {
       if (isDemoRef.current || isVicRef.current) return;
       const spawnTime = Date.now();
       const id = spawnTime + Math.random();
-      const offeredItem = junkBag.next();
-      const reqItem = Math.random() > 0.5 ? 'gold_fish' : 'fish';
-      const isRight = Math.random() > 0.5;
-      setRoamingBoats(prev => [...prev, { id, spawnTime, offeredItem, reqItem, x: isRight ? -20 : 120, isRight }]);
+      // Every odd spawn (including the very first boat) offers the puzzle's required boat item for a regular fish
+      const isPrimary = boatSpawnCount % 2 === 0;
+      boatSpawnCount++;
+      const offeredItem = isPrimary ? primaryBoatItem : junkBag.next();
+      const reqItem = isPrimary ? 'fish' : (Math.random() > 0.65 ? 'gold_fish' : 'fish');
+      const isRight = boatSpawnCount % 2 === 1;
+      setRoamingBoats(prev => [...prev.slice(-3), { id, spawnTime, offeredItem, reqItem, x: isRight ? -20 : 120, isRight }]);
       const tId = setTimeout(() => { setRoamingBoats(prev => prev.filter(b => b.id !== id)); }, 20000);
       timeoutIds.push(tId);
     };
-    // Spawn an initial boat shortly after entering Underwater so the player doesn't wait 12s
-    const initialBoatTimer = setTimeout(spawnBoat, 1500);
+    const initialBoatTimer = setTimeout(spawnBoat, 800);
     timeoutIds.push(initialBoatTimer);
     const intervalId = setInterval(spawnBoat, BOAT_SPAWN_INTERVAL_MS);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
-  }, [level.id]);
+  }, [level.id, puzzle]);
 
   useEffect(() => {
     if (!puzzle || isDemonstrating || isAnimatingLoot) return;
@@ -522,7 +571,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     setInkFogEntities(new Set(prevState.inkFogEntities || []));
     if (prevState.dolphinState) {
       setDolphinState(prevState.dolphinState);
-      setDolphinYPos(prevState.dolphinYPos ?? (prevState.dolphinState === 'idle_deep' ? 60 : 16));
+      setDolphinYPos(prevState.dolphinYPos ?? (prevState.dolphinState === 'idle_deep' ? 58 : 22));
     }
     setHistoryStack(prev => prev.slice(0, -1)); setSelectedItemTypes([]); setSelectedEntityId(null);
     setFlyingItem(null); setTempPlayerPos(null); setIsVictorious(false); setShowTrophy(false); setShowVictoryMsg(false); setAnimatingEntities([]);
@@ -536,8 +585,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     setPathHistory([{ ...level.campPos, zone: 1 }]);
     setBreakingRockIds({});
     setDolphinState('idle_surface');
-    setDolphinYPos(16);
-    dolphinAnimRef.current = { startTime: 0, startY: 16, targetY: 16, duration: 0, isDiving: false, attachPlayer: false };
+    setDolphinYPos(22);
+    dolphinAnimRef.current = { startTime: 0, startY: 22, targetY: 22, duration: 0, isDiving: false, attachPlayer: false };
     setUnlockedZones([1]);
     setAir(MAX_AIR);
     setDefeated([]);
@@ -615,6 +664,22 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
   // Auto-save whenever game state updates
   useEffect(() => {
     if (!puzzle || isVictorious || isDemonstrating || generationFailed) return;
+    const hasProgress = Boolean(
+      savedState ||
+      historyStack.length > 0 ||
+      pathHistory.length > 1 ||
+      defeated.length > 0 ||
+      campItems.length > 0 ||
+      buriedEntities.length > 0 ||
+      air < MAX_AIR ||
+      isTransformed ||
+      hasDeepTreasure ||
+      envItemState !== 'active' ||
+      dolphinState !== 'idle_surface' ||
+      (puzzle && JSON.stringify(inventory) !== JSON.stringify(puzzle.startItems))
+    );
+    if (!hasProgress) return;
+
     const payload = getGameStatePayload();
     if (payload) {
       saveToAutoSave(payload);
@@ -623,7 +688,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     puzzle, inventory, unlockedZones, defeated, pathHistory, historyStack,
     campItems, buriedEntities, air, isTransformed, hasDeepTreasure,
     envItemState, dolphinState, dolphinYPos, lightingSettings, debugMode,
-    isVictorious, isDemonstrating, generationFailed, getGameStatePayload
+    isVictorious, isDemonstrating, generationFailed, getGameStatePayload,
+    savedState
   ]);
 
   // Clear auto-save when quest is successfully completed
@@ -669,7 +735,14 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     for (const step of puzzle.solution) {
       if (!demoRef.current) break;
       if (step.isEnvironmentAction) {
-        if (step.itemId === 'fish') {
+        if (step.isBoatTrade) {
+          currentPath.push({ x: 50, y: 18, depth: 3, zone: 1 });
+          setPathHistory([...currentPath]);
+          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji, x: 50, y: 16 });
+          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          if (!demoRef.current) break;
+          setFlyingItem(null);
+        } else if (step.itemId === 'fish') {
           setEnvItemState('caught');
           setEnvItemCaughtPos({ x: 50, y: 53 });
           await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
@@ -1093,67 +1166,24 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       const state = dolphinStateRef.current;
 
       if (state === 'diving') {
-        const t = gameTime * 3.2;
-        const x = 50 + Math.sin(t) * 14;
-        const isMovingLeft = Math.cos(t) < 0;
-        const pitch = 32 + Math.sin(t * 1.5) * 8;
-        const rotate = pitch * (isMovingLeft ? -1 : 1);
-        return { x, y: dolphinYPos, rotate, flip: isMovingLeft };
+        const waveX = 50 + Math.sin(dolphinYPos * 0.22) * 8;
+        const isMovingLeft = Math.cos(dolphinYPos * 0.22) < 0;
+        const rotate = 26 * (isMovingLeft ? -1 : 1);
+        return { x: waveX, y: dolphinYPos, rotate, flip: isMovingLeft, isActiveMotion: true };
       }
 
       if (state === 'rising') {
-        const t = gameTime * 3.2;
-        const x = 50 + Math.sin(t) * 14;
-        const isMovingLeft = Math.cos(t) < 0;
-        const pitch = -32 - Math.sin(t * 1.5) * 8;
-        const rotate = pitch * (isMovingLeft ? -1 : 1);
-        return { x, y: dolphinYPos, rotate, flip: isMovingLeft };
+        const waveX = 50 + Math.sin(dolphinYPos * 0.22) * 8;
+        const isMovingLeft = Math.cos(dolphinYPos * 0.22) < 0;
+        const rotate = -26 * (isMovingLeft ? -1 : 1);
+        return { x: waveX, y: dolphinYPos, rotate, flip: isMovingLeft, isActiveMotion: true };
       }
 
       if (state === 'idle_deep') {
-        const t = gameTime * 0.8;
-        const x = 50 + Math.sin(t) * 22;
-        const isMovingLeft = Math.cos(t) < 0;
-        const y = 60 + Math.sin(gameTime * 1.6) * 2.5;
-        const rotate = Math.sin(t * 1.5) * 10 * (isMovingLeft ? -1 : 1);
-        return { x, y, rotate, flip: isMovingLeft };
+        return { x: 50, y: 58, rotate: 0, flip: false, isActiveMotion: false };
       }
 
-      const t = gameTime * 0.8;
-      const x = 50 + Math.sin(t) * 28;
-      const isMovingLeft = Math.cos(t) < 0;
-
-      const diveCycle = (gameTime * 0.4) % (Math.PI * 2);
-      const isDeepDiving = Math.sin(diveCycle) > 0.65;
-
-      let y = 16 + Math.sin(gameTime * 1.8) * 3;
-      let rotate = Math.sin(t * 1.5) * 12;
-
-      if (isDeepDiving && !defeated.includes('dolphin_1')) {
-        const diveProgress = (Math.sin(diveCycle) - 0.65) / 0.35;
-        const diveArch = Math.sin(diveProgress * Math.PI);
-        y = 16 + diveArch * 40;
-        const diveSpeed = Math.cos(diveProgress * Math.PI);
-        rotate = diveSpeed * 45 * (isMovingLeft ? -1 : 1);
-      } else {
-        const flipPhase = (gameTime * 1.5) % (Math.PI * 2);
-        if (flipPhase > 4.8) {
-          const flipProgress = (flipPhase - 4.8) / (Math.PI * 2 - 4.8);
-          rotate = flipProgress * 360 * (isMovingLeft ? -1 : 1);
-        }
-      }
-
-      return { x, y, rotate, flip: isMovingLeft };
-    }
-    if (ent.id.startsWith('mermaid')) {
-      const idx = parseInt(ent.id.split('_')[1]) || 0;
-      const t = gameTime * 0.4 + (idx * Math.PI * 2 / 3);
-      return {
-        x: 50 + Math.cos(t) * 25,
-        y: 70 + Math.sin(t) * 12,
-        rotate: Math.sin(t) * 10,
-        flip: Math.cos(t) > 0
-      };
+      return { x: ent.x || 50, y: ent.y || 22, rotate: 0, flip: false, isActiveMotion: false };
     }
     return null;
   };
@@ -1222,10 +1252,32 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     }
 
     const targetX = entity.x;
-    const isRock = (entity.isGatekeeper && level.mechanics.hasPickaxe && entity.id !== 'final_gate') || entity.isExtraRock;
-    const newPath = navigateTo(targetX, targetY, entity.zone, entity.depth || 3, true, isRock ? 'rock' : null);
-    if (!newPath || newPath.length === 0) return;
     const lastPos = pathHistory[pathHistory.length - 1];
+    const distToEntity = lastPos ? Math.hypot(targetX - lastPos.x, targetY - lastPos.y) : Infinity;
+
+    const tradeResult = evaluateEntityTrade(inventory, entity, selectedItemTypes, {
+      levelId: level.id,
+      isTransformed,
+      hasDeepTreasure
+    });
+
+    // If tapping a nearby entity with no item selected to inspect its requirement bubble, toggle for free (0 Air, no move)
+    const isInspectOnly =
+      !defeated.includes(entity.id) &&
+      !entity.isPreset &&
+      !tradeResult.isFreeUnTransform &&
+      selectedItemTypes.length === 0 &&
+      entity.requires &&
+      entity.requires.length > 0;
+
+    if (isInspectOnly && distToEntity <= UNDERWATER_INSPECT_RADIUS) {
+      setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
+      return;
+    }
+
+    const isRock = (entity.isGatekeeper && level.mechanics.hasPickaxe && entity.id !== 'final_gate') || entity.isExtraRock;
+    const newPath = navigateTo(targetX, targetY, entity.zone, 3, true, isRock ? 'rock' : null);
+    if (!newPath || newPath.length === 0) return;
     const finalPos = newPath[newPath.length - 1];
 
     if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
@@ -1301,14 +1353,9 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       return;
     }
 
-    const tradeResult = evaluateEntityTrade(inventory, entity, selectedItemTypes, {
-      levelId: level.id,
-      isTransformed,
-      hasDeepTreasure
-    });
-
-    if (!tradeResult.isFreeUnTransform && selectedItemTypes.length === 0 && entity.requires && entity.requires.length > 0) {
-      setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
+    if (isInspectOnly) {
+      saveHistory();
+      setSelectedEntityId(entity.id);
       handlePostActionAir(targetY);
       setIsAnimatingLoot(false);
       return;
@@ -1451,10 +1498,9 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
 
   const playerPos = pathHistory[pathHistory.length - 1];
   const displayPlayerPos = tempPlayerPos || playerPos;
-  const playerDepth = displayPlayerPos.depth || 3;
-  const playerScale = playerDepth === 1 ? 'scale-50' : playerDepth === 2 ? 'scale-75' : 'scale-100';
-  const playerFilter = playerDepth === 1 ? 'blur-[2px] brightness-75 hue-rotate-[-15deg]' : playerDepth === 2 ? 'blur-[1px] brightness-90 hue-rotate-[-5deg]' : '';
-  const playerZ = playerDepth * 10 + 5;
+  const playerScale = 'scale-100';
+  const playerFilter = '';
+  const playerZ = 35;
 
   const totalMapHeight = level.mechanics.isVertical ? `${level.mechanics.screens * 100}%` : '100%';
 
@@ -1466,12 +1512,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
     const maxScrollPct = 100 - screenPct;
     const _attachedEnt = puzzle ? puzzle.puzzleEntities.find(e => e.id === attachedEntityId) : null;
     let _scrollY = displayPlayerPos.y;
-    if (_attachedEnt) {
-      if (_attachedEnt.id === 'dolphin_1') {
-        _scrollY = dolphinYPos;
-      } else if (_attachedEnt.roamClass?.includes('elevator')) {
-        _scrollY = displayPlayerPos.y + Math.sin(gameTime * 1.5 + (_attachedEnt.id.length * 0.7)) * 20;
-      }
+    if (_attachedEnt && _attachedEnt.id === 'dolphin_1') {
+      _scrollY = dolphinYPos;
     }
     let targetScroll = _scrollY - (screenPct / 2);
     if (targetScroll < 0) targetScroll = 0;
@@ -1481,7 +1523,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
 
   const isDrowning = alertEntityId === 'out_of_air';
   const playerTransition = attachedEntityId ? 'transition-none' : (isDrowning ? 'ease-linear' : 'ease-out');
-  const playerTransitionDuration = attachedEntityId ? '0ms' : (isDrowning ? '3000ms' : `${moveDurationMs}ms`);
+  const playerTransitionDuration = attachedEntityId ? '0ms' : (isDrowning ? `${DROWNING_RETURN_DELAY_MS}ms` : `${moveDurationMs}ms`);
 
   let playerVisualX = displayPlayerPos.x;
   let playerVisualY = displayPlayerPos.y;
@@ -1495,9 +1537,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
         const xOffset = custom.flip ? 2 : -2;
         playerVisualX = custom.x + xOffset;
         playerVisualY = custom.y - 4.5;
-        playerRotation = custom.rotate * 0.6;
-      } else if (attachedEnt.roamClass?.includes('elevator')) {
-        playerVisualY += Math.sin(gameTime * 1.5 + (attachedEnt.id.length * 0.7)) * 20;
+        playerRotation = (custom.rotate || 0) * 0.6;
       }
     }
   }
@@ -1545,7 +1585,11 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       >
         <div 
           ref={mapRef} 
-          className="@container relative w-full flex-1 bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden cursor-pointer"
+          className={`@container relative w-full flex-1 ${
+            level.id === 'underwater'
+              ? 'bg-slate-950 shadow-[inset_0_0_60px_rgba(2,6,23,0.75),0_10px_30px_rgba(0,0,0,0.5)]'
+              : 'bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)]'
+          } overflow-hidden cursor-pointer`}
           onWheel={(e) => {
             if (isLevelEditor) {
               setEditorScrollY(prev => {
@@ -1573,6 +1617,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
             mapTranslateY={mapTranslateY}
             unlockedZones={unlockedZones}
             isTransformed={isTransformed}
+            hasDeepTreasure={hasDeepTreasure}
+            attachedEntityId={attachedEntityId}
             debugMode={debugMode}
             polyPoints={polyPoints}
             displayPlayerPos={displayPlayerPos}
@@ -1635,7 +1681,9 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
             }}
           />
 
-          <div className="absolute inset-0 opacity-10 z-[140] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+          {level.id !== 'underwater' && (
+            <div className="absolute inset-0 opacity-10 z-[140] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+          )}
           
           <TopBar 
             lang={lang}

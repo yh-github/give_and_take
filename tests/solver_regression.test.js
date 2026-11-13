@@ -144,4 +144,28 @@ describe('Solver Comprehensive Regression Suite', () => {
     expect(solution.path.map(p => p.entityId)).not.toContain('vent_1');
     expect(solution.path.map(p => p.entityId)).toEqual(['sea_witch', 'preset_pick', 'deep_clam', 'sea_witch']);
   });
+
+  it('integrates O(1) roaming boat trade (fish -> boatOfferedItem) in underwater level', () => {
+    const underwaterLevel = {
+      mechanics: {
+        hasTransformation: true,
+        hasSchoolsOfFish: true
+      }
+    };
+    const startItems = ['comb', 'shell'];
+    const entities = [
+      { id: 'sea_witch', requires: ['comb', 'shell'], reqType: 'AND', reward: null, zone: 2, isGatekeeper: false },
+      { id: 'clam_3', requires: ['locket'], reqType: 'OR', reward: 'crown', zone: 3, isGoal: true, isGatekeeper: false }
+    ];
+    // Without boatOfferedItem, locket is unobtainable
+    expect(solvePuzzle(startItems, entities, 'clam_3', underwaterLevel)).toBeNull();
+
+    // With boatOfferedItem: 'locket', solver uses roaming_boat to trade fish -> locket
+    const solution = solvePuzzle(startItems, entities, 'clam_3', underwaterLevel, { boatOfferedItem: 'locket' });
+    expect(solution).not.toBeNull();
+    const boatStep = solution.path.find(p => p.isBoatTrade);
+    expect(boatStep).toBeDefined();
+    expect(boatStep.isEnvironmentAction).toBe(true);
+    expect(boatStep.itemId).toBe('locket');
+  });
 });

@@ -131,25 +131,50 @@
 .animate-fish-swim { animation: fishSwim 18s linear infinite; }
 
 @keyframes swimRight {
-  0% { left: -20%; transform: translate(-50%, -50%); }
-  100% { left: 120%; transform: translate(-50%, -50%); }
+  0% { transform: translate3d(-20cqw, -50%, 0); }
+  100% { transform: translate3d(120cqw, -50%, 0); }
 }
 @keyframes swimLeft {
-  0% { left: 120%; transform: translate(-50%, -50%); }
-  100% { left: -20%; transform: translate(-50%, -50%); }
+  0% { transform: translate3d(120cqw, -50%, 0); }
+  100% { transform: translate3d(-20cqw, -50%, 0); }
 }
 
 /* === Underwater: Bubbles === */
 @keyframes bubble {
-  0% { transform: translateY(0); opacity: 0; }
-  20% { opacity: 0.4; }
-  100% { transform: translateY(-200px); opacity: 0; }
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  20% { opacity: 0.45; }
+  100% { transform: translate3d(0, -180px, 0); opacity: 0; }
 }
 .animate-bubble { animation: bubble 14s linear infinite; }
 
+@keyframes ventStream {
+  0% { transform: translate3d(0, 8px, 0) scale(0.7); opacity: 0.2; }
+  45% { opacity: 0.95; }
+  100% { transform: translate3d(0, -28px, 0) scale(1.15); opacity: 0; }
+}
+.animate-vent-stream { animation: ventStream 1.8s ease-out infinite; }
+
+@keyframes surfaceWaveSlow {
+  0% { transform: translate3d(0%, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+.animate-surface-wave-slow { animation: surfaceWaveSlow 12s linear infinite; }
+
+@keyframes surfaceWaveFast {
+  0% { transform: translate3d(-50%, 0, 0); }
+  100% { transform: translate3d(0%, 0, 0); }
+}
+.animate-surface-wave-fast { animation: surfaceWaveFast 8s linear infinite; }
+
+@keyframes dolphinIdle {
+  0%, 100% { transform: translate3d(-12px, 0px, 0) rotate(-4deg); }
+  50% { transform: translate3d(12px, -6px, 0) rotate(4deg); }
+}
+.animate-dolphin-idle { animation: dolphinIdle 4s ease-in-out infinite; }
+
 @keyframes heroAirBubble {
   0% {
-    transform: translate(var(--start-dx, 0px), 0px) scale(0.4);
+    transform: translate3d(var(--start-dx, 0px), 0px, 0) scale(0.4);
     opacity: 0;
   }
   20% {
@@ -159,7 +184,7 @@
     opacity: 0.7;
   }
   100% {
-    transform: translate(var(--end-dx, 10px), -100px) scale(1.2);
+    transform: translate3d(var(--end-dx, 10px), -100px, 0) scale(1.2);
     opacity: 0;
   }
 }
@@ -170,12 +195,12 @@
 
 /* === Underwater: Boats === */
 @keyframes boatGlideRight {
-  0% { left: -20%; transform: translate(-50%, -50%) scaleX(-1); }
-  100% { left: 120%; transform: translate(-50%, -50%) scaleX(-1); }
+  0% { transform: translate3d(-20cqw, -50%, 0) scaleX(-1); }
+  100% { transform: translate3d(120cqw, -50%, 0) scaleX(-1); }
 }
 @keyframes boatGlideLeft {
-  0% { left: 120%; transform: translate(-50%, -50%) scaleX(1); }
-  100% { left: -20%; transform: translate(-50%, -50%) scaleX(1); }
+  0% { transform: translate3d(120cqw, -50%, 0) scaleX(1); }
+  100% { transform: translate3d(-20cqw, -50%, 0) scaleX(1); }
 }
 .animate-boat-glide-right { animation: boatGlideRight 20s linear infinite; }
 .animate-boat-glide-left { animation: boatGlideLeft 20s linear infinite; }

@@ -56,7 +56,9 @@ export function createSavePayload({
       goalEntityId: puzzle.goalEntityId,
       startItems: puzzle.startItems || [],
       solution: puzzle.solution || [],
-      levelId: puzzle.levelId || levelId
+      levelId: puzzle.levelId || levelId,
+      ...(puzzle.boatOfferedItem ? { boatOfferedItem: puzzle.boatOfferedItem } : {}),
+      ...(puzzle.safeBoatItems ? { safeBoatItems: puzzle.safeBoatItems } : {})
     } : null,
     inventory: Array.isArray(inventory) ? [...inventory] : [],
     unlockedZones: Array.isArray(unlockedZones) ? [...unlockedZones] : [1],

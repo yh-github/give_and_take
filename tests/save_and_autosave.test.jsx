@@ -201,6 +201,57 @@ describe('Save & Auto-Save System', () => {
       // Menu closes upon successful import
       expect(screen.queryByText(STRINGS.he.importTitle)).toBeNull();
     });
+
+    it('allows loading game state by uploading a JSON file', async () => {
+      render(<App autoResumePrompt={false} />);
+
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+
+      const gearBtn = screen.getByText('⚙️');
+      await act(async () => {
+        fireEvent.click(gearBtn);
+      });
+
+      const importBtn = screen.getByText(STRINGS.he.importState);
+      await act(async () => {
+        fireEvent.click(importBtn);
+      });
+
+      // Verify Upload File button is visible
+      const uploadBtn = screen.getByText(STRINGS.he.uploadFile);
+      expect(uploadBtn).toBeDefined();
+
+      const fileInput = document.querySelector('input[type="file"]');
+      expect(fileInput).toBeDefined();
+
+      const level = LEVEL_REGISTRY.underground;
+      const puzzle = generateLevelPuzzle(level, 5, 0);
+      const validPayload = createSavePayload({
+        levelId: 'underground',
+        targetSteps: 5,
+        numDiggers: 0,
+        puzzle,
+        inventory: ['gem', 'crystal'],
+        pathHistory: [{ x: 50, y: 10, zone: 1 }]
+      });
+
+      const file = new File([JSON.stringify(validPayload)], 'save.json', { type: 'application/json' });
+
+      await act(async () => {
+        fireEvent.change(fileInput, { target: { files: [file] } });
+      });
+
+      // Wait for FileReader asynchronous task in happy-dom
+      await act(async () => {
+        await new Promise(r => setTimeout(r, 50));
+        vi.advanceTimersByTime(500);
+      });
+
+      // Menu closes upon successful file upload and import
+      expect(screen.queryByText(STRINGS.he.importTitle)).toBeNull();
+    });
   });
 
   describe('Auto-save & Resume Prompt tests', () => {

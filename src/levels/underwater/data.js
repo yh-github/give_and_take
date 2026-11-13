@@ -11,10 +11,10 @@ export const items = [
 
 // === Underwater: Entity Templates ===
 export const entities = [
-  { id: 'mermaid_teal', name: 'Teal Mermaid', emoji: '🧜‍♀️', color: '#2dd4bf', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
-  { id: 'mermaid_red', name: 'Red Mermaid', emoji: '🧜‍♀️', color: '#fb7185', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
-  { id: 'mermaid_purple', name: 'Purple Mermaid', emoji: '🧜‍♀️', color: '#a855f7', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
-  { id: 'mermaid_green', name: 'Green Mermaid', emoji: '🧜‍♀️', color: '#4ade80', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'], roamClass: 'elevator' },
+  { id: 'mermaid_teal', name: 'Teal Mermaid', emoji: '🧜‍♀️', color: '#2dd4bf', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
+  { id: 'mermaid_red', name: 'Red Mermaid', emoji: '🧜‍♀️', color: '#fb7185', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
+  { id: 'mermaid_purple', name: 'Purple Mermaid', emoji: '🧜‍♀️', color: '#a855f7', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
+  { id: 'mermaid_green', name: 'Green Mermaid', emoji: '🧜‍♀️', color: '#4ade80', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
   { id: 'octopus', name: 'Octopus', emoji: '🐙', allowedReqs: ['trident', 'pearl', 'starfish', 'locket'] },
   { id: 'crab', name: 'Crab', emoji: '🦀', allowedReqs: ['shell', 'pearl', 'boot', 'comb'] },
   { id: 'dolphin', name: 'Dolphin', emoji: '🐬', allowedReqs: ['fish', 'gold_fish'], roamClass: 'elevator' },
@@ -24,24 +24,23 @@ export const entities = [
 
 // === Underwater: Map Layout ===
 export const mapNodes = [
-  /* Zone 1: Surface & Near Surface -> Dolphins + free fish + Vents */
-  { x: 40, y: 24, zone: 1 }, { x: 60, y: 24, zone: 1 }, { x: 50, y: 34, zone: 1 },
-  { x: 35, y: 42, zone: 1, isPreset: 'bubble_vent', isVent: true },
-  { x: 65, y: 42, zone: 1, isPreset: 'bubble_vent', isVent: true },
-  /* Zone 2: Deep Sea -> Mermaids (trade items) and Sea Witch (transformation) */
-  { x: 40, y: 52, zone: 2 }, { x: 60, y: 52, zone: 2 }, { x: 50, y: 60, zone: 2 },
+  /* Zone 1: Sunlit Shallows -> Dolphin station + 2 Reef Traders + Shallow Bubble Vent */
+  { x: 26, y: 27, zone: 1 }, { x: 74, y: 27, zone: 1 }, { x: 50, y: 22, zone: 1 },
+  { x: 24, y: 40, zone: 1, isPreset: 'bubble_vent', isVent: true },
+  /* Zone 2: Twilight Reef -> 3 Mermaids + Deep Reef Bubble Vent + Sea Witch Trench Gate */
+  { x: 26, y: 50, zone: 2 }, { x: 74, y: 50, zone: 2 }, { x: 42, y: 59, zone: 2 },
+  { x: 75, y: 59, zone: 2, isPreset: 'bubble_vent', isVent: true },
   { x: 50, y: 70, zone: 2, id: 'sea_witch', isGatekeeper: true },
-  /* Zone 3: The Trench / Seabed -> 3 Clams (items hidden inside) + Crabs */
-  { x: 50, y: 82, zone: 3 },
-  { x: 35, y: 88, zone: 3 }, { x: 65, y: 88, zone: 3 },
-  { x: 25, y: 96, zone: 3 }, { x: 50, y: 98, zone: 3 }, { x: 75, y: 96, zone: 3 }
+  /* Zone 3: Abyssal Trench & Seabed -> Clams + Crabs/Octopus + Goal Clam */
+  { x: 50, y: 80, zone: 3, isClamNode: true },
+  { x: 36, y: 86, zone: 3 }, { x: 70, y: 86, zone: 3 },
+  { x: 24, y: 94, zone: 3, isClamNode: true }, { x: 50, y: 95, zone: 3, isGoalNode: true }, { x: 76, y: 94, zone: 3, isClamNode: true }
 ];
 
 // === Underwater: Scenery ===
 export const sceneryNodes = [
-  { x: 10, y: 22, e: '🪸', s: 'text-4xl', z: 20 }, { x: 88, y: 28, e: '🪸', s: 'text-5xl', z: 20 },
-  { x: 6, y: 48, e: '🪸', s: 'text-5xl', z: 20 }, { x: 92, y: 54, e: '🪸', s: 'text-4xl', z: 20 },
-  { x: 12, y: 66, e: '🪸', s: 'text-3xl', z: 20 }, { x: 88, y: 70, e: '🪸', s: 'text-3xl', z: 20 },
-  { x: 4, y: 55, e: '🌱', s: 'text-3xl', z: 20 }, { x: 94, y: 62, e: '🌱', s: 'text-3xl', z: 20 },
-  { x: 25, y: 88, e: '🚢', s: 'text-6xl brightness-50', z: 10 }, // Shipwreck!
+  { x: 9, y: 24, e: '🪸', s: 'text-4xl', z: 20 }, { x: 91, y: 28, e: '🪸', s: 'text-5xl', z: 20 },
+  { x: 7, y: 48, e: '🪸', s: 'text-5xl', z: 20 }, { x: 92, y: 53, e: '🪸', s: 'text-4xl', z: 20 },
+  { x: 10, y: 64, e: '🪸', s: 'text-3xl', z: 20 }, { x: 90, y: 66, e: '🪸', s: 'text-3xl', z: 20 },
+  { x: 6, y: 56, e: '🌱', s: 'text-3xl', z: 20 }, { x: 94, y: 60, e: '🌱', s: 'text-3xl', z: 20 },
 ];

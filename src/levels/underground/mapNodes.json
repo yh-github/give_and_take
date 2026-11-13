@@ -1,6 +1,6 @@
 [
   {
-    "x": 68,
+    "x": 62,
     "y": 6,
     "zone": 1,
     "isPreset": "mushroom"
@@ -11,13 +11,13 @@
     "zone": 1
   },
   {
-    "x": 72,
-    "y": 10,
+    "x": 74,
+    "y": 14,
     "zone": 1
   },
   {
-    "x": 42,
-    "y": 16,
+    "x": 34,
+    "y": 15,
     "zone": 1,
     "isPreset": "pickaxe"
   },
@@ -43,8 +43,8 @@
     "zone": 2
   },
   {
-    "x": 30,
-    "y": 40,
+    "x": 28,
+    "y": 41,
     "zone": 2
   },
   {
@@ -60,19 +60,19 @@
   },
   {
     "x": 28,
-    "y": 54,
-    "zone": 4
-  },
-  {
-    "x": 32,
-    "y": 63,
+    "y": 53,
     "zone": 4
   },
   {
     "x": 38,
-    "y": 60,
+    "y": 58,
     "zone": 4,
     "isPreset": "mushroom"
+  },
+  {
+    "x": 27,
+    "y": 63,
+    "zone": 4
   },
   {
     "x": 36,
@@ -97,17 +97,17 @@
     ]
   },
   {
-    "x": 68,
-    "y": 32,
+    "x": 65,
+    "y": 30,
     "zone": 3
   },
   {
-    "x": 79,
-    "y": 38,
+    "x": 72,
+    "y": 36,
     "zone": 3
   },
   {
-    "x": 74,
+    "x": 64,
     "y": 42,
     "zone": 3,
     "isPreset": "pickaxe"
@@ -125,12 +125,12 @@
   },
   {
     "x": 66,
-    "y": 56,
+    "y": 55,
     "zone": 5
   },
   {
-    "x": 80,
-    "y": 63,
+    "x": 72,
+    "y": 62,
     "zone": 5
   },
   {
@@ -146,29 +146,29 @@
   },
   {
     "x": 28,
-    "y": 73,
+    "y": 72,
     "zone": 6,
     "isPreset": "pickaxe"
   },
   {
     "x": 42,
+    "y": 74,
+    "zone": 6
+  },
+  {
+    "x": 62,
     "y": 73,
     "zone": 6
   },
   {
-    "x": 56,
-    "y": 74,
-    "zone": 6
-  },
-  {
-    "x": 70,
-    "y": 74,
+    "x": 75,
+    "y": 76,
     "zone": 6,
     "isPreset": "mushroom"
   },
   {
-    "x": 70,
-    "y": 78,
+    "x": 68,
+    "y": 83,
     "zone": 6,
     "isGatekeeper": true,
     "id": "rock_final_1",
@@ -178,18 +178,18 @@
     ]
   },
   {
-    "x": 54,
-    "y": 83,
+    "x": 60,
+    "y": 87,
     "zone": 7
   },
   {
-    "x": 66,
-    "y": 84,
+    "x": 74,
+    "y": 87,
     "zone": 7
   },
   {
     "x": 70,
-    "y": 88,
+    "y": 90,
     "zone": 7,
     "isGatekeeper": true,
     "id": "rock_final_2",
@@ -199,12 +199,12 @@
     ]
   },
   {
-    "x": 76,
-    "y": 92,
+    "x": 68,
+    "y": 93,
     "zone": 8
   },
   {
-    "x": 70,
+    "x": 68,
     "y": 95,
     "zone": 8,
     "isGatekeeper": true,
@@ -215,21 +215,21 @@
     ]
   },
   {
-    "x": 55,
+    "x": 58,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",
     "isTreasure": true
   },
   {
-    "x": 60,
+    "x": 63,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",
     "isTreasure": true
   },
   {
-    "x": 65,
+    "x": 68,
     "y": 98,
     "zone": 9,
     "isGoal": true,
@@ -237,14 +237,14 @@
     "isTreasure": true
   },
   {
-    "x": 70,
+    "x": 73,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",
     "isTreasure": true
   },
   {
-    "x": 75,
+    "x": 78,
     "y": 98,
     "zone": 9,
     "isPreset": "treasure",

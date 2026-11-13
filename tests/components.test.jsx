@@ -6,6 +6,7 @@ import App from '../index.jsx';
 import STRINGS from '../src/strings.js';
 import LEVEL_REGISTRY from '../src/levels/index.js';
 import InventoryBar from '../src/components/InventoryBar.jsx';
+import GameEntity from '../src/components/GameEntity.jsx';
 
 describe('GUI Component & Integration Tests', () => {
   beforeEach(() => {
@@ -182,5 +183,104 @@ describe('GUI Component & Integration Tests', () => {
     expect(screen.getByText('4/4')).toBeDefined();
     // Shows alert banner with tent drop tip
     expect(screen.getByText(STRINGS.en.inventoryFullTip)).toBeDefined();
+  });
+
+  it('renders boat drop icon and boat tip banner on underwater level when inventory is full', () => {
+    const underwaterLevel = LEVEL_REGISTRY.underwater;
+    render(
+      <InventoryBar
+        inventory={['pearl', 'shell', 'comb', 'mirror']}
+        selectedItemTypes={[]}
+        toggleInventoryType={() => {}}
+        handleUndo={() => {}}
+        isDemonstrating={false}
+        isAnimatingLoot={false}
+        isRefillingAir={false}
+        historyStack={[]}
+        level={underwaterLevel}
+        dict={STRINGS.en}
+        isInventoryFullAlert={true}
+      />
+    );
+
+    expect(screen.getByText('⛵')).toBeDefined();
+    expect(screen.getByText(STRINGS.en.inventoryFullTipBoat)).toBeDefined();
+  });
+
+  it('shrouds distant creature rewards with murky water ? and reveals them when hero swims close', () => {
+    const underwaterLevel = LEVEL_REGISTRY.underwater;
+    const mermaidEnt = {
+      id: 'mermaid_1',
+      emoji: '🧜‍♀️',
+      requires: ['comb'],
+      reqType: 'OR',
+      reward: 'pearl',
+      x: 26,
+      y: 50,
+      zone: 2,
+      isGatekeeper: false
+    };
+    const dummyPuzzle = {
+      goalEntityId: 'clam_3',
+      puzzleEntities: [mermaidEnt]
+    };
+
+    const { rerender } = render(
+      <GameEntity
+        ent={mermaidEnt}
+        puzzle={dummyPuzzle}
+        level={underwaterLevel}
+        defeated={[]}
+        alertEntityId={null}
+        alertReason={null}
+        selectedEntityId={null}
+        animatingEntities={[]}
+        buriedEntities={new Set()}
+        inkFogEntities={new Set()}
+        unlockedZones={[1, 2, 3]}
+        visibleEntitiesSet={new Set(['mermaid_1'])}
+        wallSegments={[]}
+        displayPlayerPos={{ x: 50, y: 14 }} // Distance > 22 (Hero at boat)
+        breakingRockIds={[]}
+        isTransformed={false}
+        hasDeepTreasure={false}
+        getCustomEntityMovement={() => ({ x: 26, y: 50, visualOffset: '' })}
+        handleInteract={() => {}}
+        dict={STRINGS.en}
+      />
+    );
+
+    // Distant entity shows '❓' instead of pearl '⚪'
+    expect(screen.getByText('❓')).toBeDefined();
+    expect(screen.queryByText('⚪')).toBeNull();
+
+    // Move hero within UNDERWATER_INSPECT_RADIUS (<= 22)
+    rerender(
+      <GameEntity
+        ent={mermaidEnt}
+        puzzle={dummyPuzzle}
+        level={underwaterLevel}
+        defeated={[]}
+        alertEntityId={null}
+        alertReason={null}
+        selectedEntityId={null}
+        animatingEntities={[]}
+        buriedEntities={new Set()}
+        inkFogEntities={new Set()}
+        unlockedZones={[1, 2, 3]}
+        visibleEntitiesSet={new Set(['mermaid_1'])}
+        wallSegments={[]}
+        displayPlayerPos={{ x: 30, y: 48 }} // Distance ~4.5 (<= 22)
+        breakingRockIds={[]}
+        isTransformed={false}
+        hasDeepTreasure={false}
+        getCustomEntityMovement={() => ({ x: 26, y: 50, visualOffset: '' })}
+        handleInteract={() => {}}
+        dict={STRINGS.en}
+      />
+    );
+
+    // Nearby entity reveals its reward emoji '⚪'
+    expect(screen.getByText('⚪')).toBeDefined();
   });
 });

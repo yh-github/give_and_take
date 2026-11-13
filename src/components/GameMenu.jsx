@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export const GAME_VERSION = 'v1.7.10-secret-passage-sealed';
 
@@ -66,6 +66,33 @@ export function GameMenu({
   const [exportString, setExportString] = useState('');
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result;
+      if (typeof content === 'string') {
+        setImportText(content);
+        const res = onImportState ? onImportState(content) : { success: false, error: 'No handler' };
+        if (res && res.success) {
+          setImportText('');
+          setImportError(null);
+          onClose();
+        } else {
+          setImportError(res?.error || dict.invalidState || 'Invalid state');
+        }
+      }
+    };
+    reader.onerror = () => {
+      setImportError('Failed to read file');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   useEffect(() => {
     if (menuView === 'export' && onExportState) {
@@ -234,11 +261,32 @@ export function GameMenu({
             <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.importTitle}</h2>
             <p className="text-sm text-stone-300 text-center leading-relaxed">{dict.importDesc}</p>
             <div className="flex flex-col gap-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-stone-700 hover:bg-stone-600 py-3 rounded-xl font-bold text-base text-stone-100 border-2 border-stone-500 shadow-md flex items-center justify-center gap-2 active:translate-y-0.5 transition-all cursor-pointer"
+              >
+                {dict.uploadFile || "📁 Upload File (.json)"}
+              </button>
+
+              <div className="flex items-center gap-2 my-0.5">
+                <div className="flex-1 h-px bg-stone-600" />
+                <span className="text-xs text-stone-400 font-sans uppercase tracking-wider">{dict.or || "or"}</span>
+                <div className="flex-1 h-px bg-stone-600" />
+              </div>
+
               <textarea
                 value={importText}
                 onChange={(e) => { setImportText(e.target.value); setImportError(null); }}
                 placeholder={dict.pastePlaceholder}
-                className="w-full h-44 bg-stone-900 border-2 border-stone-600 rounded-lg p-3 font-mono text-xs text-stone-200 outline-none focus:border-amber-500 custom-scrollbar resize-none"
+                className="w-full h-32 bg-stone-900 border-2 border-stone-600 rounded-lg p-3 font-mono text-xs text-stone-200 outline-none focus:border-amber-500 custom-scrollbar resize-none"
               />
               {importError && (
                 <div className="bg-red-950/80 border border-red-500 text-red-200 px-3 py-2 rounded-lg text-xs font-sans">

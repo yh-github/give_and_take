@@ -29,7 +29,13 @@ export function checkPolygonCollision(p1, p2, polygons) {
 }
 
 export function smoothPath(path, segments, polygons = []) {
-    if (!path || path.length <= 2) return path;
+    if (!path || path.length <= 1) return path;
+    if (path.length === 2) {
+        if (segments && segments.length > 0 && checkCollision(path[0], path[1], segments)) {
+            return [];
+        }
+        return path;
+    }
     const smoothed = [path[0]];
     let current = 0;
     while (current < path.length - 1) {
@@ -148,7 +154,18 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
             if (isPointInPolygon({ x, y }, poly)) return true;
         }
 
-        // 2. Check if point is too close to any wall segment (clearance check)
+        // 2. Check if point is inside any intact rock bounding box (volume check)
+        if (segments) {
+            for (const seg of segments) {
+                if (seg.isRock && seg.minX !== undefined) {
+                    if (x >= seg.minX && x <= seg.maxX && y >= seg.yTop && y <= seg.yBottom) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 3. Check if point is too close to any wall segment (clearance check)
         // Skip clearance check for start and target points so we can path close to walls/destinations
         const isStartOrTarget = (gx === startG.x && gy === startG.y) || (gx === endG.x && gy === endG.y);
         if (!isStartOrTarget) {
@@ -199,10 +216,14 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
             const path = [];
             let temp = current;
             while (cameFrom.has(key(temp))) {
-                path.push({ x: temp.x * resolution, y: temp.y * resolution });
+                const isGoal = temp.x === endG.x && temp.y === endG.y;
+                path.push(isGoal ? { x: end.x, y: end.y } : { x: temp.x * resolution, y: temp.y * resolution });
                 temp = cameFrom.get(key(temp));
             }
             const rawPath = path.reverse();
+            if (rawPath.length > 0 && segments && segments.length > 0 && checkCollision(start, rawPath[0], segments)) {
+                return [];
+            }
             return smoothPath(rawPath, segments, polygons);
         }
 
@@ -219,6 +240,16 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
                 
                 // Skip if blocked
                 if (isSolid(neighbor.x, neighbor.y)) continue;
+
+                // Check collision between current and neighbor positions to prevent stepping across obstacle segments
+                const pCurrent = (current.x === startG.x && current.y === startG.y)
+                    ? start
+                    : { x: current.x * resolution, y: current.y * resolution };
+                const pNeighbor = (neighbor.x === endG.x && neighbor.y === endG.y)
+                    ? end
+                    : { x: neighbor.x * resolution, y: neighbor.y * resolution };
+
+                if (segments && segments.length > 0 && checkCollision(pCurrent, pNeighbor, segments)) continue;
 
                 // Step cost: diagonal is 1.414, straight is 1.0
                 let stepCost = (dx !== 0 && dy !== 0 ? 1.414 : 1);
