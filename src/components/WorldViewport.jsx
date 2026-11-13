@@ -76,6 +76,12 @@ export function WorldViewport({
     ? 'transition-none'
     : 'transition-transform duration-500 ease-out';
 
+  const useIsotropic = Boolean(level.mechanics.useIsotropicCoords && puzzle?.geometry);
+  const worldHeight = useIsotropic ? puzzle.geometry.worldHeight : (level.mechanics.screens || 1) * 100;
+  const yScale = useIsotropic ? 1 : (level.mechanics.screens || 1);
+  const toCssY = (y) => (useIsotropic ? (y / worldHeight) * 100 : y);
+  const effectiveCampPos = puzzle?.geometry?.campPos || level.campPos;
+
   return (
     <div 
       ref={innerMapRef}
@@ -83,7 +89,7 @@ export function WorldViewport({
       className={`absolute inset-x-0 top-0 ${viewportTransitionClass} pointer-events-auto animate-map-appear cursor-pointer`} 
       style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}
     >
-      <Background />
+      <Background geometry={puzzle?.geometry} />
 
       <FogOverlay 
         level={level} 
@@ -97,6 +103,8 @@ export function WorldViewport({
         polyPoints={polyPoints}
         displayPlayerPos={displayPlayerPos}
         debugSegments={debugSegments}
+        worldHeight={useIsotropic ? worldHeight : null}
+        yScale={yScale}
       />
 
       {!isLevelEditor && level.mechanics.hasDarkness && level.mechanics.darknessType === 'radial' && (
@@ -105,11 +113,13 @@ export function WorldViewport({
           polygon={polyPoints}
           gameTime={gameTime}
           screens={level.mechanics.screens || 1}
+          worldHeight={useIsotropic ? worldHeight : null}
+          yScale={yScale}
           lighting={lightingSettings}
         />
       )}
 
-      <ClickIndicator indicator={!isLevelEditor ? clickIndicator : null} />
+      <ClickIndicator indicator={!isLevelEditor ? clickIndicator : null} toCssY={toCssY} />
 
       <HeroBubbleBursts bursts={heroBubbleBursts} />
 
@@ -176,7 +186,7 @@ export function WorldViewport({
         if (!itemData) return null;
         const isAlerting = alertEntityId === item.uid;
         return (
-          <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${item.y}%` }}>
+          <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${toCssY(item.y)}%` }}>
             <div className="text-3xl drop-shadow-md">{isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}</div>
           </div>
         );
@@ -186,7 +196,7 @@ export function WorldViewport({
         <div 
           onClick={handleCampClick} 
           className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${(selectedItemTypes.length > 0 || (!selectedItemTypes.length && level.mechanics.hasAir)) ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] pointer-events-auto' : 'pointer-events-none'}`} 
-          style={{ left: `${level.campPos.x}%`, top: `${level.campPos.y}%`, zIndex: (Math.sqrt(Math.pow(level.campPos.x - displayPlayerPos.x, 2) + Math.pow(level.campPos.y - displayPlayerPos.y, 2)) < 28) ? 110 : 30 }}
+          style={{ left: `${effectiveCampPos.x}%`, top: `${toCssY(effectiveCampPos.y)}%`, zIndex: (Math.hypot(effectiveCampPos.x - displayPlayerPos.x, effectiveCampPos.y - displayPlayerPos.y) < 28) ? 110 : 30 }}
         >
           <div className="relative">
             {level.CampIcon ? <level.CampIcon /> : <div className="text-6xl drop-shadow-lg scale-x-[-1] animate-flicker">🔥</div>}
@@ -205,11 +215,11 @@ export function WorldViewport({
       )}
 
       {!isLevelEditor && flyingItem && (
-        <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${flyingItem.y}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div>
+        <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${toCssY(flyingItem.y)}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div>
       )}
 
       {!isLevelEditor && massFlyingTreasures.map((item, idx) => (
-        <div key={`mass-treas-${idx}`} className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${item.x}%`, top: `${item.y}%`, zIndex: 110, animationDelay: `${item.delay}ms` }}>{item.emoji}</div>
+        <div key={`mass-treas-${idx}`} className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${item.x}%`, top: `${toCssY(item.y)}%`, zIndex: 110, animationDelay: `${item.delay}ms` }}>{item.emoji}</div>
       ))}
 
       {level.id === 'river_crossing' && puzzle?.puzzleEntities.some(e => e.id === puzzle.goalEntityId) && (
@@ -244,12 +254,15 @@ export function WorldViewport({
           getCustomEntityMovement={getCustomEntityMovement}
           handleInteract={handleInteract}
           dict={dict}
+          toCssY={toCssY}
+          yScale={yScale}
         />
       ))}
 
       <Hero 
         playerVisualX={playerVisualX}
         playerVisualY={playerVisualY}
+        playerVisualYPct={toCssY(playerVisualY)}
         playerRotation={playerRotation}
         playerScale={playerScale}
         playerFilter={playerFilter}

@@ -75,14 +75,16 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
   };
 
   if (entity.reqType === 'AND') {
-    const isAutoPickaxeRock =
-      Boolean(entity.id && entity.id.startsWith('rock_')) &&
+    const isAutoToolGatekeeper =
       requires.length === 1 &&
-      requires[0] === 'pickaxe';
+      (
+        (Boolean(entity.id && entity.id.startsWith('rock_')) && requires[0] === 'pickaxe') ||
+        (Boolean(entity.isGatekeeper) && (requires[0] === 'pickaxe' || requires[0] === 'rope') && entity.gateType !== 'guardian')
+      );
     const selectionMatches =
       selectedItemTypes === null ||
       requires.length === 0 ||
-      isAutoPickaxeRock ||
+      isAutoToolGatekeeper ||
       Array.from(new Set(requires)).every(t => selectedItemTypes.includes(t));
 
     if (selectionMatches) {
@@ -223,17 +225,23 @@ export function computeUnlockedZones(unlockedZones, entity) {
  * @returns {{ isValid: boolean, violations: Array<Object> }}
  */
 export function validateEntitySpacing(entities, options = {}) {
-  const { minEntityDistance = 8, caveWallVertices = null, minWallMargin = 4.5 } = options;
+  const {
+    minEntityDistance = 8,
+    caveWallVertices = null,
+    wallPolylines = null,
+    minWallMargin = 4.5,
+    checkAllPairs = false
+  } = options;
   const violations = [];
 
   if (!Array.isArray(entities)) return { isValid: true, violations: [] };
 
-  // 1. Check pairwise entity distance within the same zone (ignoring gatekeepers / goal rows)
+  // 1. Check pairwise entity distance within the same zone (or all pairs when checkAllPairs=true)
   for (let i = 0; i < entities.length; i++) {
     for (let j = i + 1; j < entities.length; j++) {
       const a = entities[i];
       const b = entities[j];
-      if (a.zone !== b.zone) continue;
+      if (!checkAllPairs && a.zone !== b.zone) continue;
       if (a.isGatekeeper || b.isGatekeeper) continue;
       if (a.isTreasure && b.isTreasure) continue; // Treasure line in goal room
 
@@ -251,8 +259,8 @@ export function validateEntitySpacing(entities, options = {}) {
     }
   }
 
-  // 2. Check wall clearance if cave vertices are provided
-  if (caveWallVertices) {
+  // 2. Check wall clearance if cave vertices or extracted wallPolylines are provided
+  if (caveWallVertices || (Array.isArray(wallPolylines) && wallPolylines.length > 0)) {
     const distToSegment = (p, p1, p2) => {
       const dx = p2.x - p1.x, dy = p2.y - p1.y;
       const len2 = dx * dx + dy * dy;
@@ -264,25 +272,36 @@ export function validateEntitySpacing(entities, options = {}) {
     function aX(p1, t, dx) { return p1.x + t * dx; }
     function aY(p1, t, dy) { return p1.y + t * dy; }
 
-    const minDistToPoly = (p, poly) => {
+    const minDistToPoly = (p, poly, closed = false) => {
       if (!poly || poly.length < 2) return Infinity;
       let minD = Infinity;
       for (let i = 0; i < poly.length - 1; i++) {
         minD = Math.min(minD, distToSegment(p, poly[i], poly[i + 1]));
       }
+      if (closed && poly.length > 2) {
+        minD = Math.min(minD, distToSegment(p, poly[poly.length - 1], poly[0]));
+      }
       return minD;
     };
 
-    const polylines = [
-      caveWallVertices.leftWall,
-      caveWallVertices.rightWall,
-      caveWallVertices.centralPillar
-    ].filter(Boolean);
+    const polyEntries = [];
+    if (caveWallVertices) {
+      if (caveWallVertices.leftWall) polyEntries.push({ pts: caveWallVertices.leftWall, closed: false });
+      if (caveWallVertices.rightWall) polyEntries.push({ pts: caveWallVertices.rightWall, closed: false });
+      if (caveWallVertices.centralPillar) polyEntries.push({ pts: caveWallVertices.centralPillar, closed: true });
+    }
+    if (Array.isArray(wallPolylines)) {
+      for (const wp of wallPolylines) {
+        const pts = Array.isArray(wp) ? wp : wp?.points;
+        const closed = Array.isArray(wp) ? true : (wp?.closed !== false);
+        if (pts && pts.length >= 2) polyEntries.push({ pts, closed });
+      }
+    }
 
     entities.forEach(ent => {
-      if (ent.isGatekeeper) return; // Gatekeeper rocks intentionally span wall-to-wall
-      for (const poly of polylines) {
-        const d = minDistToPoly(ent, poly);
+      if (ent.isGatekeeper) return; // Gatekeeper rocks/chasms intentionally span wall-to-wall
+      for (const entry of polyEntries) {
+        const d = minDistToPoly(ent, entry.pts, entry.closed);
         if (d < minWallMargin) {
           violations.push({
             type: 'WALL_CLEARANCE',

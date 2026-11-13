@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = {} }) => {
+const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, worldHeight = null, yScale = null, lighting = {} }) => {
   const {
     radius = 50,
     blur = 1.2,
@@ -11,8 +11,11 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = 
     flickerIntensity = 1.0
   } = lighting;
 
-  // Hero Y must be scaled to match the SVG viewBox (0-250 for screens=2.5)
-  const scaledHeroY = heroPos.y * screens;
+  const effectiveHeight = worldHeight ?? (screens * 100);
+  const effectiveYScale = yScale ?? screens;
+
+  // Hero Y scaled to match the SVG viewBox
+  const scaledHeroY = heroPos.y * effectiveYScale;
   
   // Torch flicker
   const flicker = (Math.sin(gameTime * 10) * 0.8 + Math.sin(gameTime * 7) * 0.5) * flickerIntensity;
@@ -23,7 +26,7 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = 
   return (
     <svg 
       className="absolute inset-0 w-full h-full pointer-events-none z-[150] will-change-transform" 
-      viewBox={`0 0 100 ${screens * 100}`} 
+      viewBox={`0 0 100 ${effectiveHeight}`} 
       preserveAspectRatio="none"
     >
       <defs>
@@ -40,7 +43,7 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = 
 
         <mask id="caveMask">
           {/* Base: show darkness everywhere */}
-          <rect x="0" y="0" width="100" height={screens * 100} fill="white" />
+          <rect x="0" y="0" width="100" height={effectiveHeight} fill="white" />
           
           {/* Cut a hole where the hero's torch lights up — raycasted polygon */}
           {pointsString && (
@@ -56,7 +59,7 @@ const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, lighting = 
       {/* Darkness layer — visible everywhere EXCEPT the torch hole */}
       <rect 
         x="0" y="0" 
-        width="100" height={screens * 100} 
+        width="100" height={effectiveHeight} 
         fill={darknessColor} 
         mask="url(#caveMask)"
         opacity={darknessOpacity}

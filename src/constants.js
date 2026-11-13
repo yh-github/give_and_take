@@ -2,6 +2,17 @@
 export const MAX_UNIQUE_ITEMS = 4;
 export const MAX_AIR = 8;
 
+// === Isotropic Canonical Cave Constants (deep_cave) ===
+export const CANONICAL_SCREEN_HEIGHT = 188;
+export const DEEP_CAVE_SLOT_COLS = 3;
+export const DEEP_CAVE_SLOT_WIDTH = 100 / 3;
+export const DEEP_CAVE_SLOT_HEIGHT = 64;
+export const DEEP_CAVE_HERO_RADIUS = 3.0;
+export const DEEP_CAVE_CORRIDOR_MIN_WIDTH = 20.0;
+export const DEEP_CAVE_MIN_ENTITY_DIST = 14.0;
+export const DEEP_CAVE_MIN_WALL_MARGIN = 6.5;
+export const DEEP_CAVE_GENERATOR_VERSION = 1;
+
 // === Solver Tuning ===
 export const SOLVER_MAX_ITERS = 25000;
 export const SOLVER_TIME_LIMIT_MS = 1200;

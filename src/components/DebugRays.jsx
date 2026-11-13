@@ -5,17 +5,21 @@ export function DebugRays({
   level,
   polyPoints,
   displayPlayerPos,
-  debugSegments
+  debugSegments,
+  worldHeight = null,
+  yScale = null
 }) {
   if (!debugMode || !level.mechanics.hasDarkness) return null;
 
   const screens = level.mechanics.screens || 1;
+  const effectiveHeight = worldHeight ?? (100 * screens);
+  const effectiveYScale = yScale ?? (level.mechanics.useIsotropicCoords ? 1 : screens);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-[160]">
       <svg 
         className="w-full h-full" 
-        viewBox={`0 0 100 ${100 * screens}`} 
+        viewBox={`0 0 100 ${effectiveHeight}`} 
         preserveAspectRatio="none"
       >
         {/* Draw the polygon */}
@@ -31,7 +35,7 @@ export function DebugRays({
         {displayPlayerPos && (
           <circle
             cx={displayPlayerPos.x}
-            cy={displayPlayerPos.y * screens}
+            cy={displayPlayerPos.y * effectiveYScale}
             r="1.2"
             fill="#ff00ff"
             className="animate-pulse"
@@ -42,7 +46,7 @@ export function DebugRays({
           <line
             key={`ray_${i}`}
             x1={displayPlayerPos.x}
-            y1={displayPlayerPos.y * screens}
+            y1={displayPlayerPos.y * effectiveYScale}
             x2={p.x}
             y2={p.y}
             stroke="#ff00ff"

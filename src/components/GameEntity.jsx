@@ -24,7 +24,9 @@ export function GameEntity({
   hasDeepTreasure,
   getCustomEntityMovement,
   handleInteract,
-  dict
+  dict,
+  toCssY = (y) => y,
+  yScale = null
 }) {
   const isDefeated = defeated.includes(ent.id);
   if (ent.isPreset && isDefeated) return null;
@@ -36,8 +38,11 @@ export function GameEntity({
   const isAnimating = animatingEntities.includes(ent.id);
 
   const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal);
-  const isRock = (ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate') || ent.isExtraRock;
+  const isChasm = Boolean(ent.isGatekeeper && ent.gateType === 'chasm');
+  const isGuardian = Boolean(ent.isGatekeeper && ent.gateType === 'guardian');
+  const isRock = (ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate' && !isChasm && !isGuardian) || ent.isExtraRock;
   const isCurrent = ent.id === 'current' || (ent.isGatekeeper && ent.id?.startsWith('current_'));
+  const effectiveYScale = yScale ?? (level.mechanics.useIsotropicCoords ? 1 : (level.mechanics.screens || 2.5));
 
   const inZoneFog = level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
   const inInkFog = inkFogEntities.has(ent.id);
@@ -45,7 +50,7 @@ export function GameEntity({
   const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
   const inDarkness = !isVisible;
 
-  const entZ = isSelected ? 200 : ((isRock || ent.isGatekeeper || ent.id === 'sea_witch') ? 110 : ((isVisible && !inZoneFog) ? 105 : 35));
+  const entZ = isSelected ? 200 : ((isRock || isChasm || ent.isGatekeeper || ent.id === 'sea_witch') ? 110 : ((isVisible && !inZoneFog) ? 105 : 35));
   const isInteractable = !inZoneFog && !inDarkness && !inInkFog;
 
   const interactableHover = (inDarkness || inZoneFog)
@@ -53,14 +58,17 @@ export function GameEntity({
     : inInkFog
       ? 'pointer-events-none cursor-default'
       : !isInteractable
-        ? (isRock || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
-        : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1' && ent.id !== 'sea_witch') || (isRock && isDefeated) || (isCurrent && isDefeated)
+        ? (isRock || isChasm || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
+        : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1' && ent.id !== 'sea_witch') || (isRock && isDefeated) || (isChasm && isDefeated) || (isCurrent && isDefeated)
           ? 'cursor-default'
           : 'hover:scale-110 cursor-pointer';
 
-  const isGatekeeperRock = (isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES;
+  const hasCustomCollar = Boolean((isRock || isChasm || ent.isExtraRock) && ent.collarBounds);
+  const isGatekeeperRock = hasCustomCollar || ((isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES);
   let rockBounds = null;
-  if (isGatekeeperRock) {
+  if (hasCustomCollar) {
+    rockBounds = ent.collarBounds;
+  } else if (isGatekeeperRock) {
     rockBounds = getCorridorBounds(ent.y, CAVE_WALL_VERTICES, ent.x >= 50);
   }
 
@@ -96,7 +104,7 @@ export function GameEntity({
 
   const isNearLeft = !ent.roamClass && visualX <= 22;
   const isNearRight = !ent.roamClass && visualX >= 78;
-  const isNearTop = visualY <= 25;
+  const isNearTop = toCssY(visualY) <= 14;
   const tooltipAlign = isNearLeft ? "left-0" : isNearRight ? "right-0" : "left-1/2 -translate-x-1/2";
   const tooltipY = isNearTop ? "top-full mt-2" : "bottom-full mb-2";
   const arrowAlign = isNearLeft ? "left-4" : isNearRight ? "right-4" : "left-1/2 -translate-x-1/2";
@@ -104,18 +112,29 @@ export function GameEntity({
 
   const isElevator = ent.roamClass?.includes('elevator');
   const isClam = Boolean(ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam'));
+  const isVerticalCollar = rockBounds?.orientation === 'vertical';
+  const worldHeight = puzzle?.geometry?.worldHeight;
 
-  const entityStyle = isGatekeeperRock ? { 
-    left: `${rockBounds.xLeft}%`, 
-    top: `${visualY}%`, 
-    width: `${rockBounds.xRight - rockBounds.xLeft}%`,
-    zIndex: entZ, 
-    transform: `translate(0%, -50%) rotate(${visualRotation}deg)` 
-  } : {
-    left: `${visualX}%`, 
-    top: `${visualY}%`, 
-    zIndex: entZ, 
-    transform: `translate(-50%, -50%) rotate(${visualRotation}deg)` 
+  const entityStyle = isGatekeeperRock ? (
+    isVerticalCollar && worldHeight ? {
+      left: `${rockBounds.xLeft}%`,
+      top: `${toCssY(rockBounds.yTop)}%`,
+      width: `${Math.max(4, rockBounds.xRight - rockBounds.xLeft)}%`,
+      height: `${((rockBounds.yBottom - rockBounds.yTop) / worldHeight) * 100}%`,
+      zIndex: entZ,
+      transform: `rotate(${visualRotation}deg)`
+    } : {
+      left: `${rockBounds.xLeft}%`,
+      top: `${toCssY(visualY)}%`,
+      width: `${rockBounds.xRight - rockBounds.xLeft}%`,
+      zIndex: entZ,
+      transform: `translate(0%, -50%) rotate(${visualRotation}deg)`
+    }
+  ) : {
+    left: `${visualX}%`,
+    top: `${toCssY(visualY)}%`,
+    zIndex: entZ,
+    transform: `translate(-50%, -50%) rotate(${visualRotation}deg)`
   };
 
   const GatekeeperProp = level.GatekeeperPropComponent;
@@ -144,6 +163,11 @@ export function GameEntity({
               ) : isRock ? (
                 <>
                   <span className="emoji-shadow">⛏️</span>
+                  <span className="text-sm font-black text-amber-600 shadow-none ml-1">x1</span>
+                </>
+              ) : isChasm ? (
+                <>
+                  <span className="emoji-shadow">🪢</span>
                   <span className="text-sm font-black text-amber-600 shadow-none ml-1">x1</span>
                 </>
               ) : isMurkyFar ? (
@@ -216,13 +240,21 @@ export function GameEntity({
             <div className={`drop-shadow-xl relative z-10 ${
               ent.emoji === '🧌' 
                 ? 'text-[18cqw]' 
-                : (isRock || ent.isExtraRock) 
-                  ? (rockBounds ? 'w-full' : ((ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'small' ? 'w-[20cqw] text-[20cqw]' : (ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'medium' ? 'w-[28cqw] text-[28cqw]' : 'w-[36cqw] text-[36cqw]')) 
+                : (isRock || isChasm || ent.isExtraRock) 
+                  ? (rockBounds ? 'w-full h-full' : ((ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'small' ? 'w-[20cqw] text-[20cqw]' : (ent.size || (ent.isGatekeeper ? 'large' : 'small')) === 'medium' ? 'w-[28cqw] text-[28cqw]' : 'w-[36cqw] text-[36cqw]')) 
                   : ent.isGatekeeper || isGoal 
                     ? 'text-[15cqw]' 
                     : 'text-[9.5cqw]'
             }`}>
-              {(isRock || ent.isExtraRock) ? (
+              {isChasm ? (
+                <div className={`flex justify-center items-center w-full h-full ${!isDefeated ? 'cursor-pointer' : 'pointer-events-none'}`}>
+                  {level.ChasmComponent ? (
+                    <level.ChasmComponent isDefeated={isDefeated} isAlerting={isAlerting} orientation={rockBounds?.orientation || 'horizontal'} />
+                  ) : (
+                    <div className={`w-full h-4 rounded border border-stone-900 ${isDefeated ? 'bg-amber-700/90' : 'bg-black/95'}`} />
+                  )}
+                </div>
+              ) : (isRock || ent.isExtraRock) ? (
                 <div className={`flex justify-center items-center transition-transform w-full ${isRock && !isDefeated ? 'cursor-pointer' : 'pointer-events-none'}`}>
                   {level.RockComponent ? (
                     <level.RockComponent 
@@ -234,6 +266,8 @@ export function GameEntity({
                       heroPos={displayPlayerPos}
                       yNode={ent.y}
                       nodeX={ent.x}
+                      boundsOverride={ent.collarBounds || null}
+                      yScale={effectiveYScale}
                     />
                   ) : (
                     <span className="text-[1.2em] drop-shadow-md">🪨</span>

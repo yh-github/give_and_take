@@ -67,11 +67,12 @@ export const CaveBackground = () => (
   </div>
 );
 
-export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, size = 'large', heroPos, yNode = 50, nodeX = 50 }) => {
+export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, size = 'large', heroPos, yNode = 50, nodeX = 50, boundsOverride = null, yScale = 2.5 }) => {
   const isRightChannel = nodeX >= 50;
+  const isVerticalCollar = boundsOverride?.orientation === 'vertical';
   const bounds = useMemo(
-    () => getCorridorBounds(yNode, CAVE_WALL_VERTICES, isRightChannel),
-    [yNode, isRightChannel]
+    () => boundsOverride || getCorridorBounds(yNode, CAVE_WALL_VERTICES, isRightChannel),
+    [boundsOverride, yNode, isRightChannel]
   );
   const mesh = useMemo(
     () => generateProceduralOrganicRock(bounds.xLeft, bounds.xRight, yNode, size === 'small' ? 2.5 : size === 'medium' ? 3.2 : 4.2, seed),
@@ -82,28 +83,30 @@ export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, siz
   if (isDefeated && !isBreaking) {
     return (
       <div className="w-full relative pointer-events-none translate-y-1 flex justify-center">
-        <svg viewBox="0 0 150 45" className="w-full h-auto drop-shadow-md overflow-visible">
-          <ellipse cx="75" cy="38" rx="68" ry="6" fill="#14100d" opacity="0.65" />
-          <g>
-            {mesh.boulders.map(boulder => (
-              <g key={boulder.id}>
-                {boulder.facets.map((facet, idx) => {
-                  const lighting = calculateFacetLighting(facet, heroPos);
-                  const p = facet.pts;
-                  const pointsStr = `${p[0].x},${p[0].y * 0.35 + 20} ${p[1].x},${p[1].y * 0.35 + 20} ${p[2].x},${p[2].y * 0.35 + 20} ${p[3].x},${p[3].y * 0.35 + 20}`;
-                  return (
-                    <polygon
-                      key={facet.id || idx}
-                      points={pointsStr}
-                      fill={lighting.color}
-                      stroke="#14110e"
-                      strokeWidth="1.5"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  );
-                })}
-              </g>
-            ))}
+        <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 45'} className="w-full h-auto drop-shadow-md overflow-visible">
+          <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
+            <ellipse cx="75" cy="38" rx="68" ry="6" fill="#14100d" opacity="0.65" />
+            <g>
+              {mesh.boulders.map(boulder => (
+                <g key={boulder.id}>
+                  {boulder.facets.map((facet, idx) => {
+                    const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                    const p = facet.pts;
+                    const pointsStr = `${p[0].x},${p[0].y * 0.35 + 20} ${p[1].x},${p[1].y * 0.35 + 20} ${p[2].x},${p[2].y * 0.35 + 20} ${p[3].x},${p[3].y * 0.35 + 20}`;
+                    return (
+                      <polygon
+                        key={facet.id || idx}
+                        points={pointsStr}
+                        fill={lighting.color}
+                        stroke="#14110e"
+                        strokeWidth="1.5"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  })}
+                </g>
+              ))}
+            </g>
           </g>
         </svg>
       </div>
@@ -121,61 +124,63 @@ export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, siz
           <span className="text-2xl">✨</span>
         </div>
 
-        <svg viewBox="0 0 150 70" className="w-full h-auto overflow-visible">
-          <g opacity="0.95" className="z-30">
-            <path 
-              d="M 75 12 L 75 42 M 75 12 L 45 35 M 75 12 L 105 35"
-              stroke="#fef08a" 
-              strokeWidth="3" 
-              fill="none" 
-              strokeDasharray="120"
-              className="animate-crack-branch"
-              style={{ filter: 'drop-shadow(0 0 6px #f59e0b)' }}
-              vectorEffect="non-scaling-stroke"
-            />
-          </g>
-
-          <g>
-            <g className="animate-rock-split-left">
-              {mesh.boulders.filter(b => b.localX < 75).map(boulder => (
-                <g key={boulder.id}>
-                  {boulder.facets.map((facet, idx) => {
-                    const lighting = calculateFacetLighting(facet, heroPos);
-                    const p = facet.pts;
-                    return (
-                      <polygon
-                        key={facet.id || idx}
-                        points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
-                        fill={lighting.color}
-                        stroke="#14110e"
-                        strokeWidth="1.5"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    );
-                  })}
-                </g>
-              ))}
+        <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 70'} className="w-full h-auto overflow-visible">
+          <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
+            <g opacity="0.95" className="z-30">
+              <path 
+                d="M 75 12 L 75 42 M 75 12 L 45 35 M 75 12 L 105 35"
+                stroke="#fef08a" 
+                strokeWidth="3" 
+                fill="none" 
+                strokeDasharray="120"
+                className="animate-crack-branch"
+                style={{ filter: 'drop-shadow(0 0 6px #f59e0b)' }}
+                vectorEffect="non-scaling-stroke"
+              />
             </g>
 
-            <g className="animate-rock-split-right">
-              {mesh.boulders.filter(b => b.localX >= 75).map(boulder => (
-                <g key={boulder.id}>
-                  {boulder.facets.map((facet, idx) => {
-                    const lighting = calculateFacetLighting(facet, heroPos);
-                    const p = facet.pts;
-                    return (
-                      <polygon
-                        key={facet.id || idx}
-                        points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
-                        fill={lighting.color}
-                        stroke="#14110e"
-                        strokeWidth="1.5"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    );
-                  })}
-                </g>
-              ))}
+            <g>
+              <g className="animate-rock-split-left">
+                {mesh.boulders.filter(b => b.localX < 75).map(boulder => (
+                  <g key={boulder.id}>
+                    {boulder.facets.map((facet, idx) => {
+                      const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                      const p = facet.pts;
+                      return (
+                        <polygon
+                          key={facet.id || idx}
+                          points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
+                          fill={lighting.color}
+                          stroke="#14110e"
+                          strokeWidth="1.5"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      );
+                    })}
+                  </g>
+                ))}
+              </g>
+
+              <g className="animate-rock-split-right">
+                {mesh.boulders.filter(b => b.localX >= 75).map(boulder => (
+                  <g key={boulder.id}>
+                    {boulder.facets.map((facet, idx) => {
+                      const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                      const p = facet.pts;
+                      return (
+                        <polygon
+                          key={facet.id || idx}
+                          points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
+                          fill={lighting.color}
+                          stroke="#14110e"
+                          strokeWidth="1.5"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      );
+                    })}
+                  </g>
+                ))}
+              </g>
             </g>
           </g>
         </svg>
@@ -186,8 +191,8 @@ export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, siz
   // 3. INTACT PROCEDURAL ORGANIC 3D BOULDER PILE WITH DYNAMIC NORMAL LIGHTING
   return (
     <div className={`w-full relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`}>
-      <svg viewBox="0 0 150 70" className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
-        <g>
+      <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 70'} className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
+        <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
           {mesh.boulders.map(boulder => (
             <g key={boulder.id}>
               {/* Dark outline contour per boulder */}
@@ -200,7 +205,7 @@ export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, siz
               />
               {/* Facet polygons with dynamic hero-relative lighting */}
               {boulder.facets.map((facet, idx) => {
-                const lighting = calculateFacetLighting(facet, heroPos);
+                const lighting = calculateFacetLighting(facet, heroPos, yScale);
                 const p = facet.pts;
                 const pointsStr = `${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`;
                 return (

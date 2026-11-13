@@ -82,6 +82,9 @@ export const computeWaypoints = (fromZone, toZone, startPos = null, endPos = nul
  * @returns {number}
  */
 export const inferTargetZone = (level, targetX, targetY, currentZone = 1) => {
+  if (level?.mechanics?.useIsotropicCoords) {
+    return currentZone;
+  }
   if (level?.mechanics?.isCaveType) {
     if (targetY < 20) return 1;
     if (targetY < 45) return targetX < 50 ? 2 : 3;

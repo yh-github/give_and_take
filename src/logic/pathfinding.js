@@ -28,7 +28,7 @@ export function checkPolygonCollision(p1, p2, polygons) {
     return false;
 }
 
-export function smoothPath(path, segments, polygons = []) {
+export function smoothPath(path, segments, polygons = [], cornerClearance = 1.2) {
     if (!path || path.length <= 1) return path;
     if (path.length === 2) {
         if (segments && segments.length > 0 && checkCollision(path[0], path[1], segments)) {
@@ -45,7 +45,7 @@ export function smoothPath(path, segments, polygons = []) {
             const p2 = path[next];
             const hasSegColl = segments && segments.length > 0 && (
                 checkCollision(p1, p2, segments) ||
-                hasCornerClearanceCollision(p1, p2, segments, 1.2)
+                hasCornerClearanceCollision(p1, p2, segments, cornerClearance)
             );
             const hasPolyColl = polygons && polygons.length > 0 && checkPolygonCollision(p1, p2, polygons);
             if (!hasSegColl && !hasPolyColl) {
@@ -116,13 +116,20 @@ export function isPointInPolygon(p, poly) {
  * @param {Object} bounds {width: 100, height: screens*100}
  * @param {Array} polygons Array of polygon vertices [{x,y}, ...]
  * @param {number} resolution Density of the grid (lower is more precise)
+ * @param {Object} [options] Optional tuning ({ radius, maxIters, cornerClearance })
  */
-export function findGlobalPath(start, end, segments, bounds, polygons = [], resolution = 3) {
+export function findGlobalPath(start, end, segments, bounds, polygons = [], resolution = 3, options = {}) {
     const actualPolys = Array.isArray(polygons) ? polygons : [];
     if ((!segments || segments.length === 0) && actualPolys.length === 0) return [end];
 
+    const cornerClearance = options.cornerClearance ?? 1.2;
+
     // Direct line-of-sight fast path: if no wall obstacles intersect start->end, go directly
-    if (!checkCollision(start, end, segments || []) && !checkPolygonCollision(start, end, actualPolys)) {
+    if (
+        !checkCollision(start, end, segments || []) &&
+        !checkPolygonCollision(start, end, actualPolys) &&
+        !hasCornerClearanceCollision(start, end, segments || [], cornerClearance)
+    ) {
         return [end];
     }
 
@@ -134,16 +141,17 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     const cols = Math.ceil(width / resolution);
     const rows = Math.ceil(height / resolution);
 
-    // Grid coordinates
+    // Grid coordinates (clamped to valid grid bounds)
     const toGrid = (p) => ({
-        x: Math.round(p.x / resolution),
-        y: Math.round(p.y / resolution)
+        x: Math.max(0, Math.min(cols - 1, Math.round(p.x / resolution))),
+        y: Math.max(0, Math.min(rows - 1, Math.round(p.y / resolution)))
     });
 
     const startG = toGrid(start);
     const endG = toGrid(end);
 
-    const radius = 2.0; 
+    const radius = options.radius ?? 2.0;
+    const maxIters = options.maxIters ?? 15000;
 
     const isSolid = (gx, gy) => {
         const x = gx * resolution;
@@ -194,7 +202,7 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     fScore.set(key(startG), Math.abs(startG.x - endG.x) + Math.abs(startG.y - endG.y));
 
     let count = 0;
-    while (openSet.length > 0 && count < 10000) {
+    while (openSet.length > 0 && count < maxIters) {
         count++;
         // Find node in openSet with lowest fScore in O(N) instead of O(N log N) sort
         let bestIdx = 0;
@@ -224,7 +232,7 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
             if (rawPath.length > 0 && segments && segments.length > 0 && checkCollision(start, rawPath[0], segments)) {
                 return [];
             }
-            return smoothPath(rawPath, segments, polygons);
+            return smoothPath(rawPath, segments, polygons, cornerClearance);
         }
 
         const targetDx = endG.x - current.x;

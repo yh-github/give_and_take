@@ -130,7 +130,8 @@ export function solvePuzzle(startItems, puzzleEntities, goalEntityId, level, opt
         level.mechanics.isVertical &&
         level.mechanics.hasPickaxe &&
         entity.isGatekeeper &&
-        entity.id !== goalEntityId
+        entity.id !== goalEntityId &&
+        entity.gateType !== 'guardian'
       );
       const stepDelta = isIntermediatePickaxeRock ? 0 : 1;
 

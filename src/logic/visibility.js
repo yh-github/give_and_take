@@ -98,6 +98,90 @@ export function getObstacleSegments(mapNodes, caveWallVertices, unlockedZones, d
 }
 
 /**
+ * Converts a procedural isotropic cave's geometry and active gatekeepers
+ * into line segments for raycasting and pathfinding.
+ *
+ * @param {Array<Object>} mapNodes - Puzzle entities
+ * @param {Object} geometry - { worldWidth, worldHeight, wallPolylines }
+ * @param {string[]} defeated - Defeated entity IDs
+ * @returns {Array<Object>}
+ */
+export function getProceduralObstacleSegments(mapNodes, geometry, defeated = []) {
+  const segments = [];
+  const width = geometry?.worldWidth || 100;
+  const height = geometry?.worldHeight || 256;
+
+  // 1. World boundaries
+  segments.push({ a: { x: 0, y: 0 }, b: { x: width, y: 0 } });
+  segments.push({ a: { x: width, y: 0 }, b: { x: width, y: height } });
+  segments.push({ a: { x: width, y: height }, b: { x: 0, y: height } });
+  segments.push({ a: { x: 0, y: height }, b: { x: 0, y: 0 } });
+
+  // 2. Extracted contour polylines (already in isotropic world coordinates)
+  const wallPolylines = geometry?.wallPolylines || [];
+  for (const poly of wallPolylines) {
+    const pts = Array.isArray(poly) ? poly : poly?.points;
+    if (!pts || pts.length < 2) continue;
+    const isClosed = Array.isArray(poly) ? true : (poly.closed !== false);
+    const isPillar = Boolean(!Array.isArray(poly) && poly.isPillar);
+
+    for (let i = 0; i < pts.length - 1; i++) {
+      segments.push({
+        a: { x: pts[i].x, y: pts[i].y },
+        b: { x: pts[i + 1].x, y: pts[i + 1].y },
+        isPillar,
+        isOuterWall: !isPillar
+      });
+    }
+    if (isClosed && pts.length > 2) {
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      if (first.x !== last.x || first.y !== last.y) {
+        segments.push({
+          a: { x: last.x, y: last.y },
+          b: { x: first.x, y: first.y },
+          isPillar,
+          isOuterWall: !isPillar
+        });
+      }
+    }
+  }
+
+  // 3. Active gatekeeper obstacles (rocks, chasms, guardians)
+  if (Array.isArray(mapNodes)) {
+    for (const node of mapNodes) {
+      if (!(node.isGatekeeper || node.isExtraRock) || defeated.includes(node.id)) continue;
+
+      const cb = node.collarBounds;
+      const minX = cb ? cb.xLeft : (node.x - 4);
+      const maxX = cb ? cb.xRight : (node.x + 4);
+      const yTop = cb ? cb.yTop : (node.y - 3);
+      const yBottom = cb ? cb.yBottom : (node.y + 3);
+      const isBlockingSight = node.gateType !== 'chasm'; // Chasms block walking, not torchlight
+
+      const meta = {
+        isRock: true, // Used by pathfinding box-check for all solid gatekeepers
+        blocksSight: isBlockingSight,
+        gateType: node.gateType || 'rock',
+        rockId: node.id,
+        yNode: node.y,
+        minX,
+        maxX,
+        yTop,
+        yBottom
+      };
+
+      segments.push({ a: { x: minX, y: yTop }, b: { x: maxX, y: yTop }, ...meta });
+      segments.push({ a: { x: maxX, y: yTop }, b: { x: maxX, y: yBottom }, ...meta });
+      segments.push({ a: { x: maxX, y: yBottom }, b: { x: minX, y: yBottom }, ...meta });
+      segments.push({ a: { x: minX, y: yBottom }, b: { x: minX, y: yTop }, ...meta });
+    }
+  }
+
+  return segments;
+}
+
+/**
  * Standard ray-segment intersection.
  */
 /**
@@ -138,8 +222,11 @@ export function castRays(origin, segments, radius = 30) {
     if (!origin || isNaN(origin.x) || isNaN(origin.y)) return [];
     if (!segments || segments.length === 0) return [];
 
+    const sightSegments = segments.filter(s => s.blocksSight !== false);
+    if (sightSegments.length === 0) return [];
+
     const points = [];
-    segments.forEach(s => {
+    sightSegments.forEach(s => {
         if (s.a) points.push(s.a);
         if (s.b) points.push(s.b);
     });
@@ -148,11 +235,8 @@ export function castRays(origin, segments, radius = 30) {
         const set = new Set();
         return pts.filter(p => {
             if (!p || isNaN(p.x) || isNaN(p.y)) return false;
-            // Rounded keys are faster than high precision for uniqueness
             const rx = Math.round(p.x * 100);
             const ry = Math.round(p.y * 100);
-            const key = (rx << 16) | ry; // Simple integer key if possible, but JS bitwise is 32-bit. 
-            // Let's stick to string but simpler.
             const sKey = `${rx},${ry}`;
             if (set.has(sKey)) return false;
             set.add(sKey);
@@ -161,12 +245,22 @@ export function castRays(origin, segments, radius = 30) {
     })(points);
 
     const angles = [];
+    const maxRayReachSq = (radius * 1.35) ** 2;
     uniquePoints.forEach(p => {
-        const angle = Math.atan2(p.y - origin.y, p.x - origin.x);
-        // Only 2 rays per point instead of 3. This is enough to sample both sides of an edge.
+        const dx = p.x - origin.x;
+        const dy = p.y - origin.y;
+        // Skip vertices far outside torch reach to keep raycasting fast on large maps
+        if (dx * dx + dy * dy > maxRayReachSq) return;
+        const angle = Math.atan2(dy, dx);
         angles.push(angle - 0.0001);
         angles.push(angle + 0.0001);
     });
+
+    // Ensure smooth circular perimeter even in wide open chambers
+    const ringCount = 24;
+    for (let i = 0; i < ringCount; i++) {
+        angles.push(-Math.PI + (i / ringCount) * Math.PI * 2);
+    }
 
     const intersects = [];
     angles.forEach(angle => {
@@ -175,7 +269,7 @@ export function castRays(origin, segments, radius = 30) {
         const ray = { a: origin, b: { x: origin.x + dx, y: origin.y + dy } };
 
         let closest = null;
-        segments.forEach(s => {
+        sightSegments.forEach(s => {
             const hit = getIntersection(ray, s);
             if (!hit) return;
             if (!closest || hit.param < closest.param) {

@@ -1,4 +1,4 @@
-import { MAX_AIR } from '../constants.js';
+import { MAX_AIR, DEEP_CAVE_GENERATOR_VERSION } from '../constants.js';
 import { sanitizePuzzleEntities } from './rules.js';
 
 export const AUTOSAVE_STORAGE_KEY = 'give_and_take_autosave';
@@ -6,12 +6,18 @@ export const SAVE_STATE_VERSION = 1;
 
 /**
  * Creates a clean, serializable game state payload.
+ * When `compact` is true (used for procedural autosaves), bulky puzzle geometry
+ * and entities are omitted and regenerated deterministically from seed + settings.
  */
 export function createSavePayload({
   levelId,
   targetSteps,
   numDiggers,
   puzzle,
+  seed = null,
+  settings = null,
+  generatorVersion = null,
+  compact = false,
   inventory = [],
   unlockedZones = [1],
   defeated = [],
@@ -45,18 +51,29 @@ export function createSavePayload({
       ? Array.from(inkFogEntities)
       : [];
 
+  const resolvedSeed = seed ?? puzzle?.seed ?? null;
+  const resolvedSettings = settings ?? puzzle?.settings ?? null;
+  const resolvedGenVersion = generatorVersion ?? puzzle?.generatorVersion ?? (levelId === 'deep_cave' ? DEEP_CAVE_GENERATOR_VERSION : null);
+
   return {
     version: SAVE_STATE_VERSION,
     savedAt: new Date().toISOString(),
     levelId,
     targetSteps: Number(targetSteps) || 5,
     numDiggers: Number(numDiggers) || 0,
-    puzzle: puzzle ? {
+    ...(resolvedSeed !== null ? { seed: resolvedSeed } : {}),
+    ...(resolvedSettings ? { settings: resolvedSettings } : {}),
+    ...(resolvedGenVersion !== null ? { generatorVersion: resolvedGenVersion } : {}),
+    puzzle: (!compact && puzzle) ? {
       puzzleEntities: puzzle.puzzleEntities || [],
       goalEntityId: puzzle.goalEntityId,
       startItems: puzzle.startItems || [],
       solution: puzzle.solution || [],
       levelId: puzzle.levelId || levelId,
+      ...(puzzle.seed !== undefined ? { seed: puzzle.seed } : {}),
+      ...(puzzle.settings ? { settings: puzzle.settings } : {}),
+      ...(puzzle.generatorVersion !== undefined ? { generatorVersion: puzzle.generatorVersion } : {}),
+      ...(puzzle.geometry ? { geometry: puzzle.geometry } : {}),
       ...(puzzle.boatOfferedItem ? { boatOfferedItem: puzzle.boatOfferedItem } : {}),
       ...(puzzle.safeBoatItems ? { safeBoatItems: puzzle.safeBoatItems } : {})
     } : null,
@@ -96,16 +113,34 @@ export function validateSaveState(data, levelDictionary = null) {
     return { valid: false, error: `Unknown realm: ${data.levelId}` };
   }
 
-  if (!data.puzzle || typeof data.puzzle !== 'object') {
-    return { valid: false, error: 'Missing puzzle structure in save data.' };
-  }
+  const isCompactProceduralSave = Boolean(
+    !data.puzzle &&
+    data.levelId === 'deep_cave' &&
+    data.seed !== undefined &&
+    data.seed !== null &&
+    data.settings
+  );
 
-  if (!Array.isArray(data.puzzle.puzzleEntities) || data.puzzle.puzzleEntities.length === 0) {
-    return { valid: false, error: 'Save data has no puzzle entities.' };
-  }
+  if (isCompactProceduralSave) {
+    if (data.generatorVersion !== DEEP_CAVE_GENERATOR_VERSION) {
+      return {
+        valid: false,
+        versionMismatch: true,
+        error: `Procedural generator version mismatch (save: ${data.generatorVersion}, current: ${DEEP_CAVE_GENERATOR_VERSION}).`
+      };
+    }
+  } else {
+    if (!data.puzzle || typeof data.puzzle !== 'object') {
+      return { valid: false, error: 'Missing puzzle structure in save data.' };
+    }
 
-  if (!data.puzzle.goalEntityId) {
-    return { valid: false, error: 'Save data is missing goal entity.' };
+    if (!Array.isArray(data.puzzle.puzzleEntities) || data.puzzle.puzzleEntities.length === 0) {
+      return { valid: false, error: 'Save data has no puzzle entities.' };
+    }
+
+    if (!data.puzzle.goalEntityId) {
+      return { valid: false, error: 'Save data is missing goal entity.' };
+    }
   }
 
   if (!Array.isArray(data.inventory)) {

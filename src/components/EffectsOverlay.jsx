@@ -1,13 +1,14 @@
 import React from 'react';
 
-export function ClickIndicator({ indicator }) {
+export function ClickIndicator({ indicator, toCssY = null }) {
   if (!indicator) return null;
+  const topPct = toCssY ? toCssY(indicator.y) : indicator.y;
 
   return (
     <div
       key={indicator.id}
       className="absolute pointer-events-none z-[180] -translate-x-1/2 -translate-y-1/2"
-      style={{ left: `${indicator.x}%`, top: `${indicator.y}%` }}
+      style={{ left: `${indicator.x}%`, top: `${topPct}%` }}
     >
       {indicator.isValid ? (
         <div className="relative flex items-center justify-center">
