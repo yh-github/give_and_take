@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LEVEL_REGISTRY from './src/levels/index.js';
 import ErrorBoundary from './src/components/ErrorBoundary.jsx';
 import GameInstance from './src/components/GameInstance.jsx';
-import { getAutoSave, clearAutoSave } from './src/logic/saveState.js';
+import { getAutoSaveWithStatus, clearAutoSave } from './src/logic/saveState.js';
 import STRINGS from './src/strings.js';
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
@@ -11,15 +11,23 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
   const isEditor = typeof window !== 'undefined' && new URLSearchParams(window.location?.search || '').get('editor') === 'true';
   const shouldPrompt = autoResumePrompt && !isEditor;
 
-  const [pendingResumeState, setPendingResumeState] = useState(() => {
-    if (!shouldPrompt) return null;
-    return getAutoSave(LEVEL_DICTIONARY);
+  const [initialAutoSave] = useState(() => {
+    if (!shouldPrompt) return { state: null, versionMismatch: false };
+    const status = getAutoSaveWithStatus(LEVEL_DICTIONARY);
+    if (status.versionMismatch) {
+      clearAutoSave();
+    }
+    return status;
   });
-  const [showResumePrompt, setShowResumePrompt] = useState(() => Boolean(pendingResumeState));
+
+  const [pendingResumeState, setPendingResumeState] = useState(() => initialAutoSave.state);
+  const [saveVersionWarning, setSaveVersionWarning] = useState(() => Boolean(initialAutoSave.versionMismatch));
+  const [showResumePrompt, setShowResumePrompt] = useState(() => Boolean(initialAutoSave.state));
   const [activeSettings, setActiveSettings] = useState(() => ({
     levelId: pendingResumeState?.levelId || 'underground',
     steps: pendingResumeState?.targetSteps || 5,
-    diggers: pendingResumeState?.numDiggers ?? 1
+    diggers: pendingResumeState?.numDiggers ?? 1,
+    deepCaveSettings: pendingResumeState?.settings || null
   }));
   const [gameKey, setGameKey] = useState(0);
   const [lang, setLang] = useState('he');
@@ -29,20 +37,27 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
 
   useEffect(() => {
     if (!shouldPrompt) return;
-    if (!pendingResumeState) {
-      const existing = getAutoSave(LEVEL_DICTIONARY);
+    if (!pendingResumeState && !saveVersionWarning) {
+      const existingStatus = getAutoSaveWithStatus(LEVEL_DICTIONARY);
+      if (existingStatus.versionMismatch) {
+        clearAutoSave();
+        setSaveVersionWarning(true);
+        return;
+      }
+      const existing = existingStatus.state;
       if (existing) {
         setPendingResumeState(existing);
         setSavedState(existing);
         setActiveSettings({
           levelId: existing.levelId,
           steps: existing.targetSteps,
-          diggers: existing.numDiggers
+          diggers: existing.numDiggers,
+          deepCaveSettings: existing.settings || null
         });
         setShowResumePrompt(true);
       }
     }
-  }, [shouldPrompt, pendingResumeState]);
+  }, [shouldPrompt, pendingResumeState, saveVersionWarning]);
 
   const handleContinueSaved = () => {
     setShowResumePrompt(false);
@@ -59,6 +74,7 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
   const applyAndGenerate = (newSettings) => {
     setActiveSettings(newSettings);
     setSavedState(null);
+    setSaveVersionWarning(false);
     setGameKey(k => k + 1);
   };
 
@@ -66,9 +82,11 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
     setActiveSettings({
       levelId: importedState.levelId,
       steps: importedState.targetSteps,
-      diggers: importedState.numDiggers
+      diggers: importedState.numDiggers,
+      deepCaveSettings: importedState.settings || null
     });
     setSavedState(importedState);
+    setSaveVersionWarning(false);
     setGameKey(k => k + 1);
   };
 
@@ -79,9 +97,12 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
         level={LEVEL_DICTIONARY[activeSettings.levelId]} 
         targetSteps={activeSettings.steps} 
         numDiggers={activeSettings.diggers} 
+        deepCaveSettings={activeSettings.deepCaveSettings}
         onGenerateNew={applyAndGenerate} 
         onLoadState={handleLoadState}
         savedState={savedState}
+        saveVersionWarning={saveVersionWarning}
+        onDismissSaveVersionWarning={() => setSaveVersionWarning(false)}
         lang={lang} 
         setLang={setLang} 
       />

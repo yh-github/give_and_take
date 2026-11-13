@@ -19,6 +19,8 @@ import {
 import STRINGS from '../strings.js';
 import LEVEL_REGISTRY from '../levels/index.js';
 import { generateLevelPuzzle } from '../logic/generator.js';
+import { generateDeepCaveAsync } from '../levels/deep_cave/workerClient.js';
+import { DEFAULT_DEEP_CAVE_SETTINGS, normalizeDeepCaveSettings } from '../levels/deep_cave/presets.js';
 import { computeWaypoints, uniqueCount, inferTargetZone } from '../logic/navigation.js';
 import { getVisibilityPolygon, getObstacleSegments, getProceduralObstacleSegments, isPointInVisibilityPolygon, checkCollision } from '../logic/visibility.js';
 import { findGlobalPath } from '../logic/pathfinding.js';
@@ -44,9 +46,22 @@ import LevelEditorOverlay from './LevelEditorOverlay.jsx';
 
 const LEVEL_DICTIONARY = LEVEL_REGISTRY;
 
-export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, onLoadState, savedState, lang, setLang }) {
+export function GameInstance({
+  level,
+  targetSteps,
+  numDiggers,
+  deepCaveSettings = null,
+  onGenerateNew,
+  onLoadState,
+  savedState,
+  saveVersionWarning = false,
+  onDismissSaveVersionWarning = null,
+  lang,
+  setLang
+}) {
   const [puzzle, setPuzzle] = useState(() => savedState?.puzzle || null);
   const [generationFailed, setGenerationFailed] = useState(false);
+  const [generationFailureHint, setGenerationFailureHint] = useState(null);
   const [isLevelEditor] = useState(() => new URLSearchParams(window.location.search).get('editor') === 'true');
   const [editorScrollY, setEditorScrollY] = useState(0);
   const [editorNodes, setEditorNodes] = useState([]);
@@ -90,9 +105,21 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
   const [heroBubbleBursts, setHeroBubbleBursts] = useState([]);
   const [moveDurationMs, setMoveDurationMs] = useState(300);
 
+  const resolvedDeepCaveSettings = useMemo(() => {
+    if (level.id !== 'deep_cave') return DEFAULT_DEEP_CAVE_SETTINGS;
+    if (savedState?.settings) return normalizeDeepCaveSettings(savedState.settings);
+    if (deepCaveSettings) return normalizeDeepCaveSettings(deepCaveSettings);
+    return normalizeDeepCaveSettings(DEFAULT_DEEP_CAVE_SETTINGS, { targetSteps, numDiggers });
+  }, [level.id, savedState?.settings, deepCaveSettings, targetSteps, numDiggers]);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState('main');
-  const [menuSettings, setMenuSettings] = useState({ levelId: level.id, steps: targetSteps, diggers: numDiggers });
+  const [menuSettings, setMenuSettings] = useState({
+    levelId: level.id,
+    steps: targetSteps,
+    diggers: numDiggers,
+    deepCaveSettings: resolvedDeepCaveSettings
+  });
 
   const [animatingEntities, setAnimatingEntities] = useState([]);
   const [buriedEntities, setBuriedEntities] = useState(() => savedState?.buriedEntities || []);
@@ -259,34 +286,94 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
 
   useEffect(() => {
     setGenerationFailed(false);
-    if (savedState && savedState.puzzle) {
-      setPuzzle(savedState.puzzle);
-      setInventory(savedState.inventory || savedState.puzzle.startItems || []);
-      setPathHistory(savedState.pathHistory || [{ ...level.campPos, zone: 1 }]);
-      setUnlockedZones(savedState.unlockedZones || [1]);
-      setDefeated(savedState.defeated || []);
-      setHistoryStack((savedState.historyStack || []).map(entry => ({
+    setGenerationFailureHint(null);
+
+    const applySavedProgress = (saved, loadedPuzzle) => {
+      const fallbackCamp = loadedPuzzle?.geometry?.campPos || level.campPos;
+      setPuzzle(loadedPuzzle);
+      setInventory(saved.inventory || loadedPuzzle?.startItems || []);
+      setPathHistory(saved.pathHistory || [{ ...fallbackCamp, zone: 1 }]);
+      setUnlockedZones(saved.unlockedZones || [1]);
+      setDefeated(saved.defeated || []);
+      setHistoryStack((saved.historyStack || []).map(entry => ({
         ...entry,
         inkFogEntities: new Set(entry.inkFogEntities || [])
       })));
-      setCampItems(savedState.campItems || []);
-      setBuriedEntities(savedState.buriedEntities || []);
-      setAir(savedState.air ?? MAX_AIR);
-      setIsTransformed(Boolean(savedState.isTransformed));
-      setHasDeepTreasure(Boolean(savedState.hasDeepTreasure));
-      setEnvItemState(savedState.envItemState || 'active');
-      setEnvItemCaughtPos(savedState.envItemCaughtPos || { x: 50, y: 50 });
-      setDolphinState(savedState.dolphinState || 'idle_surface');
-      setDolphinYPos(typeof savedState.dolphinYPos === 'number' ? savedState.dolphinYPos : 22);
-      if (savedState.lightingSettings) setLightingSettings(savedState.lightingSettings);
-      if (savedState.debugMode !== undefined) setDebugMode(savedState.debugMode);
-      if (savedState.inkFogEntities) setInkFogEntities(new Set(savedState.inkFogEntities));
+      setCampItems(saved.campItems || []);
+      setBuriedEntities(saved.buriedEntities || []);
+      setAir(saved.air ?? MAX_AIR);
+      setIsTransformed(Boolean(saved.isTransformed));
+      setHasDeepTreasure(Boolean(saved.hasDeepTreasure));
+      setEnvItemState(saved.envItemState || 'active');
+      setEnvItemCaughtPos(saved.envItemCaughtPos || { x: 50, y: 50 });
+      setDolphinState(saved.dolphinState || 'idle_surface');
+      setDolphinYPos(typeof saved.dolphinYPos === 'number' ? saved.dolphinYPos : 22);
+      if (saved.lightingSettings) setLightingSettings(saved.lightingSettings);
+      if (saved.debugMode !== undefined) setDebugMode(saved.debugMode);
+      if (saved.inkFogEntities) setInkFogEntities(new Set(saved.inkFogEntities));
       setSelectedItemTypes([]);
       setIsAnimatingLoot(false);
       setTempPlayerPos(null);
       setAlertEntityId(null);
       setAttachedEntityId(null);
+    };
+
+    const applyFreshPuzzle = (generated) => {
+      const startCamp = generated.geometry?.campPos || level.campPos;
+      setPuzzle(generated);
+      setInventory(generated.startItems || []);
+      setPathHistory([{ ...startCamp, zone: 1 }]);
+      setUnlockedZones([1]);
+      setDefeated([]);
+      setHistoryStack([]);
+      setCampItems([]);
+      setBuriedEntities([]);
+      setSelectedItemTypes([]);
+      setAir(MAX_AIR);
+      setIsAnimatingLoot(false);
+      setTempPlayerPos(null);
+      setAlertEntityId(null);
+      setAttachedEntityId(null);
+    };
+
+    if (savedState && savedState.puzzle) {
+      applySavedProgress(savedState, savedState.puzzle);
       return;
+    }
+
+    if (level.id === 'deep_cave') {
+      let cancelled = false;
+      const controller = new AbortController();
+      const isCompactHydration = Boolean(savedState && !savedState.puzzle && savedState.seed != null);
+      const hydrateSettings = normalizeDeepCaveSettings(
+        isCompactHydration ? (savedState.settings || resolvedDeepCaveSettings) : resolvedDeepCaveSettings
+      );
+
+      setPuzzle(null);
+      generateDeepCaveAsync(hydrateSettings, {
+        seed: isCompactHydration ? savedState.seed : null,
+        signal: controller.signal
+      })
+        .then((result) => {
+          if (cancelled || !result?.puzzle) return;
+          if (isCompactHydration) {
+            applySavedProgress(savedState, result.puzzle);
+          } else {
+            applyFreshPuzzle(result.puzzle);
+          }
+        })
+        .catch((err) => {
+          if (cancelled || err?.isCancelled) return;
+          if (err?.isCustomTimeout) {
+            setGenerationFailureHint(dict.deepCaveTimeoutHint || err.message);
+          }
+          setGenerationFailed(true);
+        });
+
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
     }
 
     const p = generateLevelPuzzle(level, targetSteps, numDiggers);
@@ -294,22 +381,8 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       setGenerationFailed(true);
       return;
     }
-    const startCamp = p.geometry?.campPos || level.campPos;
-    setPuzzle(p);
-    setInventory(p.startItems || []);
-    setPathHistory([{ ...startCamp, zone: 1 }]);
-    setUnlockedZones([1]);
-    setDefeated([]);
-    setHistoryStack([]);
-    setCampItems([]);
-    setBuriedEntities([]);
-    setSelectedItemTypes([]);
-    setAir(MAX_AIR);
-    setIsAnimatingLoot(false);
-    setTempPlayerPos(null);
-    setAlertEntityId(null);
-    setAttachedEntityId(null);
-  }, [level, targetSteps, numDiggers, savedState]);
+    applyFreshPuzzle(p);
+  }, [level, targetSteps, numDiggers, savedState, resolvedDeepCaveSettings, dict.deepCaveTimeoutHint]);
 
   const mapRef = useRef(null);
   const innerMapRef = useRef(null);
@@ -727,6 +800,9 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
       targetSteps,
       numDiggers,
       puzzle,
+      seed: puzzle?.seed ?? savedState?.seed ?? null,
+      settings: level.id === 'deep_cave' ? (puzzle?.settings || resolvedDeepCaveSettings) : (puzzle?.settings || null),
+      generatorVersion: puzzle?.generatorVersion ?? savedState?.generatorVersion ?? null,
       compact,
       inventory,
       unlockedZones,
@@ -799,13 +875,19 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
   const handleImportStateString = useCallback((jsonString) => {
     const res = importStateFromString(jsonString, LEVEL_DICTIONARY);
     if (!res.success) {
+      if (res.versionMismatch) {
+        return {
+          ...res,
+          error: dict.saveVersionMismatch || res.error
+        };
+      }
       return res;
     }
     if (onLoadState) {
       onLoadState(res.state);
     }
     return { success: true };
-  }, [onLoadState]);
+  }, [onLoadState, dict.saveVersionMismatch]);
 
   const handleReplay = () => { demoRef.current = false; resetGameState(); setIsMenuOpen(false); };
 
@@ -1635,15 +1717,43 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
 
   if (generationFailed) {
     return (
-      <GenerationFailedScreen 
-        dict={dict} 
-        onOpenSettings={() => { setMenuView('settings'); setIsMenuOpen(true); }} 
-      />
+      <div className="relative min-h-screen bg-stone-900">
+        <GenerationFailedScreen 
+          dict={dict} 
+          failureHint={generationFailureHint}
+          onOpenSettings={() => { setMenuView('settings'); setIsMenuOpen(true); }} 
+        />
+        <GameMenu 
+          isOpen={isMenuOpen}
+          onClose={() => setIsMenuOpen(false)}
+          menuView={menuView}
+          setMenuView={setMenuView}
+          dict={dict}
+          lang={lang}
+          levelDictionary={LEVEL_DICTIONARY}
+          menuSettings={menuSettings}
+          setMenuSettings={setMenuSettings}
+          onReplay={handleReplay}
+          onShowSolution={handleShowSolution}
+          onGenerateNew={(newSettings) => { setIsMenuOpen(false); onGenerateNew(newSettings); }}
+          onExportState={handleExportStateString}
+          onImportState={handleImportStateString}
+          isVictorious={isVictorious}
+          isDemonstrating={isDemonstrating}
+          isAnimatingLoot={isAnimatingLoot}
+          puzzle={puzzle}
+          debugMode={debugMode}
+          setDebugMode={setDebugMode}
+          lightingSettings={lightingSettings}
+          setLightingSettings={setLightingSettings}
+          currentLevelId={level.id}
+        />
+      </div>
     );
   }
 
   if (!puzzle) {
-    return <GeneratingScreen dict={dict} />;
+    return <GeneratingScreen dict={dict} isDeepCave={level.id === 'deep_cave'} />;
   }
 
   const playerPos = pathHistory[pathHistory.length - 1];
@@ -1859,6 +1969,25 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
           />
 
           <VictoryCelebration showVictoryMsg={showVictoryMsg} dict={dict} />
+
+          {saveVersionWarning && dict.saveVersionMismatch && (
+            <div
+              data-testid="save-version-warning"
+              className="absolute top-16 inset-x-4 z-[220] mx-auto max-w-md bg-amber-950/95 border-2 border-amber-500 text-amber-100 px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 text-xs sm:text-sm font-sans"
+              dir={lang === 'he' ? 'rtl' : 'ltr'}
+            >
+              <span>⚠️ {dict.saveVersionMismatch}</span>
+              {onDismissSaveVersionWarning && (
+                <button
+                  type="button"
+                  onClick={onDismissSaveVersionWarning}
+                  className="shrink-0 bg-amber-800 hover:bg-amber-700 px-2.5 py-1 rounded-lg font-bold text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <InventoryBar 
@@ -1899,6 +2028,7 @@ export function GameInstance({ level, targetSteps, numDiggers, onGenerateNew, on
         setDebugMode={setDebugMode}
         lightingSettings={lightingSettings}
         setLightingSettings={setLightingSettings}
+        currentLevelId={level.id}
       />
     </div>
   );

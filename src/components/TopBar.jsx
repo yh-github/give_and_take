@@ -26,7 +26,7 @@ export function TopBar({
         >
           🇺🇸
         </button>
-        {levelId === 'underground' && (
+        {(levelId === 'underground' || levelId === 'deep_cave') && (
           <button 
             onClick={(e) => { e.stopPropagation(); onOpenLighting(); }} 
             className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 ${menuView === 'lighting' && isMenuOpen ? 'border-amber-400 bg-amber-900/40 text-amber-500 scale-105 shadow-lg' : 'border-stone-600 opacity-70 text-stone-400'} flex items-center justify-center bg-stone-800 transition-all font-bold`}

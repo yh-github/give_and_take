@@ -256,6 +256,100 @@ async function runSmokeTests() {
 
     console.log('  ✅ Switched to River Crossing level successfully');
 
+    // 5b. Switch to Deep Cave (The Abyssal Descent) & test presets, async Web Worker generation, movement & compact autosave hydration
+    console.log('🧪 Test 5b: Testing Deep Cave (The Abyssal Descent) presets, Web Worker generation, movement & seed hydration...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const gear = btns.find(b => b.textContent.includes('⚙️'));
+      if (gear) gear.click();
+    });
+    await new Promise(r => setTimeout(r, 300));
+
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const genBtn = btns.find(b => b.textContent.includes('צור מפה') || b.textContent.includes('Generate'));
+      if (genBtn) genBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 300));
+
+    await page.select('select', 'deep_cave');
+    await page.waitForSelector('[data-testid="preset-btn-normal"]', { timeout: 4000 });
+    await page.click('[data-testid="preset-btn-normal"]');
+
+    // Toggle Advanced Settings and verify custom knobs render
+    await page.click('[data-testid="toggle-advanced-settings"]');
+    await page.waitForSelector('[data-testid="knob-torchRadius"]', { timeout: 3000 });
+
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const submitBtn = btns.find(b => b.textContent.includes('צור מפה') || b.textContent.includes('Generate Map'));
+      if (submitBtn) submitBtn.click();
+    });
+
+    await page.waitForFunction(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const hasGear = btns.some(b => b.textContent.includes('⚙️'));
+      const hasPaths = document.querySelectorAll('svg path').length > 0;
+      const hasHero = document.body.textContent.includes('🤠');
+      return hasGear && hasPaths && hasHero;
+    }, { timeout: 10000 });
+    console.log('  ✅ Deep Cave Web Worker generated SVG walls & hero');
+
+    // Move hero slightly downward/sideways near Camp so movement & compact autosave trigger
+    const deepCaveInitial = await page.evaluate(() => {
+      const hero = Array.from(document.querySelectorAll('div')).find(el =>
+        el.style && el.style.left && el.style.top && el.textContent.includes('🤠')
+      );
+      if (!hero) return null;
+      const before = { left: parseFloat(hero.style.left), top: parseFloat(hero.style.top) };
+      const innerMap = hero.parentElement;
+      const rect = innerMap.getBoundingClientRect();
+      // Try clicking a short offset from hero inside open Camp area
+      const clickX = rect.left + rect.width * (before.left / 100);
+      const clickY = rect.top + rect.height * ((before.top + 3) / 100);
+      innerMap.dispatchEvent(new MouseEvent('click', {
+        clientX: clickX,
+        clientY: clickY,
+        bubbles: true,
+        cancelable: true
+      }));
+      return before;
+    });
+
+    await new Promise(r => setTimeout(r, 900));
+
+    const deepCaveMovedAndSaved = await page.evaluate((before) => {
+      const hero = Array.from(document.querySelectorAll('div')).find(el =>
+        el.style && el.style.left && el.style.top && el.textContent.includes('🤠')
+      );
+      const after = hero ? { left: parseFloat(hero.style.left), top: parseFloat(hero.style.top) } : null;
+      const rawAutoSave = window.localStorage.getItem('give_and_take_autosave');
+      const parsedAutoSave = rawAutoSave ? JSON.parse(rawAutoSave) : null;
+      return { before, after, parsedAutoSave };
+    }, deepCaveInitial);
+
+    if (!deepCaveMovedAndSaved.parsedAutoSave ||
+        deepCaveMovedAndSaved.parsedAutoSave.levelId !== 'deep_cave' ||
+        deepCaveMovedAndSaved.parsedAutoSave.puzzle !== null ||
+        !deepCaveMovedAndSaved.parsedAutoSave.seed) {
+      throw new Error(`Expected compact deep_cave autosave, got: ${JSON.stringify(deepCaveMovedAndSaved.parsedAutoSave)}`);
+    }
+    console.log(`  ✅ Deep Cave movement & compact seed autosave verified (seed=${deepCaveMovedAndSaved.parsedAutoSave.seed})`);
+
+    // Test compact save deterministic hydration across page reload
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.body.textContent.includes('המשך') || document.body.textContent.includes('Continue'), { timeout: 6000 });
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const cont = btns.find(b => b.textContent.includes('המשך') || b.textContent.includes('Continue'));
+      if (cont) cont.click();
+    });
+    await page.waitForFunction(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      return btns.some(b => b.textContent.includes('⚙️')) && document.querySelectorAll('svg path').length > 0;
+    }, { timeout: 10000 });
+    console.log('  ✅ Deep Cave deterministic seed hydration on reload verified');
+
     // 6. Level Editor Query Param Test
     console.log('🧪 Test 6: Testing Level Editor mode (?editor=true)...');
     await page.goto(`${baseUrl}/?editor=true`, { waitUntil: 'networkidle0' });

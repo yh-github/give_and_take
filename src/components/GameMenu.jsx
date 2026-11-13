@@ -1,4 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import {
+  DEEP_CAVE_PRESETS,
+  DEEP_CAVE_KNOB_DEFS,
+  DEFAULT_DEEP_CAVE_SETTINGS,
+  detectDeepCavePresetId,
+  normalizeDeepCaveSettings
+} from '../levels/deep_cave/presets.js';
 
 export const GAME_VERSION = 'v1.7.10-secret-passage-sealed';
 
@@ -12,11 +19,16 @@ export const DEFAULT_LIGHTING = {
   flickerIntensity: 1.0
 };
 
-export function GenerationFailedScreen({ dict, onOpenSettings }) {
+export function GenerationFailedScreen({ dict, failureHint = null, onOpenSettings }) {
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative p-4 text-center">
       <div className="text-red-500 text-3xl font-black mb-4">{dict.genFailedTitle}</div>
       <div className="text-stone-300 max-w-md">{dict.genFailedDesc}</div>
+      {failureHint && (
+        <div className="mt-4 max-w-md bg-amber-950/70 border border-amber-600/70 text-amber-200 px-4 py-3 rounded-xl text-sm font-sans">
+          {failureHint}
+        </div>
+      )}
       <button 
         onClick={onOpenSettings} 
         className="mt-8 bg-stone-700 p-4 rounded-xl text-white font-bold hover:bg-stone-600 transition-colors z-[100] relative"
@@ -27,12 +39,13 @@ export function GenerationFailedScreen({ dict, onOpenSettings }) {
   );
 }
 
-export function GeneratingScreen({ dict }) {
+export function GeneratingScreen({ dict, isDeepCave = false }) {
+  const message = isDeepCave && dict.carvingCave ? dict.carvingCave : dict.generating;
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative">
       <div className="absolute inset-0 bg-stone-900 opacity-80 z-40 backdrop-blur" />
-      <div className="text-amber-500 text-3xl font-black z-50 animate-pulse tracking-widest uppercase shadow-black drop-shadow-lg border-y-2 border-amber-500 py-4 px-12">
-        {dict.generating}
+      <div className="text-amber-500 text-3xl font-black z-50 animate-pulse tracking-widest uppercase shadow-black drop-shadow-lg border-y-2 border-amber-500 py-4 px-12 text-center">
+        {message}
       </div>
     </div>
   );
@@ -60,13 +73,69 @@ export function GameMenu({
   debugMode,
   setDebugMode,
   lightingSettings,
-  setLightingSettings
+  setLightingSettings,
+  currentLevelId = null
 }) {
   const [copied, setCopied] = useState(false);
   const [exportString, setExportString] = useState('');
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState(null);
+  const [showAdvancedDeepCave, setShowAdvancedDeepCave] = useState(false);
   const fileInputRef = useRef(null);
+
+  const resolvedDeepCaveSettings = normalizeDeepCaveSettings(
+    menuSettings.deepCaveSettings || DEFAULT_DEEP_CAVE_SETTINGS
+  );
+  const activePresetId = detectDeepCavePresetId(resolvedDeepCaveSettings);
+
+  const handleSelectLevel = (newLevelId) => {
+    if (newLevelId === 'deep_cave') {
+      const nextDeep = normalizeDeepCaveSettings(
+        menuSettings.deepCaveSettings || DEFAULT_DEEP_CAVE_SETTINGS
+      );
+      setMenuSettings({
+        ...menuSettings,
+        levelId: newLevelId,
+        steps: nextDeep.targetSteps,
+        diggers: nextDeep.numDiggers,
+        deepCaveSettings: nextDeep
+      });
+    } else {
+      const clampedSteps = Math.max(3, Math.min(8, Number(menuSettings.steps) || 5));
+      setMenuSettings({
+        ...menuSettings,
+        levelId: newLevelId,
+        steps: clampedSteps
+      });
+    }
+  };
+
+  const handleSelectDeepCavePreset = (presetId) => {
+    const preset = DEEP_CAVE_PRESETS[presetId];
+    if (!preset) return;
+    const normalized = normalizeDeepCaveSettings(preset);
+    setMenuSettings({
+      ...menuSettings,
+      steps: normalized.targetSteps,
+      diggers: normalized.numDiggers,
+      deepCaveSettings: normalized
+    });
+  };
+
+  const handleUpdateDeepCaveKnob = (key, rawValue) => {
+    const nextDeep = normalizeDeepCaveSettings({
+      ...resolvedDeepCaveSettings,
+      preset: undefined,
+      id: undefined,
+      [key]: Number(rawValue)
+    });
+    setMenuSettings({
+      ...menuSettings,
+      steps: nextDeep.targetSteps,
+      diggers: nextDeep.numDiggers,
+      deepCaveSettings: nextDeep
+    });
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -177,49 +246,136 @@ export function GameMenu({
         ) : menuView === 'settings' ? (
           <>
             <h2 className="text-3xl font-black text-amber-500 text-center border-b-2 border-stone-600 pb-4">{dict.settings}</h2>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
               <label className="flex flex-col gap-2 font-bold text-lg pt-2">
                 <span>{dict.level}</span>
                 <select 
                   className="w-full bg-stone-900 border-2 border-stone-600 rounded-lg p-3 outline-none focus:border-amber-500 text-amber-400" 
                   value={menuSettings.levelId} 
-                  onChange={(e) => setMenuSettings({ ...menuSettings, levelId: e.target.value })}
+                  onChange={(e) => handleSelectLevel(e.target.value)}
                 >
                   {Object.values(levelDictionary).map(lvl => (
                     <option key={lvl.id} value={lvl.id}>{dict.levels[lvl.id] || lvl.name}</option>
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-2 font-bold text-lg pt-2">
-                <span className="flex justify-between">
-                  <span>{dict.minQuestChain}</span> 
-                  <span className="text-amber-400">{menuSettings.steps}</span>
-                </span>
-                <input 
-                  type="range" 
-                  min="3" 
-                  max="8" 
-                  value={menuSettings.steps} 
-                  onChange={(e) => setMenuSettings({ ...menuSettings, steps: parseInt(e.target.value) })} 
-                  className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" 
-                />
-              </label>
-              <label className="flex flex-col gap-2 font-bold text-lg">
-                <span className="flex justify-between">
-                  <span>{dict.diggersMemory}</span> 
-                  <span className="text-amber-400">{menuSettings.diggers}</span>
-                </span>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="3" 
-                  value={menuSettings.diggers} 
-                  onChange={(e) => setMenuSettings({ ...menuSettings, diggers: parseInt(e.target.value) })} 
-                  className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" 
-                />
-              </label>
+
+              {menuSettings.levelId === 'deep_cave' ? (
+                <div className="space-y-4 pt-1">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between font-bold text-base">
+                      <span>{dict.difficultyPreset || 'Difficulty Preset:'}</span>
+                      {activePresetId === 'custom' && (
+                        <span
+                          data-testid="deep-cave-custom-badge"
+                          className="text-xs font-sans font-bold px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500 text-amber-300"
+                        >
+                          {dict.presets?.custom || 'Custom'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {Object.keys(DEEP_CAVE_PRESETS).map((presetId) => {
+                        const isSelected = activePresetId === presetId;
+                        const label = dict.presets?.[presetId] || presetId;
+                        return (
+                          <button
+                            key={presetId}
+                            type="button"
+                            data-testid={`preset-btn-${presetId}`}
+                            onClick={() => handleSelectDeepCavePreset(presetId)}
+                            className={`py-2 px-2 rounded-lg font-bold text-sm border-2 transition-all ${
+                              isSelected
+                                ? 'bg-amber-600 border-amber-400 text-white shadow-md'
+                                : 'bg-stone-900 border-stone-600 text-stone-300 hover:border-stone-400'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-stone-700 pt-2">
+                    <button
+                      type="button"
+                      data-testid="toggle-advanced-settings"
+                      onClick={() => setShowAdvancedDeepCave(prev => !prev)}
+                      className="w-full flex items-center justify-between text-sm font-bold text-amber-300 hover:text-amber-200 py-1.5"
+                    >
+                      <span>{dict.advancedSettings || 'Advanced Settings'}</span>
+                      <span className="font-mono">{showAdvancedDeepCave ? '▾' : '▸'}</span>
+                    </button>
+
+                    {showAdvancedDeepCave && (
+                      <div className="mt-2 space-y-3 bg-stone-900/70 border border-stone-700 rounded-xl p-3">
+                        {Object.entries(DEEP_CAVE_KNOB_DEFS).map(([key, def]) => (
+                          <label key={key} className="flex flex-col gap-1 text-sm font-bold">
+                            <span className="flex justify-between text-stone-300">
+                              <span>{dict.knobs?.[key] || key}</span>
+                              <span className="text-amber-400 font-mono">{resolvedDeepCaveSettings[key]}</span>
+                            </span>
+                            <input
+                              type="range"
+                              min={def.min}
+                              max={def.max}
+                              step={def.step}
+                              data-testid={`knob-${key}`}
+                              value={resolvedDeepCaveSettings[key]}
+                              onChange={(e) => handleUpdateDeepCaveKnob(key, e.target.value)}
+                              className="w-full accent-amber-500 h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <label className="flex flex-col gap-2 font-bold text-lg pt-2">
+                    <span className="flex justify-between">
+                      <span>{dict.minQuestChain}</span> 
+                      <span className="text-amber-400">{menuSettings.steps}</span>
+                    </span>
+                    <input 
+                      type="range" 
+                      min="3" 
+                      max="8" 
+                      value={menuSettings.steps} 
+                      onChange={(e) => setMenuSettings({ ...menuSettings, steps: parseInt(e.target.value) })} 
+                      className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" 
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 font-bold text-lg">
+                    <span className="flex justify-between">
+                      <span>{dict.diggersMemory}</span> 
+                      <span className="text-amber-400">{menuSettings.diggers}</span>
+                    </span>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="3" 
+                      value={menuSettings.diggers} 
+                      onChange={(e) => setMenuSettings({ ...menuSettings, diggers: parseInt(e.target.value) })} 
+                      className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer" 
+                    />
+                  </label>
+                </>
+              )}
+
               <button 
-                onClick={() => onGenerateNew(menuSettings)} 
+                onClick={() => onGenerateNew(
+                  menuSettings.levelId === 'deep_cave'
+                    ? {
+                        ...menuSettings,
+                        steps: resolvedDeepCaveSettings.targetSteps,
+                        diggers: resolvedDeepCaveSettings.numDiggers,
+                        deepCaveSettings: resolvedDeepCaveSettings
+                      }
+                    : menuSettings
+                )} 
                 className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1"
               >
                 {dict.genMap}
@@ -317,6 +473,15 @@ export function GameMenu({
               </label>
               
               <div className="h-px bg-stone-700 my-2" />
+
+              {(currentLevelId || menuSettings.levelId) === 'deep_cave' && dict.debugLightOverrideNote && (
+                <div
+                  data-testid="deep-cave-lighting-note"
+                  className="bg-amber-950/60 border border-amber-600/70 text-amber-200 px-3 py-2 rounded-lg text-xs font-sans"
+                >
+                  {dict.debugLightOverrideNote}
+                </div>
+              )}
 
               <label className="flex flex-col gap-1 font-bold">
                 <span className="flex justify-between">

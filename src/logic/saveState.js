@@ -170,29 +170,39 @@ export function saveToAutoSave(payload) {
 }
 
 /**
- * Reads and validates autosave from localStorage.
+ * Reads and validates autosave from localStorage, returning both the parsed state
+ * and whether a generator version mismatch invalidated a procedural cave save.
  */
-export function getAutoSave(levelDictionary = null) {
+export function getAutoSaveWithStatus(levelDictionary = null) {
   try {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return { state: null, versionMismatch: false };
+    }
     const raw = window.localStorage.getItem(AUTOSAVE_STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) return { state: null, versionMismatch: false };
 
     const parsed = JSON.parse(raw);
     const validation = validateSaveState(parsed, levelDictionary);
     if (!validation.valid) {
       console.warn('Invalid autosave in storage:', validation.error);
-      return null;
+      return { state: null, versionMismatch: Boolean(validation.versionMismatch) };
     }
     if (parsed.puzzle && Array.isArray(parsed.puzzle.puzzleEntities)) {
       const levelItems = levelDictionary?.[parsed.levelId]?.items || [];
       parsed.puzzle.puzzleEntities = sanitizePuzzleEntities(parsed.puzzle.puzzleEntities, levelItems);
     }
-    return parsed;
+    return { state: parsed, versionMismatch: false };
   } catch (err) {
     console.warn('Failed to read autosave from localStorage:', err);
-    return null;
+    return { state: null, versionMismatch: false };
   }
+}
+
+/**
+ * Reads and validates autosave from localStorage.
+ */
+export function getAutoSave(levelDictionary = null) {
+  return getAutoSaveWithStatus(levelDictionary).state;
 }
 
 /**
@@ -226,7 +236,11 @@ export function importStateFromString(rawString, levelDictionary = null) {
     const parsed = JSON.parse(rawString.trim());
     const validation = validateSaveState(parsed, levelDictionary);
     if (!validation.valid) {
-      return { success: false, error: validation.error };
+      return {
+        success: false,
+        versionMismatch: Boolean(validation.versionMismatch),
+        error: validation.error
+      };
     }
     if (parsed.puzzle && Array.isArray(parsed.puzzle.puzzleEntities)) {
       const levelItems = levelDictionary?.[parsed.levelId]?.items || [];
