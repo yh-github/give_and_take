@@ -1,6 +1,7 @@
 import riverCrossing from './river_crossing/index.js';
 import underground from './underground/index.js';
 import underwater from './underwater/index.js';
+import deepCave from './deep_cave/index.js';
 
 /**
  * Central registry of all available levels.
@@ -11,6 +12,7 @@ const LEVEL_REGISTRY = {
   [riverCrossing.id]: riverCrossing,
   [underground.id]: underground,
   [underwater.id]: underwater,
+  [deepCave.id]: deepCave,
 };
 
 export default LEVEL_REGISTRY;

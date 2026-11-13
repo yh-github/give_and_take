@@ -402,13 +402,23 @@ export function rasterizeSlotGrid(slots, rows, encountersById = {}, rng = Math.r
             encounterAnchors.push(anchors);
             for (const g of [...anchors.L, ...anchors.G]) {
               if (g.bounds) {
-                collarLockBoxes.push({
-                  orientation: g.bounds.orientation,
-                  xLeft: g.bounds.xLeft - 1,
-                  xRight: g.bounds.xRight + 1,
-                  yTop: g.bounds.yTop - 1,
-                  yBottom: g.bounds.yBottom + 1
-                });
+                collarLockBoxes.push(
+                  g.bounds.orientation === 'horizontal'
+                    ? {
+                        orientation: 'horizontal',
+                        xLeft: g.bounds.xLeft,
+                        xRight: g.bounds.xRight,
+                        yTop: g.bounds.yTop - dims.tileHeight * 1.5,
+                        yBottom: g.bounds.yBottom + dims.tileHeight * 1.5
+                      }
+                    : {
+                        orientation: 'vertical',
+                        xLeft: g.bounds.xLeft - dims.tileWidth * 1.5,
+                        xRight: g.bounds.xRight + dims.tileWidth * 1.5,
+                        yTop: g.bounds.yTop,
+                        yBottom: g.bounds.yBottom
+                      }
+                );
               }
             }
           }

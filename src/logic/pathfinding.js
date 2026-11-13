@@ -290,3 +290,123 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     return [];
 }
 
+/**
+ * Checks reachability from `start` to every point in `targets` in one single
+ * grid pass + BFS flood-fill using the exact same clearance & collision rules
+ * as `findGlobalPath`. Returns an array of booleans matching `targets`.
+ */
+export function checkBatchReachability(start, targets, segments, bounds, polygons = [], resolution = 3, options = {}) {
+    if (!targets || targets.length === 0) return [];
+    const actualPolys = Array.isArray(polygons) ? polygons : [];
+    const segs = segments || [];
+    if (segs.length === 0 && actualPolys.length === 0) return targets.map(() => true);
+
+    const actualBounds = typeof bounds === 'number'
+        ? { width: 100, height: bounds * 100 }
+        : (bounds || { width: 100, height: 250 });
+    const width = actualBounds.width || 100;
+    const height = actualBounds.height || 250;
+    const cols = Math.ceil(width / resolution);
+    const rows = Math.ceil(height / resolution);
+    const radius = options.radius ?? 2.0;
+
+    // Precompute solid grid ONCE across all targets
+    const solid = new Uint8Array(cols * rows);
+    for (let gy = 0; gy < rows; gy++) {
+        const y = gy * resolution;
+        for (let gx = 0; gx < cols; gx++) {
+            const x = gx * resolution;
+            let blocked = false;
+            for (let p = 0; p < actualPolys.length; p++) {
+                if (isPointInPolygon({ x, y }, actualPolys[p])) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if (!blocked && segs.length > 0) {
+                for (let i = 0; i < segs.length; i++) {
+                    const seg = segs[i];
+                    if (seg.isRock && seg.minX !== undefined) {
+                        if (x >= seg.minX && x <= seg.maxX && y >= seg.yTop && y <= seg.yBottom) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                    const minX = Math.min(seg.a.x, seg.b.x) - radius;
+                    const maxX = Math.max(seg.a.x, seg.b.x) + radius;
+                    const minY = Math.min(seg.a.y, seg.b.y) - radius;
+                    const maxY = Math.max(seg.a.y, seg.b.y) + radius;
+                    if (x < minX || x > maxX || y < minY || y > maxY) continue;
+                    if (distToSegment({ x, y }, seg.a, seg.b) < radius) {
+                        blocked = true;
+                        break;
+                    }
+                }
+            }
+            if (blocked) solid[gy * cols + gx] = 1;
+        }
+    }
+
+    const toGrid = (p) => ({
+        x: Math.max(0, Math.min(cols - 1, Math.round(p.x / resolution))),
+        y: Math.max(0, Math.min(rows - 1, Math.round(p.y / resolution)))
+    });
+    const startG = toGrid(start);
+    const visited = new Uint8Array(cols * rows);
+    const queueX = [startG.x];
+    const queueY = [startG.y];
+    visited[startG.y * cols + startG.x] = 1;
+
+    let head = 0;
+    while (head < queueX.length) {
+        const cx = queueX[head];
+        const cy = queueY[head];
+        head++;
+        const pCur = (cx === startG.x && cy === startG.y)
+            ? start
+            : { x: cx * resolution, y: cy * resolution };
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = cx + dx;
+                const ny = cy + dy;
+                if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+                const nIdx = ny * cols + nx;
+                if (visited[nIdx] || solid[nIdx]) continue;
+                if (segs.length > 0 && checkCollision(pCur, { x: nx * resolution, y: ny * resolution }, segs)) continue;
+                visited[nIdx] = 1;
+                queueX.push(nx);
+                queueY.push(ny);
+            }
+        }
+    }
+
+    const cornerClearance = options.cornerClearance ?? 1.2;
+    return targets.map(t => {
+        if (
+            !checkCollision(start, t, segs) &&
+            !checkPolygonCollision(start, t, actualPolys) &&
+            !hasCornerClearanceCollision(start, t, segs, cornerClearance)
+        ) {
+            return true;
+        }
+        const tg = toGrid(t);
+        if (visited[tg.y * cols + tg.x]) return true;
+        // Exact same "skip clearance check for endG" semantics as findGlobalPath: check any reachable neighbor connecting cleanly to t
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                const nx = tg.x + dx;
+                const ny = tg.y + dy;
+                if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+                if (!visited[ny * cols + nx]) continue;
+                const pN = (nx === startG.x && ny === startG.y)
+                    ? start
+                    : { x: nx * resolution, y: ny * resolution };
+                if (segs.length === 0 || !checkCollision(pN, t, segs)) return true;
+            }
+        }
+        return false;
+    });
+}
+
+

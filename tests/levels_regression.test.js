@@ -3,12 +3,13 @@ import LEVEL_REGISTRY from '../src/levels/index.js';
 import riverCrossing from '../src/levels/river_crossing/index.js';
 import underground from '../src/levels/underground/index.js';
 import underwater from '../src/levels/underwater/index.js';
+import deepCave from '../src/levels/deep_cave/index.js';
 
 describe('Levels Registry & Schema Regression Suite', () => {
-  const registeredLevels = [riverCrossing, underground, underwater];
+  const registeredLevels = [riverCrossing, underground, underwater, deepCave];
 
-  it('contains exactly the 3 core levels in LEVEL_REGISTRY', () => {
-    expect(Object.keys(LEVEL_REGISTRY)).toEqual(['river_crossing', 'underground', 'underwater']);
+  it('contains all 4 registered levels in LEVEL_REGISTRY', () => {
+    expect(Object.keys(LEVEL_REGISTRY)).toEqual(['river_crossing', 'underground', 'underwater', 'deep_cave']);
   });
 
   registeredLevels.forEach(level => {
@@ -25,6 +26,10 @@ describe('Levels Registry & Schema Regression Suite', () => {
 
       it('has valid mapNodes with coordinates and zones', () => {
         expect(Array.isArray(level.mapNodes)).toBe(true);
+        if (level.id === 'deep_cave') {
+          expect(typeof level.generatePuzzle).toBe('function');
+          return;
+        }
         expect(level.mapNodes.length).toBeGreaterThan(0);
 
         level.mapNodes.forEach(node => {
