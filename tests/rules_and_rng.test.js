@@ -64,10 +64,11 @@ describe('Domain Rules (Single Source of Truth) Suite', () => {
     expect(canFitInInventory(invWithDup, ['apple'], 'sword').fits).toBe(false);
   });
 
-  it('evaluates AND, OR, preset, and rock auto-pickaxe trades consistently', () => {
-    // Rock auto-pickaxe without manual selection
+  it('evaluates AND, OR, and explicit tool trades consistently', () => {
+    // Rock requires explicit pickaxe selection in UI (null allows solver auto-match)
     const rock = { id: 'rock_1', requires: ['pickaxe'], reqType: 'AND', reward: null };
-    const rockEval = evaluateEntityTrade(['pickaxe', 'apple'], rock, []);
+    expect(evaluateEntityTrade(['pickaxe', 'apple'], rock, []).canDefeat).toBe(false);
+    const rockEval = evaluateEntityTrade(['pickaxe', 'apple'], rock, ['pickaxe']);
     expect(rockEval.canDefeat).toBe(true);
     expect(rockEval.itemsToConsume).toEqual(['pickaxe']);
 

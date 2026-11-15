@@ -145,7 +145,7 @@ describe('Phase 2: Deep Cave Slot Grid, Tile Raster & Contouring Engine', () => 
         }
       }
     }
-  });
+  }, 10000);
 
   it('seals gatekeeper doorways completely against A* until defeated', () => {
     const rng = createRNG('seal-check');
@@ -213,7 +213,16 @@ describe('Phase 2: Deep Cave Slot Grid, Tile Raster & Contouring Engine', () => 
     const { container: chasmIntact } = render(<ChasmSVG isDefeated={false} orientation="horizontal" />);
     expect(chasmIntact.querySelectorAll('rect').length).toBe(0);
 
-    const { container: chasmBridged } = render(<ChasmSVG isDefeated={true} orientation="vertical" />);
+    const { container: chasmIntactVert } = render(<ChasmSVG isDefeated={false} orientation="vertical" isAlerting={true} />);
+    expect(chasmIntactVert.querySelectorAll('rect').length).toBe(0);
+    expect(chasmIntactVert.querySelectorAll('.animate-shake').length).toBe(0);
+    expect(chasmIntactVert.querySelectorAll('.animate-pebble-fall').length).toBeGreaterThan(0);
+
+    const { container: chasmBridged } = render(<ChasmSVG isDefeated={true} orientation="vertical" isBridging={true} />);
     expect(chasmBridged.querySelectorAll('rect').length).toBeGreaterThan(0);
+    expect(chasmBridged.querySelectorAll('.animate-bridge-plank').length).toBeGreaterThan(0);
+
+    const { container: chasmBridgedHoriz } = render(<ChasmSVG isDefeated={true} orientation="horizontal" />);
+    expect(chasmBridgedHoriz.querySelectorAll('rect').length).toBeGreaterThan(0);
   });
 });

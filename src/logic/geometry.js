@@ -70,10 +70,16 @@ export function getCorridorBounds(y, caveWallVertices, isRightChannel = false) {
   return { xLeft: leftWallX, xRight: rightWallX };
 }
 
+const organicRockCache = new Map();
+
 /**
  * Generates an organic cluster of 5-7 3D boulders spanning from xLeft to xRight.
  */
 export function generateProceduralOrganicRock(xLeft, xRight, yCenter, height = 3.5, seed = 'rock') {
+  const cacheKey = `${xLeft},${xRight},${yCenter},${height},${seed}`;
+  const cached = organicRockCache.get(cacheKey);
+  if (cached) return cached;
+
   const val = hashSeed(seed);
   const width = Math.max(10, xRight - xLeft);
 
@@ -151,7 +157,9 @@ export function generateProceduralOrganicRock(xLeft, xRight, yCenter, height = 3
     });
   }
 
-  return { xLeft, xRight, yCenter, width, height, boulders };
+  const result = { xLeft, xRight, yCenter, width, height, boulders };
+  organicRockCache.set(cacheKey, result);
+  return result;
 }
 
 /**

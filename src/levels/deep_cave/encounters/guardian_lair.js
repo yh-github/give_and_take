@@ -2,7 +2,7 @@
  * Curated Encounter 2: Guardian Lair (1x1 slot)
  *
  * An ambush chamber narrowed into an orthogonal stone collar guarded by a
- * blocking creature (`guardian`). Must be cleared via barter rather than mined.
+ * blocking Cave Troll (`guardian`). Must be cleared via barter rather than mined.
  */
 export default {
   id: 'guardian_lair',
@@ -37,7 +37,7 @@ export default {
     inputs: ['bone'],
     outputs: [],
     gatekeepers: [
-      { anchor: 'G1', type: 'guardian', templateId: 'spider', requires: ['bone'], unlocksExit: 'south:0' }
+      { anchor: 'G1', type: 'guardian', templateId: 'troll', requires: ['bone'], unlocksExit: 'south:0' }
     ],
     internalTrade: null,
     internalSteps: 1

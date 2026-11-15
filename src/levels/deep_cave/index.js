@@ -1,5 +1,5 @@
 import { items, entities } from './data.js';
-import { DeepCaveBackground, CampIcon, RockSVG, ChasmSVG } from './components.jsx';
+import { DeepCaveBackground, CampIcon, DeepCaveRockSVG, ChasmSVG } from './components.jsx';
 import { getProceduralObstacleSegments } from '../../logic/visibility.js';
 import { generateDeepCavePuzzle } from './generator.js';
 import { DEEP_CAVE_PRESETS, DEFAULT_DEEP_CAVE_SETTINGS } from './presets.js';
@@ -19,7 +19,7 @@ const deepCave = {
     hasPickaxe: true,
     hasDarkness: true,
     darknessType: 'radial',
-    hasFog: true,
+    hasFog: false,
     isVertical: true,
     useIsotropicCoords: true,
     supportsProceduralWorker: true,
@@ -27,13 +27,17 @@ const deepCave = {
   },
   specialEntityTemplate: 'mole',
   BackgroundComponent: DeepCaveBackground,
-  RockComponent: RockSVG,
+  RockComponent: DeepCaveRockSVG,
   ChasmComponent: ChasmSVG,
   GatekeeperPropComponent: () => null,
   CampIcon,
   generatePuzzle: generateDeepCavePuzzle,
-  getObstacleSegments: (puzzleEntities, geometry, defeated = []) =>
-    getProceduralObstacleSegments(puzzleEntities, geometry, defeated)
+  getObstacleSegments: (puzzleEntities, unlockedZonesOrGeometry, defeated = [], _screens = 1, maybeGeometry = null) => {
+    const isFiveArgCall = maybeGeometry !== null || Array.isArray(unlockedZonesOrGeometry);
+    const geometry = isFiveArgCall ? maybeGeometry : unlockedZonesOrGeometry;
+    const actualDefeated = Array.isArray(defeated) ? defeated : [];
+    return getProceduralObstacleSegments(puzzleEntities, geometry, actualDefeated);
+  }
 };
 
 export default deepCave;

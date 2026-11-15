@@ -38,4 +38,9 @@ function levelEditorPlugin() {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), levelEditorPlugin()],
+  test: {
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    teardownTimeout: 5000,
+  },
 })

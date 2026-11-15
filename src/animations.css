@@ -289,3 +289,53 @@
   animation: pulseFull 2s infinite ease-in-out;
 }
 
+/* === Deep Cave: Chasm Abyss & Rope Bridge === */
+@keyframes chasmMistRise {
+  0%, 100% { transform: translateY(2px) scale(0.92); opacity: 0.16; }
+  50% { transform: translateY(-4px) scale(1.08); opacity: 0.36; }
+}
+.animate-chasm-mist {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chasmMistRise 4.2s ease-in-out infinite;
+}
+
+@keyframes chasmFissureGlow {
+  0%, 100% { opacity: 0.48; }
+  50% { opacity: 0.9; }
+}
+.animate-chasm-fissure {
+  animation: chasmFissureGlow 3.2s ease-in-out infinite;
+}
+
+@keyframes pebbleFall {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 0.95; }
+  70% { opacity: 0.7; }
+  100% { transform: translate(var(--px, 0px), var(--py, 18px)) scale(0.25) rotate(120deg); opacity: 0; }
+}
+.animate-pebble-fall {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pebbleFall 0.65s cubic-bezier(0.45, 0, 0.85, 0.5) forwards;
+}
+
+@keyframes bridgePlankDrop {
+  0% { transform: scaleX(0.35) scaleY(1.4); opacity: 0; }
+  65% { transform: scaleX(1.06) scaleY(0.95); opacity: 1; }
+  100% { transform: scaleX(1) scaleY(1); opacity: 1; }
+}
+.animate-bridge-plank {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bridgePlankDrop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bridgeRopeTaut {
+  0% { stroke-dashoffset: 90; opacity: 0.3; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+.animate-bridge-rope {
+  stroke-dasharray: 90;
+  animation: bridgeRopeTaut 0.45s ease-out both;
+}
+

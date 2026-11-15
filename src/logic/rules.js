@@ -75,16 +75,9 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
   };
 
   if (entity.reqType === 'AND') {
-    const isAutoToolGatekeeper =
-      requires.length === 1 &&
-      (
-        (Boolean(entity.id && entity.id.startsWith('rock_')) && requires[0] === 'pickaxe') ||
-        (Boolean(entity.isGatekeeper) && (requires[0] === 'pickaxe' || requires[0] === 'rope') && entity.gateType !== 'guardian')
-      );
     const selectionMatches =
       selectedItemTypes === null ||
       requires.length === 0 ||
-      isAutoToolGatekeeper ||
       Array.from(new Set(requires)).every(t => selectedItemTypes.includes(t));
 
     if (selectionMatches) {
@@ -158,37 +151,54 @@ export function sanitizePuzzleEntities(entities, levelItems = []) {
     .filter(id => id && id !== 'pickaxe' && id !== 'key');
 
   return entities.map(entity => {
-    if (!entity || !entity.reward || !Array.isArray(entity.requires) || entity.requires.length === 0) {
-      return entity;
+    if (!entity) return entity;
+
+    let patchedEntity = entity;
+    if (!entity.isGoal && (!entity.emoji || !entity.name)) {
+      const itemKey = typeof entity.isPreset === 'string' ? entity.isPreset : entity.reward;
+      const matchedItem = itemKey
+        ? (levelItems || []).find(i => typeof i === 'object' && i?.id === itemKey)
+        : null;
+      if (matchedItem) {
+        patchedEntity = {
+          ...entity,
+          emoji: entity.emoji || matchedItem.emoji,
+          name: entity.name || matchedItem.name
+        };
+      }
     }
 
-    if (!entity.requires.includes(entity.reward)) {
-      return entity;
+    if (!patchedEntity.reward || !Array.isArray(patchedEntity.requires) || patchedEntity.requires.length === 0) {
+      return patchedEntity;
+    }
+
+    if (!patchedEntity.requires.includes(patchedEntity.reward)) {
+      return patchedEntity;
     }
 
     // Violation found: entity asks for the item it guards / rewards!
-    const filteredReqs = entity.requires.filter(req => req !== entity.reward);
+    const filteredReqs = patchedEntity.requires.filter(req => req !== patchedEntity.reward);
     if (filteredReqs.length > 0) {
       return {
-        ...entity,
+        ...patchedEntity,
         requires: filteredReqs
       };
     }
 
     // Requires became empty: select a valid replacement requirement
-    const allowed = (entity.allowedReqs || []).filter(
-      r => r !== entity.reward && r !== 'pickaxe' && r !== 'key'
+    const allowed = (patchedEntity.allowedReqs || []).filter(
+      r => r !== patchedEntity.reward && r !== 'pickaxe' && r !== 'key'
     );
     const fallbacks = standardItemIds.filter(
-      id => id !== entity.reward && id !== 'pickaxe' && id !== 'key'
+      id => id !== patchedEntity.reward && id !== 'pickaxe' && id !== 'key'
     );
 
     const replacement = allowed.length > 0
       ? allowed[0]
-      : (fallbacks.length > 0 ? fallbacks[0] : (entity.reward === 'bone' ? 'rope' : 'bone'));
+      : (fallbacks.length > 0 ? fallbacks[0] : (patchedEntity.reward === 'bone' ? 'rope' : 'bone'));
 
     return {
-      ...entity,
+      ...patchedEntity,
       requires: [replacement]
     };
   });

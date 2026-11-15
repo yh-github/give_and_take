@@ -1,5 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { CampIcon, RockSVG } from '../underground/components.jsx';
+import { calculateFacetLighting, hashSeed } from '../../logic/geometry.js';
 
 export { CampIcon, RockSVG };
 
@@ -13,9 +14,58 @@ function polylineToSvgSubpath(points) {
 }
 
 /**
+ * Generates deterministic subtle interior floor contour slabs & scattered mineral pebbles
+ * along open cavern spaces so floors look naturally terraced instead of flat.
+ */
+function buildFloorDecorations(polylines, worldWidth, worldHeight) {
+  const outer = (polylines || []).find(p => !p?.isPillar);
+  const pts = Array.isArray(outer) ? outer : outer?.points;
+  if (!pts || pts.length < 6) return { strataLines: [], pebbles: [] };
+
+  const strataLines = [];
+  const pebbles = [];
+  const stride = Math.max(2, Math.floor(pts.length / 26));
+
+  for (let i = 0; i < pts.length; i += stride) {
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    const h = hashSeed(`floor_${Math.round(a.x * 10)}_${Math.round(a.y * 10)}`);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    // Inward normal into OPEN floor (boundary convention: SOLID on LEFT, OPEN on RIGHT)
+    const inX = -dy / len;
+    const inY = dx / len;
+
+    const inset = 2.6 + (h % 4);
+    const px = a.x + inX * inset;
+    const py = a.y + inY * inset;
+    if (px < 3 || px > worldWidth - 3 || py < 3 || py > worldHeight - 3) continue;
+
+    if (h % 3 === 0) {
+      pebbles.push({
+        x: px.toFixed(2),
+        y: py.toFixed(2),
+        rx: (0.45 + (h % 5) * 0.14).toFixed(2),
+        ry: (0.32 + (h % 3) * 0.11).toFixed(2),
+        rot: (h % 180)
+      });
+    } else if (h % 4 === 1) {
+      const p2x = b.x + inX * (inset + 0.6);
+      const p2y = b.y + inY * (inset + 0.6);
+      strataLines.push(
+        `M ${px.toFixed(1)} ${py.toFixed(1)} Q ${((px + p2x) * 0.5 + inX * 0.9).toFixed(1)} ${((py + p2y) * 0.5 + inY * 0.9).toFixed(1)} ${p2x.toFixed(1)} ${p2y.toFixed(1)}`
+      );
+    }
+  }
+
+  return { strataLines, pebbles };
+}
+
+/**
  * Dynamic procedural cavern backdrop for `deep_cave` ("The Abyssal Descent").
- * Renders extracted `wallPolylines` as rocky fill mass using SVG even-odd masking
- * plus a soft surface-light pit highlight at the starting camp.
+ * Renders organic extracted `wallPolylines` with layered sedimentary rock rims,
+ * cliff drop-off shadows, cavern floor terracing, and camp shaft illumination.
  */
 export const DeepCaveBackground = memo(({ geometry }) => {
   const worldWidth = geometry?.worldWidth || 100;
@@ -43,14 +93,18 @@ export const DeepCaveBackground = memo(({ geometry }) => {
       .map((poly, idx) => {
         const pts = Array.isArray(poly) ? poly : poly?.points;
         const d = polylineToSvgSubpath(pts);
-        return d ? { id: idx, d } : null;
+        return d ? { id: idx, d, isPillar: Boolean(poly?.isPillar) } : null;
       })
       .filter(Boolean);
   }, [geometry?.wallPolylines]);
 
+  const floorDecor = useMemo(
+    () => buildFloorDecorations(geometry?.wallPolylines, worldWidth, worldHeight),
+    [geometry?.wallPolylines, worldWidth, worldHeight]
+  );
+
   return (
     <div className="absolute inset-0 bg-[#2b221d] pointer-events-none z-0 overflow-hidden">
-      {/* Subtle mineral pebble grain matching underground palette */}
       <div
         className="absolute inset-0 opacity-20"
         style={{
@@ -66,38 +120,111 @@ export const DeepCaveBackground = memo(({ geometry }) => {
       >
         <defs>
           <radialGradient id="deepCaveCampGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.22" />
-            <stop offset="55%" stopColor="#fde68a" stopOpacity="0.08" />
+            <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.24" />
+            <stop offset="55%" stopColor="#fde68a" stopOpacity="0.09" />
             <stop offset="100%" stopColor="#2b221d" stopOpacity="0" />
           </radialGradient>
           <linearGradient id="deepCaveDepthWash" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3a2e27" stopOpacity="0.18" />
-            <stop offset="50%" stopColor="#231b16" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="#140f12" stopOpacity="0.52" />
+            <stop offset="0%" stopColor="#3c2f27" stopOpacity="0.22" />
+            <stop offset="48%" stopColor="#241c17" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="#140f12" stopOpacity="0.58" />
           </linearGradient>
+          <pattern id="deepCaveRockStrata" width="16" height="16" patternUnits="userSpaceOnUse">
+            <rect width="16" height="16" fill="#130e0c" />
+            <path d="M -2 4 L 6 -2 M 0 12 L 14 2 M 6 18 L 18 9" stroke="#221915" strokeWidth="0.7" opacity="0.7" />
+            <path d="M 2 16 L 16 6" stroke="#090706" strokeWidth="0.5" opacity="0.8" />
+            <circle cx="4" cy="7" r="0.35" fill="#3a2d25" opacity="0.65" />
+            <circle cx="12" cy="12" r="0.4" fill="#2d231d" opacity="0.55" />
+          </pattern>
         </defs>
 
         {/* Depth gradient wash as hero descends deeper */}
         <rect x="0" y="0" width={worldWidth} height={worldHeight} fill="url(#deepCaveDepthWash)" />
 
         {/* Soft surface shaft spill near camp entrance */}
-        <circle cx={campPos.x} cy={campPos.y} r="28" fill="url(#deepCaveCampGlow)" />
+        <circle cx={campPos.x} cy={campPos.y} r="30" fill="url(#deepCaveCampGlow)" />
+
+        {/* Subtle subterranean floor shelves & loose stone grains near walls */}
+        <g opacity="0.48">
+          {floorDecor.strataLines.map((d, i) => (
+            <path
+              key={`fstrata-${i}`}
+              d={d}
+              fill="none"
+              stroke="#1b1410"
+              strokeWidth="0.9"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {floorDecor.pebbles.map((p, i) => (
+            <ellipse
+              key={`fpeb-${i}`}
+              cx={p.x}
+              cy={p.y}
+              rx={p.rx}
+              ry={p.ry}
+              fill="#3d2f27"
+              stroke="#15100d"
+              strokeWidth="0.35"
+              transform={`rotate(${p.rot} ${p.x} ${p.y})`}
+            />
+          ))}
+        </g>
+
+        {/* Outer wall drop-off cliff talus & stepped rock shelf (visible inside open cavern) */}
+        {edgePaths.map(edge => (
+          <path
+            key={`apron-${edge.id}`}
+            d={edge.d}
+            fill="none"
+            stroke="#1a1310"
+            strokeWidth="12"
+            strokeOpacity="0.45"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {edgePaths.map(edge => (
+          <path
+            key={`shelf-${edge.id}`}
+            d={edge.d}
+            fill="none"
+            stroke="#3f3027"
+            strokeWidth="5.2"
+            strokeOpacity="0.82"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {edgePaths.map(edge => (
+          <path
+            key={`lip-${edge.id}`}
+            d={edge.d}
+            fill="none"
+            stroke="#594538"
+            strokeWidth="2.1"
+            strokeOpacity="0.58"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
 
         {/* Procedural extracted cave rock shell and pillars */}
         <path
           d={wallPathData}
-          fill="#16110e"
+          fill="url(#deepCaveRockStrata)"
           fillRule="evenodd"
         />
 
-        {/* Subtle beveled stone rims along contour edges */}
+        {/* Crisp inner bevel border hugging rock cliff faces */}
         {edgePaths.map(edge => (
           <path
-            key={edge.id}
+            key={`edge-${edge.id}`}
             d={edge.d}
             fill="none"
             stroke="#080605"
-            strokeWidth="0.9"
+            strokeWidth="1.2"
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
           />
@@ -108,67 +235,819 @@ export const DeepCaveBackground = memo(({ geometry }) => {
 });
 
 /**
- * Chasm / Abyssal Fissure Gatekeeper Visual.
- * Renders a dark stone chasm until bridged with a `rope`, after which it
- * displays a permanent rope-and-plank crossing bridge.
+ * Samples real local `wallPolylines` points around a doorway collar (`boundsOverride`)
+ * so chasm fissures and boulder barricades dynamically adapt to the corridor's actual
+ * proportions and the flare/angle of flanking cave walls.
  */
-export const ChasmSVG = memo(({ isDefeated, isAlerting, orientation = 'horizontal' }) => {
+function extractCollarWallContext(geometry, boundsOverride, orientation, yNode = 50, nodeX = 50) {
   const isVertical = orientation === 'vertical';
+  const cb = boundsOverride || {
+    orientation,
+    xLeft: isVertical ? nodeX - 3 : nodeX - 10,
+    xRight: isVertical ? nodeX + 3 : nodeX + 10,
+    yTop: isVertical ? yNode - 10.6 : yNode - 3,
+    yBottom: isVertical ? yNode + 10.6 : yNode + 3
+  };
+
+  const cx = (cb.xLeft + cb.xRight) * 0.5;
+  const cy = (cb.yTop + cb.yBottom) * 0.5;
+  const spanU = Math.max(8, isVertical ? (cb.yBottom - cb.yTop) : (cb.xRight - cb.xLeft));
+  const spanV = Math.max(3, isVertical ? (cb.xRight - cb.xLeft) : (cb.yBottom - cb.yTop));
+
+  let flareTL = 0.25;
+  let flareTR = 0.25;
+  let flareBL = 0.25;
+  let flareBR = 0.25;
+  let wallSampleCount = 0;
+
+  const polylines = geometry?.wallPolylines || [];
+  if (polylines.length > 0) {
+    let minTL = 0, maxTR = 0, minBL = 0, maxBR = 0;
+    for (const poly of polylines) {
+      const pts = Array.isArray(poly) ? poly : poly?.points;
+      if (!pts) continue;
+      for (const p of pts) {
+        // Local (uAlong, vAcross) matching SVG group (rotated 90 deg for vertical)
+        const uWorld = isVertical ? (p.y - cy) : (p.x - cx);
+        const vWorld = isVertical ? -(p.x - cx) : (p.y - cy);
+        if (Math.abs(uWorld) > spanU * 0.95 || Math.abs(vWorld) > 12) continue;
+
+        wallSampleCount++;
+        const uHalf = spanU * 0.5;
+        if (Math.abs(vWorld) >= spanV * 0.4 && Math.abs(vWorld) <= 10.5) {
+          if (vWorld < 0) {
+            if (uWorld < -uHalf * 0.7) minTL = Math.min(minTL, uWorld + uHalf);
+            if (uWorld > uHalf * 0.7) maxTR = Math.max(maxTR, uWorld - uHalf);
+          } else {
+            if (uWorld < -uHalf * 0.7) minBL = Math.min(minBL, uWorld + uHalf);
+            if (uWorld > uHalf * 0.7) maxBR = Math.max(maxBR, uWorld - uHalf);
+          }
+        }
+      }
+    }
+    flareTL = Math.min(1, Math.max(0.08, Math.abs(minTL) / 8));
+    flareTR = Math.min(1, Math.max(0.08, maxTR / 8));
+    flareBL = Math.min(1, Math.max(0.08, Math.abs(minBL) / 8));
+    flareBR = Math.min(1, Math.max(0.08, maxBR / 8));
+  }
+
+  return {
+    cb,
+    cx,
+    cy,
+    spanU,
+    spanV,
+    flareTL,
+    flareTR,
+    flareBL,
+    flareBR,
+    hasWallContext: wallSampleCount > 0,
+    contextKey: `${Math.round(cb.xLeft * 10)}_${Math.round(cb.yTop * 10)}_${Math.round(spanU * 10)}`
+  };
+}
+
+function pointsToClosedPath(pts) {
+  if (!pts || pts.length === 0) return '';
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) {
+    d += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
+  }
+  return `${d} Z`;
+}
+
+function buildProceduralChasm(seedStr, wallCtx) {
+  const ctxKey = wallCtx?.contextKey || 'default';
+  const h0 = hashSeed(`${seedStr || 'chasm'}_${ctxKey}`);
+  const randAt = (salt) => ((hashSeed(`${seedStr}_${ctxKey}_${salt}`) % 1000) / 1000);
+
+  const count = 15;
+  const topRim = [];
+  const botRim = [];
+  const tier1Top = [];
+  const tier1Bot = [];
+  const tier2Top = [];
+  const tier2Bot = [];
+  const abyssTop = [];
+  const abyssBot = [];
+
+  // Tailor canyon proportions to the real collar geometry & adjacent wall flare
+  const { flareTL = 0.25, flareTR = 0.25, flareBL = 0.25, flareBR = 0.25, spanU = 20, spanV = 6 } = wallCtx || {};
+  const aspectBias = Math.min(1.18, Math.max(0.84, 3.0 / Math.max(1.8, spanU / Math.max(2, spanV))));
+
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    // Taper trench rim to meet the sampled rock wall abutments cleanly
+    const edgeTaper = Math.sin(Math.PI * (0.06 + 0.88 * t));
+    const endFlareTop = (1 - t) * flareTL + t * flareTR;
+    const endFlareBot = (1 - t) * flareBL + t * flareBR;
+    const u = 2 + t * 156 + (i > 0 && i < count - 1 ? (randAt(`u_${i}`) - 0.5) * 4.5 : 0);
+
+    const baseHalf = (15 + 15 * edgeTaper) * aspectBias + (randAt(`w_${i}`) - 0.5) * 4.8;
+    const midV = 44 + (endFlareBot - endFlareTop) * 3.5 * (1 - edgeTaper) + (randAt(`m_${i}`) - 0.5) * 3.5 * edgeTaper;
+
+    const topV = Math.max(7, midV - baseHalf - endFlareTop * 2.5 * (1 - edgeTaper));
+    const botV = Math.min(81, midV + baseHalf + endFlareBot * 2.5 * (1 - edgeTaper));
+
+    topRim.push({ x: u, y: topV });
+    botRim.push({ x: u, y: botV });
+
+    const inset1Top = 5.5 + randAt(`i1t_${i}`) * 3.5;
+    const inset1Bot = 5.5 + randAt(`i1b_${i}`) * 3.5;
+    tier1Top.push({ x: u, y: Math.min(midV - 4, topV + inset1Top) });
+    tier1Bot.push({ x: u, y: Math.max(midV + 4, botV - inset1Bot) });
+
+    const inset2Top = inset1Top + 5 + randAt(`i2t_${i}`) * 3.5;
+    const inset2Bot = inset1Bot + 5 + randAt(`i2b_${i}`) * 3.5;
+    tier2Top.push({ x: u, y: Math.min(midV - 2, topV + inset2Top) });
+    tier2Bot.push({ x: u, y: Math.max(midV + 2, botV - inset2Bot) });
+
+    abyssTop.push({ x: u, y: Math.min(midV - 0.8, topV + inset2Top + 4.5 + randAt(`a1_${i}`) * 2.5) });
+    abyssBot.push({ x: u, y: Math.max(midV + 0.8, botV - inset2Bot - 4.5 - randAt(`a2_${i}`) * 2.5) });
+  }
+
+  // Combine top (left->right) + bottom (right->left) into closed polygon loops
+  const rimLoop = [...topRim, ...[...botRim].reverse()];
+  const tier1Loop = [...tier1Top, ...[...tier1Bot].reverse()];
+  const tier2Loop = [...tier2Top, ...[...tier2Bot].reverse()];
+  const abyssLoop = [...abyssTop, ...[...abyssBot].reverse()];
+
+  // Outer cave floor bevel rim + wall-shoulder buttresses framing the canyon against the corridor walls
+  const lipTop = topRim.map((p, idx) => ({
+    x: p.x,
+    y: Math.max(2, p.y - (2.6 + randAt(`lt_${idx}`) * 2.1))
+  }));
+  const lipBot = botRim.map((p, idx) => ({
+    x: p.x,
+    y: Math.min(86, p.y + (2.6 + randAt(`lb_${idx}`) * 2.1))
+  }));
+  const lipLoop = [...lipTop, ...[...lipBot].reverse()];
+
+  const leftAbutmentPts = `${(-5 - flareTL * 8).toFixed(1)},${Math.max(4, topRim[0].y - 6).toFixed(1)} ${topRim[0].x.toFixed(1)},${topRim[0].y.toFixed(1)} ${botRim[0].x.toFixed(1)},${botRim[0].y.toFixed(1)} ${(-5 - flareBL * 8).toFixed(1)},${Math.min(84, botRim[0].y + 6).toFixed(1)}`;
+  const rightAbutmentPts = `${(165 + flareTR * 8).toFixed(1)},${Math.max(4, topRim[count - 1].y - 6).toFixed(1)} ${(165 + flareBR * 8).toFixed(1)},${Math.min(84, botRim[count - 1].y + 6).toFixed(1)} ${botRim[count - 1].x.toFixed(1)},${botRim[count - 1].y.toFixed(1)} ${topRim[count - 1].x.toFixed(1)},${topRim[count - 1].y.toFixed(1)}`;
+
+  // Vertical cliff-wall striation ribs descending from rim vertices to deeper shelves
+  const cliffRibs = [];
+  for (let i = 1; i < count - 1; i += 2) {
+    cliffRibs.push({
+      topD: `M ${topRim[i].x.toFixed(1)} ${topRim[i].y.toFixed(1)} L ${(topRim[i].x + (randAt(`rt_${i}`) - 0.5) * 3).toFixed(1)} ${tier2Top[i].y.toFixed(1)}`,
+      botD: `M ${botRim[i].x.toFixed(1)} ${botRim[i].y.toFixed(1)} L ${(botRim[i].x + (randAt(`rb_${i}`) - 0.5) * 3).toFixed(1)} ${tier2Bot[i].y.toFixed(1)}`
+    });
+  }
+
+  // Radiating fracture cracks on the cavern floor around the canyon edge angled along flared openings
+  const floorCracks = [2, 5, 9, 12].map((idx) => {
+    const t = topRim[idx];
+    const b = botRim[idx];
+    const sideDir = idx < 7 ? -(1 + flareTL * 1.4) : (1 + flareTR * 1.4);
+    const dx1 = sideDir * 3 + (randAt(`fc1_${idx}`) - 0.5) * 8;
+    const dx2 = sideDir * 3 + (randAt(`fc2_${idx}`) - 0.5) * 8;
+    return [
+      `M ${t.x.toFixed(1)} ${t.y.toFixed(1)} L ${(t.x + dx1).toFixed(1)} ${Math.max(1, t.y - 6.5 - randAt(`fcd1_${idx}`) * 4.5).toFixed(1)}`,
+      `M ${b.x.toFixed(1)} ${b.y.toFixed(1)} L ${(b.x + dx2).toFixed(1)} ${Math.min(87, b.y + 6.5 + randAt(`fcd2_${idx}`) * 4.5).toFixed(1)}`
+    ];
+  }).flat();
+
+  // Loose angular scree rocks resting along the rims
+  const scree = [];
+  for (let i = 0; i < 8; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const sampleIdx = 1 + Math.floor(randAt(`sc_idx_${i}`) * (count - 2));
+    const anchor = side < 0 ? topRim[sampleIdx] : botRim[sampleIdx];
+    const cx = anchor.x + (randAt(`scx_${i}`) - 0.5) * 6;
+    const cy = anchor.y + side * (2.5 + randAt(`scy_${i}`) * 3.5);
+    const rx = 1.6 + randAt(`scrx_${i}`) * 2.1;
+    const ry = 1.1 + randAt(`scry_${i}`) * 1.4;
+    scree.push(
+      `${(cx - rx).toFixed(1)},${(cy - ry * 0.2).toFixed(1)} ${(cx - rx * 0.2).toFixed(1)},${(cy - ry).toFixed(1)} ${(cx + rx).toFixed(1)},${(cy + ry * 0.1).toFixed(1)} ${(cx + rx * 0.1).toFixed(1)},${(cy + ry).toFixed(1)}`
+    );
+  }
+
+  // Deep geothermal / bioluminescent abyssal fissure snaking along the bottommost trench
+  const fissurePts = [];
+  for (let i = 1; i < count - 1; i++) {
+    const mid = (abyssTop[i].y + abyssBot[i].y) * 0.5 + (randAt(`fis_${i}`) - 0.5) * 3.2;
+    fissurePts.push(`${abyssTop[i].x.toFixed(1)} ${mid.toFixed(1)}`);
+  }
+  const fissureD = `M ${fissurePts.join(' L ')}`;
+
+  // Taut climbing rope traversal path between opposing pitons at the narrowest lip span (u = 80)
+  const topAnchorY = Math.max(8, topRim[7].y - 3.2);
+  const botAnchorY = Math.min(80, botRim[7].y + 3.2);
+  const ropeSpanY = botAnchorY - topAnchorY;
+  const ropeAnchorX = 80 + (randAt('rope_ax') - 0.5) * 4;
+  const ropeSagX = ropeAnchorX + (randAt('rope_sag') >= 0.5 ? 4.2 : -4.2);
+
+  // Alpine figure-eight climbing knots spaced along the taut crossing rope (using rounded <rect> bindings!)
+  const knotCount = 5;
+  const ropeKnots = Array.from({ length: knotCount }, (_, idx) => {
+    const frac = (idx + 1) / (knotCount + 1);
+    const inv = 1 - frac;
+    // Quadratic Bezier point at t=frac: P0=(ropeAnchorX, topAnchorY), P1=(ropeSagX, midY), P2=(ropeAnchorX, botAnchorY)
+    const kx = inv * inv * ropeAnchorX + 2 * inv * frac * ropeSagX + frac * frac * ropeAnchorX;
+    const ky = topAnchorY + frac * ropeSpanY;
+    const rot = (randAt(`kr_${idx}`) - 0.5) * 26;
+    return { id: idx, cx: kx, cy: ky, width: 6.2, height: 4.4, rot };
+  });
+
+  // Mist wisps drifting out of the abyss
+  const mistWisps = [32, 62, 98, 128].map((mu, idx) => ({
+    cx: mu + (randAt(`mu_${idx}`) - 0.5) * 8,
+    cy: 44 + (randAt(`mv_${idx}`) - 0.5) * 10,
+    rx: 12 + randAt(`mrx_${idx}`) * 8,
+    ry: 5 + randAt(`mry_${idx}`) * 4,
+    delay: `${(idx * 0.9).toFixed(1)}s`
+  }));
+
+  // Tumbling pebbles triggered only during isAlerting
+  const fallingPebbles = [
+    { cx: 42, cy: 19, px: '-2px', py: '18px', delay: '0ms' },
+    { cx: 68, cy: 17, px: '3px', py: '22px', delay: '90ms' },
+    { cx: 88, cy: 70, px: '-2px', py: '-20px', delay: '40ms' },
+    { cx: 112, cy: 20, px: '2px', py: '19px', delay: '140ms' },
+    { cx: 55, cy: 69, px: '1px', py: '-17px', delay: '170ms' }
+  ];
+
+  return {
+    uid: `chasm_${h0}`,
+    lipD: pointsToClosedPath(lipLoop),
+    rimD: pointsToClosedPath(rimLoop),
+    tier1D: pointsToClosedPath(tier1Loop),
+    tier2D: pointsToClosedPath(tier2Loop),
+    abyssD: pointsToClosedPath(abyssLoop),
+    topRimD: `M ${topRim.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')}`,
+    botRimD: `M ${botRim.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')}`,
+    topWallBandD: pointsToClosedPath([...topRim, ...[...tier1Top].reverse()]),
+    botWallBandD: pointsToClosedPath([...botRim, ...[...tier1Bot].reverse()]),
+    leftAbutmentPts,
+    rightAbutmentPts,
+    cliffRibs,
+    floorCracks,
+    scree,
+    fissureD,
+    ropeAnchorX,
+    ropeSagX,
+    topAnchorY,
+    botAnchorY,
+    ropePathD: `M ${ropeAnchorX.toFixed(1)} ${topAnchorY.toFixed(1)} Q ${ropeSagX.toFixed(1)} ${((topAnchorY + botAnchorY) * 0.5).toFixed(1)} ${ropeAnchorX.toFixed(1)} ${botAnchorY.toFixed(1)}`,
+    ropeShadowD: `M ${(ropeAnchorX + 3).toFixed(1)} ${(topAnchorY + 2).toFixed(1)} Q ${(ropeSagX + 5.5).toFixed(1)} ${((topAnchorY + botAnchorY) * 0.5 + 3).toFixed(1)} ${(ropeAnchorX + 3).toFixed(1)} ${(botAnchorY + 2).toFixed(1)}`,
+    ropeKnots,
+    mistWisps,
+    fallingPebbles
+  };
+}
+
+/**
+ * Chasm / Abyssal Fissure Gatekeeper Visual.
+ * Contextual geometry-aware canyon wedged into the flanking cave walls; consuming 1 `rope`
+ * drives iron pitons into opposite cliff lips and anchors a taut knotted climbing rope across.
+ * NOTE: Keeps zero `<rect>` elements when unbridged (`!isDefeated`), using `<rect>` pitons & knots once roped.
+ */
+export const ChasmSVG = memo(({
+  isDefeated = false,
+  isAlerting = false,
+  isBridging = false,
+  isSelected = false,
+  orientation = 'horizontal',
+  seed = 'chasm',
+  heroPos = null,
+  nodeX = 50,
+  yNode = 50,
+  boundsOverride = null,
+  geometry = null,
+  yScale = 1
+}) => {
+  const isVertical = orientation === 'vertical';
+  const wallCtx = useMemo(
+    () => extractCollarWallContext(geometry, boundsOverride, orientation, yNode, nodeX),
+    [geometry, boundsOverride, orientation, yNode, nodeX]
+  );
+  const geom = useMemo(() => buildProceduralChasm(`${seed}_${orientation}`, wallCtx), [seed, orientation, wallCtx]);
+
+  // Compute which wall face catches warm torchlight from the hero's side of the trench
+  const heroDv = useMemo(() => {
+    if (!heroPos) return -1;
+    const dx = heroPos.x - nodeX;
+    const dy = (heroPos.y - yNode) * yScale;
+    // Under rotate(90), local +v axis points along world -x
+    return isVertical ? -dx : dy;
+  }, [heroPos, nodeX, yNode, yScale, isVertical]);
+
+  const heroOnTopSide = heroDv <= 0;
+  // Torch shines across the pit onto the OPPOSITE cliff face
+  const topWallFill = heroOnTopSide ? '#1c1517' : '#4a382c';
+  const botWallFill = heroOnTopSide ? '#4a382c' : '#1c1517';
+  const topLipGlow = isAlerting ? '#f87171' : isSelected ? '#fbbf24' : (heroOnTopSide ? '#78604c' : '#d97706');
+  const botLipGlow = isAlerting ? '#f87171' : isSelected ? '#fbbf24' : (heroOnTopSide ? '#d97706' : '#78604c');
+
+  // Coiled tail sits neatly on the hero's entry cliff lip
+  const coilX = geom.ropeAnchorX - 8;
+  const coilY = heroOnTopSide ? geom.topAnchorY - 2.5 : geom.botAnchorY + 2.5;
 
   return (
     <div className="w-full h-full relative pointer-events-none flex items-center justify-center">
       <svg
-        viewBox={isVertical ? '0 0 44 160' : '0 0 160 44'}
-        preserveAspectRatio="none"
-        className={`w-full h-full overflow-visible drop-shadow-md ${isAlerting ? 'animate-shake' : ''}`}
+        viewBox={isVertical ? '0 0 88 160' : '0 0 160 88'}
+        className={`${isVertical ? 'h-full w-auto max-w-none' : 'w-full h-auto'} overflow-visible select-none drop-shadow-[0_6px_14px_rgba(0,0,0,0.85)]`}
       >
-        <g transform={isVertical ? 'translate(44, 0) rotate(90)' : undefined}>
-          {/* Jagged chasm pit */}
+        <defs>
+          <radialGradient id={`${geom.uid}_abyss`} cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stopColor="#040206" stopOpacity="1" />
+            <stop offset="70%" stopColor="#0a0710" stopOpacity="0.98" />
+            <stop offset="100%" stopColor="#16101b" stopOpacity="0.95" />
+          </radialGradient>
+        </defs>
+
+        <g transform={isVertical ? 'translate(88, 0) rotate(90)' : undefined}>
+          {/* 1. Ambient floor dust apron + contextual rock wall shoulders hugging corridor flares */}
+          <path d={geom.lipD} fill="#1f1814" opacity="0.74" />
+          <polygon points={geom.leftAbutmentPts} fill="#1b1411" opacity="0.88" />
+          <polygon points={geom.rightAbutmentPts} fill="#1b1411" opacity="0.88" />
+
+          {geom.floorCracks.map((crackD, i) => (
+            <path
+              key={`crack-${i}`}
+              d={crackD}
+              stroke="#0f0b09"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              fill="none"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+
+          {/* 2. Stone rim lip & outer trench shadow */}
           <path
-            d="M 2 6 L 34 3 L 78 7 L 122 2 L 158 6 L 158 38 L 120 42 L 76 37 L 32 41 L 2 38 Z"
-            fill="#070607"
-            stroke={isAlerting ? '#ef4444' : '#3f322a'}
-            strokeWidth="2.5"
+            d={geom.rimD}
+            fill="#141012"
+            stroke={isAlerting ? '#ef4444' : isSelected ? '#f59e0b' : '#4a3a30'}
+            strokeWidth={isAlerting || isSelected ? '2.2' : '1.4'}
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+
+          {/* 3. Hero-relative lit vs shadowed upper cliff faces */}
+          <path d={geom.topWallBandD} fill={topWallFill} opacity="0.92" />
+          <path d={geom.botWallBandD} fill={botWallFill} opacity="0.92" />
+
+          {/* 4. Subterranean stepped strata shelves */}
+          <path d={geom.tier1D} fill="#130f18" stroke="#08060a" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <path d={geom.tier2D} fill="#0c0811" stroke="#040306" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+
+          {/* Vertical striated cliff wall ribs reinforcing 3D drop */}
+          {geom.cliffRibs.map((rib, idx) => (
+            <g key={`rib-${idx}`} opacity="0.55">
+              <path d={rib.topD} stroke={heroOnTopSide ? '#0a0709' : '#785a46'} strokeWidth="1.1" fill="none" vectorEffect="non-scaling-stroke" />
+              <path d={rib.botD} stroke={heroOnTopSide ? '#785a46' : '#0a0709'} strokeWidth="1.1" fill="none" vectorEffect="non-scaling-stroke" />
+            </g>
+          ))}
+
+          {/* 5. Bottomless void core & glowing deep geothermal fissure */}
+          <path d={geom.abyssD} fill={`url(#${geom.uid}_abyss)`} />
+
+          <g className="animate-chasm-fissure">
+            <path
+              d={geom.fissureD}
+              stroke="#ea580c"
+              strokeWidth="4.5"
+              strokeLinecap="round"
+              fill="none"
+              opacity="0.28"
+            />
+            <path
+              d={geom.fissureD}
+              stroke="#fb923c"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              fill="none"
+              opacity="0.72"
+            />
+            <path
+              d={geom.fissureD}
+              stroke="#fef08a"
+              strokeWidth="0.8"
+              strokeLinecap="round"
+              fill="none"
+              opacity="0.65"
+            />
+          </g>
+
+          {/* 6. Drifting abyssal mist / warm cavern vapor */}
+          {geom.mistWisps.map((m, idx) => (
+            <ellipse
+              key={`mist-${idx}`}
+              cx={m.cx}
+              cy={m.cy}
+              rx={m.rx}
+              ry={m.ry}
+              fill={idx % 2 === 0 ? '#4c1d95' : '#7c2d12'}
+              opacity="0.2"
+              className="animate-chasm-mist"
+              style={{ animationDelay: m.delay }}
+            />
+          ))}
+
+          {/* 7. Crisp rim lighting highlights & scattered scree */}
+          <path
+            d={geom.topRimD}
+            stroke={topLipGlow}
+            strokeWidth={isAlerting || isSelected ? '2' : '1.3'}
+            strokeOpacity={isAlerting || isSelected ? '0.85' : '0.55'}
+            strokeLinejoin="round"
+            fill="none"
             vectorEffect="non-scaling-stroke"
           />
           <path
-            d="M 8 13 L 45 10 L 84 14 L 118 11 L 152 14 L 152 31 L 114 35 L 78 30 L 40 34 L 8 30 Z"
-            fill="#020203"
-            opacity="0.95"
+            d={geom.botRimD}
+            stroke={botLipGlow}
+            strokeWidth={isAlerting || isSelected ? '2' : '1.3'}
+            strokeOpacity={isAlerting || isSelected ? '0.85' : '0.55'}
+            strokeLinejoin="round"
+            fill="none"
+            vectorEffect="non-scaling-stroke"
           />
 
-          {/* Abyss highlight streaks */}
-          {!isDefeated && (
-            <g opacity="0.5">
-              <path d="M 18 22 Q 48 18 74 23 T 142 21" stroke="#312e81" strokeWidth="2" fill="none" />
-              <path d="M 26 27 Q 65 29 98 25 T 136 28" stroke="#1e1b4b" strokeWidth="1.5" fill="none" />
-            </g>
-          )}
+          {geom.scree.map((pts, idx) => (
+            <polygon
+              key={`scree-${idx}`}
+              points={pts}
+              fill="#57473d"
+              stroke="#1a1410"
+              strokeWidth="0.9"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
 
-          {/* Bridged state: taut anchor ropes & wooden slats */}
+          {/* 8. Crumbling pebble alert reaction (stationary chasm — zero creature shake!) */}
+          {isAlerting && !isDefeated && geom.fallingPebbles.map((p, idx) => (
+            <polygon
+              key={`peb-${idx}`}
+              points={`${p.cx - 1.5},${p.cy} ${p.cx + 0.4},${p.cy - 1.6} ${p.cx + 1.8},${p.cy + 0.3} ${p.cx - 0.2},${p.cy + 1.6}`}
+              fill="#a8a29e"
+              stroke="#292524"
+              strokeWidth="0.7"
+              className="animate-pebble-fall"
+              style={{ '--px': p.px, '--py': p.py, animationDelay: p.delay }}
+            />
+          ))}
+
+          {/* 9. Bridged State: Taut Knotted Climbing Rope & Driven Iron Pitons (uses <rect> only once roped) */}
           {isDefeated && (
             <g>
-              <line x1="2" y1="12" x2="158" y2="12" stroke="#d97706" strokeWidth="3" />
-              <line x1="2" y1="32" x2="158" y2="32" stroke="#d97706" strokeWidth="3" />
-              {[14, 32, 50, 68, 86, 104, 122, 140].map((px) => (
-                <rect
-                  key={px}
-                  x={px}
-                  y="9"
-                  width="11"
-                  height="26"
-                  rx="2"
-                  fill="#92400e"
-                  stroke="#451a03"
-                  strokeWidth="1.6"
+              {/* Soft shadow cast by rope into canyon */}
+              <path
+                d={geom.ropeShadowD}
+                stroke="#030205"
+                strokeWidth="5"
+                strokeLinecap="round"
+                fill="none"
+                opacity="0.55"
+              />
+
+              {/* Coiled spare rope resting on entry stone ledge */}
+              <g opacity="0.92" className={isBridging ? 'animate-bridge-rope' : undefined}>
+                <ellipse cx={coilX} cy={coilY} rx="5.5" ry="3.2" fill="none" stroke="#78350f" strokeWidth="2.4" />
+                <ellipse cx={coilX} cy={coilY} rx="4.0" ry="2.2" fill="none" stroke="#d97706" strokeWidth="1.5" />
+                <ellipse cx={coilX + 0.5} cy={coilY - 0.3} rx="2.4" ry="1.3" fill="none" stroke="#f59e0b" strokeWidth="1.1" />
+                <path
+                  d={`M ${(coilX + 4.5).toFixed(1)} ${coilY.toFixed(1)} Q ${((coilX + geom.ropeAnchorX) * 0.5).toFixed(1)} ${coilY.toFixed(1)} ${geom.ropeAnchorX.toFixed(1)} ${(heroOnTopSide ? geom.topAnchorY : geom.botAnchorY).toFixed(1)}`}
+                  stroke="#b45309"
+                  strokeWidth="2.2"
+                  fill="none"
+                  strokeLinecap="round"
                 />
+              </g>
+
+              {/* Forged iron piton anchor plates driven into opposing stone lips */}
+              {[geom.topAnchorY, geom.botAnchorY].map((ay, idx) => (
+                <g key={`piton-${idx}`}>
+                  <ellipse cx={geom.ropeAnchorX} cy={ay + 1.1} rx="4.4" ry="2.2" fill="#090706" opacity="0.75" />
+                  <rect
+                    x={(geom.ropeAnchorX - 4.2).toFixed(1)}
+                    y={(ay - 2.6).toFixed(1)}
+                    width="8.4"
+                    height="5.2"
+                    rx="1.2"
+                    fill="#44403c"
+                    stroke="#1c1917"
+                    strokeWidth="1.1"
+                  />
+                  <circle cx={geom.ropeAnchorX} cy={ay} r="2.0" fill="#a8a29e" stroke="#292524" strokeWidth="0.9" />
+                </g>
               ))}
-              <circle cx="5" cy="12" r="3.5" fill="#78350f" stroke="#fbbf24" strokeWidth="1" />
-              <circle cx="5" cy="32" r="3.5" fill="#78350f" stroke="#fbbf24" strokeWidth="1" />
-              <circle cx="155" cy="12" r="3.5" fill="#78350f" stroke="#fbbf24" strokeWidth="1" />
-              <circle cx="155" cy="32" r="3.5" fill="#78350f" stroke="#fbbf24" strokeWidth="1" />
+
+              {/* Primary taut braided hemp traversal rope across the abyss */}
+              <path
+                d={geom.ropePathD}
+                stroke="#451a03"
+                strokeWidth="4.6"
+                strokeLinecap="round"
+                fill="none"
+                className={isBridging ? 'animate-bridge-rope' : undefined}
+              />
+              <path
+                d={geom.ropePathD}
+                stroke="#b45309"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                fill="none"
+                className={isBridging ? 'animate-bridge-rope' : undefined}
+              />
+              <path
+                d={geom.ropePathD}
+                stroke="#f59e0b"
+                strokeWidth="1.5"
+                strokeDasharray="3.2 2.4"
+                strokeLinecap="round"
+                fill="none"
+              />
+
+              {/* Alpine figure-eight climbing knots tied along the traversal rope */}
+              {geom.ropeKnots.map((knot, idx) => (
+                <g
+                  key={`knot-${knot.id}`}
+                  transform={`rotate(${knot.rot.toFixed(1)} ${knot.cx.toFixed(1)} ${knot.cy.toFixed(1)})`}
+                  className={isBridging ? 'animate-bridge-plank' : undefined}
+                  style={isBridging ? { animationDelay: `${idx * 65}ms` } : undefined}
+                >
+                  <rect
+                    x={(knot.cx - knot.width * 0.5).toFixed(1)}
+                    y={(knot.cy - knot.height * 0.5).toFixed(1)}
+                    width={knot.width}
+                    height={knot.height}
+                    rx="2.1"
+                    fill="#92400e"
+                    stroke="#3b1806"
+                    strokeWidth="1.1"
+                  />
+                  <line
+                    x1={(knot.cx - 1.6).toFixed(1)}
+                    y1={(knot.cy - 1.1).toFixed(1)}
+                    x2={(knot.cx + 1.6).toFixed(1)}
+                    y2={(knot.cy + 1.1).toFixed(1)}
+                    stroke="#fbbf24"
+                    strokeWidth="0.9"
+                    strokeLinecap="round"
+                    opacity="0.85"
+                  />
+                </g>
+              ))}
             </g>
           )}
+        </g>
+      </svg>
+    </div>
+  );
+});
+
+/**
+ * Generates contextual faceted cave-in boulders hugging the sampled corridor geometry.
+ */
+function buildDeepCaveRockMesh(bounds, wallCtx, isVerticalCollar, seedStr) {
+  const { flareTL = 0.25, flareTR = 0.25, flareBL = 0.25, flareBR = 0.25 } = wallCtx || {};
+  const xLeft = bounds.xLeft;
+  const xRight = bounds.xRight;
+  const yTop = bounds.yTop;
+  const yBottom = bounds.yBottom;
+  const widthW = Math.max(4, xRight - xLeft);
+  const heightW = Math.max(4, yBottom - yTop);
+  const ctxSeed = `${seedStr}_${wallCtx?.contextKey || 'r'}`;
+
+  const boulders = [];
+  const count = 6;
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    // Anchor end boulders flush against sampled wall shoulders; wedge central keystone boulders tightly
+    const isLeftEnd = i === 0;
+    const isRightEnd = i === count - 1;
+    const uLocal = isLeftEnd
+      ? 11 + flareTL * 4
+      : isRightEnd
+        ? 139 - flareTR * 4
+        : 22 + t * 106 + ((hashSeed(`${ctxSeed}_ux_${i}`) % 100) / 100 - 0.5) * 9;
+
+    const wallYBias = (isLeftEnd ? (flareBL - flareTL) : isRightEnd ? (flareBR - flareTR) : 0) * 6;
+    const vLocal = 35 + wallYBias + ((hashSeed(`${ctxSeed}_vy_${i}`) % 100) / 100 - 0.5) * 14;
+
+    const rx = isLeftEnd || isRightEnd
+      ? 19 + (isLeftEnd ? flareTL + flareBL : flareTR + flareBR) * 4.5
+      : 16 + (hashSeed(`${ctxSeed}_rx_${i}`) % 9);
+    const ry = 18 + (hashSeed(`${ctxSeed}_ry_${i}`) % 8);
+
+    const numPts = 8;
+    const vertices = [];
+    for (let p = 0; p < numPts; p++) {
+      const angle = (p / numPts) * Math.PI * 2;
+      const jitter = 0.82 + ((hashSeed(`${ctxSeed}_pt_${i}_${p}`) % 100) / 100) * 0.36;
+      const vx = Math.max(1, Math.min(149, uLocal + Math.cos(angle) * rx * jitter));
+      const vy = Math.max(5, Math.min(65, vLocal + Math.sin(angle) * ry * jitter));
+      vertices.push({ x: vx, y: vy });
+    }
+
+    const peak = {
+      x: uLocal + ((hashSeed(`${ctxSeed}_pkx_${i}`) % 100) / 100 - 0.5) * rx * 0.32,
+      y: vLocal + ((hashSeed(`${ctxSeed}_pky_${i}`) % 100) / 100 - 0.5) * ry * 0.32
+    };
+
+    const facets = [];
+    for (let f = 0; f < numPts; f += 2) {
+      const p1 = vertices[f];
+      const p2 = vertices[(f + 1) % numPts];
+      const p3 = vertices[(f + 2) % numPts];
+      const fcx = (p1.x + p2.x + p3.x + peak.x) * 0.25;
+      const fcy = (p1.y + p2.y + p3.y + peak.y) * 0.25;
+
+      // Map facet centroid accurately back into world coordinates for torch lighting
+      const mapCentroid = isVerticalCollar
+        ? {
+            x: xRight - (fcy / 70) * widthW,
+            y: yTop + (fcx / 150) * heightW
+          }
+        : {
+            x: xLeft + (fcx / 150) * widthW,
+            y: yTop + (fcy / 70) * heightW
+          };
+
+      const du = (fcx - uLocal) / Math.max(4, rx);
+      const dv = (fcy - vLocal) / Math.max(4, ry);
+      let nx = isVerticalCollar ? -dv * 0.85 : du * 0.75;
+      let ny = isVerticalCollar ? du * 0.75 : dv * 0.85;
+      const nz = Math.sqrt(Math.max(0.18, 1 - nx * nx - ny * ny));
+      const len = Math.hypot(nx, ny, nz) || 1;
+      facets.push({
+        id: `dc_f_${i}_${f}`,
+        pts: [p1, p2, p3, peak],
+        mapCentroid,
+        normal: { x: nx / len, y: ny / len, z: nz / len }
+      });
+    }
+
+    boulders.push({ id: `dc_b_${i}`, localX: uLocal, vertices, facets });
+  }
+
+  return boulders;
+}
+
+/**
+ * Contextual Cave-In Boulder Barricade for `deep_cave`.
+ * Anchors wedged granite boulders into the exact corridor walls flanking the doorway,
+ * with hero torchlight facet shading, pickaxe break animation, and floor scree on defeat.
+ */
+export const DeepCaveRockSVG = memo(({
+  isDefeated = false,
+  isAlerting = false,
+  isBreaking = false,
+  seed = 'rock',
+  heroPos = null,
+  yNode = 50,
+  nodeX = 50,
+  boundsOverride = null,
+  geometry = null,
+  yScale = 1
+}) => {
+  const isVerticalCollar = boundsOverride?.orientation === 'vertical';
+  const orientation = isVerticalCollar ? 'vertical' : 'horizontal';
+  const wallCtx = useMemo(
+    () => extractCollarWallContext(geometry, boundsOverride, orientation, yNode, nodeX),
+    [geometry, boundsOverride, orientation, yNode, nodeX]
+  );
+
+  const boulders = useMemo(
+    () => buildDeepCaveRockMesh(wallCtx.cb, wallCtx, isVerticalCollar, seed),
+    [wallCtx, isVerticalCollar, seed]
+  );
+
+  // 1. Cleared rubble scattered at corridor flanks
+  if (isDefeated && !isBreaking) {
+    return (
+      <div className="w-full relative pointer-events-none flex justify-center">
+        <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 45'} className="w-full h-auto drop-shadow-md overflow-visible">
+          <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
+            <ellipse cx="75" cy="36" rx="68" ry="6" fill="#14100d" opacity="0.6" />
+            {boulders.filter((_, idx) => idx <= 1 || idx >= boulders.length - 2).map(boulder => (
+              <g key={boulder.id}>
+                {boulder.facets.map((facet, idx) => {
+                  const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                  const p = facet.pts;
+                  return (
+                    <polygon
+                      key={facet.id || idx}
+                      points={`${p[0].x},${p[0].y * 0.34 + 19} ${p[1].x},${p[1].y * 0.34 + 19} ${p[2].x},${p[2].y * 0.34 + 19} ${p[3].x},${p[3].y * 0.34 + 19}`}
+                      fill={lighting.color}
+                      stroke="#14110e"
+                      strokeWidth="1.4"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  );
+                })}
+              </g>
+            ))}
+          </g>
+        </svg>
+      </div>
+    );
+  }
+
+  // 2. Shatter animation when mined with a pickaxe
+  if (isBreaking) {
+    return (
+      <div className="w-full relative pointer-events-none flex justify-center">
+        <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 animate-pickaxe-hit">
+          <span className="text-3xl sm:text-4xl drop-shadow-[0_0_10px_rgba(251,191,36,1)]">⛏️</span>
+        </div>
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-40 animate-hit-spark">
+          <span className="text-2xl">✨</span>
+        </div>
+
+        <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 70'} className="w-full h-auto overflow-visible">
+          <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
+            <path
+              d="M 75 10 L 75 44 M 75 12 L 45 36 M 75 12 L 105 36"
+              stroke="#fef08a"
+              strokeWidth="3"
+              fill="none"
+              strokeDasharray="120"
+              className="animate-crack-branch"
+              style={{ filter: 'drop-shadow(0 0 6px #f59e0b)' }}
+              vectorEffect="non-scaling-stroke"
+            />
+            <g className="animate-rock-split-left">
+              {boulders.filter(b => b.localX < 75).map(boulder => (
+                <g key={boulder.id}>
+                  {boulder.facets.map((facet, idx) => {
+                    const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                    const p = facet.pts;
+                    return (
+                      <polygon
+                        key={facet.id || idx}
+                        points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
+                        fill={lighting.color}
+                        stroke="#14110e"
+                        strokeWidth="1.5"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  })}
+                </g>
+              ))}
+            </g>
+            <g className="animate-rock-split-right">
+              {boulders.filter(b => b.localX >= 75).map(boulder => (
+                <g key={boulder.id}>
+                  {boulder.facets.map((facet, idx) => {
+                    const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                    const p = facet.pts;
+                    return (
+                      <polygon
+                        key={facet.id || idx}
+                        points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
+                        fill={lighting.color}
+                        stroke="#14110e"
+                        strokeWidth="1.5"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  })}
+                </g>
+              ))}
+            </g>
+          </g>
+        </svg>
+      </div>
+    );
+  }
+
+  // 3. Intact contextual boulder barricade wedged across doorway collar
+  return (
+    <div className={`w-full relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`}>
+      <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 70'} className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)] overflow-visible">
+        <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
+          {/* Ground shadow apron hugging doorway collar walls */}
+          <ellipse cx="75" cy="40" rx="74" ry="22" fill="#0d0907" opacity="0.65" />
+          {boulders.map(boulder => (
+            <g key={boulder.id}>
+              <polygon
+                points={boulder.vertices.map(v => `${v.x},${v.y}`).join(' ')}
+                fill="#14110e"
+                stroke="#0a0806"
+                strokeWidth="2"
+                vectorEffect="non-scaling-stroke"
+              />
+              {boulder.facets.map((facet, idx) => {
+                const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                const p = facet.pts;
+                return (
+                  <polygon
+                    key={facet.id || idx}
+                    points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
+                    fill={lighting.color}
+                    stroke="#14110e"
+                    strokeWidth="1.5"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
+            </g>
+          ))}
         </g>
       </svg>
     </div>

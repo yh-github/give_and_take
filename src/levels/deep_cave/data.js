@@ -16,6 +16,7 @@ export const items = [
 ];
 
 export const entities = [
+  { id: 'troll', name: 'Cave Troll', emoji: '🧌', allowedReqs: ['crystal', 'gold_nugget', 'mushroom', 'emerald', 'relic', 'bone', 'gem'] },
   { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
   { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'rope'] },
   { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['rope', 'bone', 'emerald', 'relic', 'mushroom'] },

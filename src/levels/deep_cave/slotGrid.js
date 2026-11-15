@@ -213,20 +213,28 @@ function stampProceduralChamber(solidGrid, col, row, archetype, rng) {
     let maxC = 8;
 
     if (archetype === 'angled_left') {
-      if (lr < 7) { minC = 2; maxC = 8; }
-      else if (lr > 10) { minC = 1; maxC = 7; }
+      if (lr <= 3) { minC = 2; maxC = 7; }
+      else if (lr < 7) { minC = 2; maxC = 8; }
+      else if (lr > 10 && lr < 14) { minC = 1; maxC = 7; }
+      else if (lr >= 14) { minC = 2; maxC = 7; }
     } else if (archetype === 'angled_right') {
-      if (lr < 7) { minC = 1; maxC = 7; }
-      else if (lr > 10) { minC = 2; maxC = 8; }
+      if (lr <= 3) { minC = 2; maxC = 7; }
+      else if (lr < 7) { minC = 1; maxC = 7; }
+      else if (lr > 10 && lr < 14) { minC = 2; maxC = 8; }
+      else if (lr >= 14) { minC = 2; maxC = 7; }
     } else if (archetype === 'vaulted_dome') {
       if (lr <= 3 || lr >= 14) { minC = 2; maxC = 7; }
+      else if (lr <= 5 || lr >= 12) { minC = 1; maxC = 8; }
     } else if (archetype === 'stepped_alcove') {
       if (lr >= 6 && lr <= 11) { minC = 1; maxC = 8; }
       else { minC = 2; maxC = 7; }
+    } else {
+      // 'wide_hall': taper softly at north/south entrances to form an oval cavern instead of a box
+      if (lr === 2 || lr === 15) { minC = 2; maxC = 7; }
     }
 
     // Gentle seeded edge variation on outer wall columns while keeping >= 6 tiles clear
-    if (rng && rng() < 0.35 && maxC - minC >= 7 && lr >= 4 && lr <= 13) {
+    if (rng && rng() < 0.4 && maxC - minC >= 7 && lr >= 4 && lr <= 13) {
       if (rng() < 0.5) minC += 1;
       else maxC -= 1;
     }
@@ -485,7 +493,7 @@ export function rasterizeSlotGrid(slots, rows, encountersById = {}, rng = Math.r
     worldHeight: dims.worldHeight,
     collarLockBoxes,
     lockedTiles,
-    bevelCut: 1.15,
+    bevelCut: 2.35,
     simplifyEpsilon: 0.45
   });
 

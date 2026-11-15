@@ -40,20 +40,27 @@ import {
   rasterizeSlotGrid
 } from './slotGrid.js';
 
+const ITEM_META_BY_ID = Object.fromEntries(
+  UNDERGROUND_ITEMS.map((item) => [item.id, { name: item.name, emoji: item.emoji }])
+);
+function getItemMeta(itemId, fallbackName = 'Item') {
+  return ITEM_META_BY_ID[itemId] || { name: fallbackName, emoji: '📦' };
+}
+
 const TRADE_ITEMS = UNDERGROUND_ITEMS
   .map(i => i.id)
   .filter(id => id !== 'pickaxe' && id !== 'rope');
 
-const TRADER_TEMPLATES = UNDERGROUND_ENTITIES.filter(e => e.id !== 'mole');
+const TRADER_TEMPLATES = UNDERGROUND_ENTITIES.filter(e => e.id !== 'mole' && e.id !== 'troll');
 const MOLE_TEMPLATE = UNDERGROUND_ENTITIES.find(e => e.id === 'mole') || {
   id: 'mole',
   name: 'Giant Mole',
   emoji: '🐭'
 };
 
-const GUARDIAN_TEMPLATES = UNDERGROUND_ENTITIES.filter(
-  e => e.id === 'spider' || e.id === 'scorpion' || e.id === 'bat' || e.id === 'goblin'
-);
+const GUARDIAN_TEMPLATES = [
+  { id: 'troll', name: 'Cave Troll', emoji: '🧌' }
+];
 
 const ROCK_GATE_TEMPLATE = { id: 'rock', name: 'Rock', emoji: '🪨' };
 const CHASM_GATE_TEMPLATE = { id: 'chasm', name: 'Chasm', emoji: '🕳️' };
@@ -1035,11 +1042,11 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
   }
 
   // Determine per-segment grotto/chasm presence and max chain capacity
-  // Reserve 1 unused decoy item when decoys are enabled so decoys never leak chain items!
+  // Always reserve 1 unused decoy/cache item so extra caches & decoys never leak or collide with chain items
   const NON_MUSHROOM_TRADE_ITEMS = TRADE_ITEMS.filter(id => id !== 'mushroom');
   const shuffledPool = shuffle(NON_MUSHROOM_TRADE_ITEMS, rng);
-  const decoySinkItem = settings.decoyCount > 0 ? shuffledPool[0] : null;
-  const CHAIN_ITEMS = decoySinkItem ? shuffledPool.slice(1) : shuffledPool; // 5 items (or 6 if decoyCount === 0)
+  const decoySinkItem = shuffledPool[0];
+  const CHAIN_ITEMS = shuffledPool.slice(1); // 5 items; disjoint from decoySinkItem
 
   // Setup encounter internals; ensure at most 1 required encounter output per segment so bag <= 4 slots always holds!
   const entitySpecs = [];
@@ -1090,12 +1097,16 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
       isGatekeeper: true,
       gateType: 'rock'
     });
+    const mushMeta = getItemMeta('mushroom', 'Mushroom');
+    // E anchors sorted left->right: index 0 = outer hall (fromZone), index 1 = locked grotto pocket (toZone)
     entitySpecs.push({
       kind: 'encounter_item',
       encounter: ep,
       anchorType: 'E',
-      anchorIndex: 0,
+      anchorIndex: 1,
       id: `mushroom_enc_${entitySeq++}`,
+      name: mushMeta.name,
+      emoji: mushMeta.emoji,
       isPreset: 'mushroom',
       requires: [],
       reqType: 'AND',
@@ -1108,35 +1119,40 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
       kind: 'encounter_trader',
       encounter: ep,
       anchorType: 'E',
-      anchorIndex: 1,
+      anchorIndex: 0,
       id: `${tpl.id}_enc_${entitySeq++}`,
       name: tpl.name,
       emoji: tpl.emoji,
       requires: ['mushroom'],
       reqType: 'AND',
       reward: outReward,
-      zone: ep.toZone
+      zone: ep.fromZone
     });
     segOutputsBySegIdx[sIdx].push(outReward);
   }
 
-  // Instantiate chasm caches: if a segment already has a grotto output, make the chasm chest an un-required cache
-  // (using decoySinkItem if available) so total simultaneous held items NEVER exceeds the 4-slot inventory limit.
+  // Instantiate chasm caches: if a segment already has a grotto output (or if the chasm exit zone directly hosts the segment barrier),
+  // make the chasm chest an un-required cache (using decoySinkItem) so total simultaneous held items NEVER exceeds 4
+  // and no barrier guardian ever shares a zone with an unguarded floor pickup matching its requirement.
   for (const { ep, segIdx } of pendingChasmCaches) {
     const segAlreadyHasOutput = segOutputsBySegIdx[segIdx].length > 0;
+    const segBarrierInSameZone = segments[segIdx]?.barrier?.fromZone === ep.toZone;
     let bonusReward;
-    if (!segAlreadyHasOutput) {
+    if (!segAlreadyHasOutput && !segBarrierInSameZone) {
       bonusReward = pickOne(CHAIN_ITEMS, rng);
       segOutputsBySegIdx[segIdx].push(bonusReward);
     } else {
-      bonusReward = decoySinkItem || pickOne(CHAIN_ITEMS, rng);
+      bonusReward = decoySinkItem;
     }
+    const cacheMeta = getItemMeta(bonusReward, 'Cache Item');
     entitySpecs.push({
       kind: 'encounter_cache',
       encounter: ep,
       anchorType: 'E',
       anchorIndex: 0,
       id: `cache_enc_${entitySeq++}`,
+      name: cacheMeta.name,
+      emoji: cacheMeta.emoji,
       requires: [],
       reqType: 'AND',
       isPreset: bonusReward,
@@ -1221,6 +1237,7 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
   const segStartItemsPool = shuffle(CHAIN_ITEMS, rng);
   const startItems = [segStartItemsPool[0], segStartItemsPool[1]];
   let backtracksUsed = 0;
+  let prevBarrierSpec = null;
 
   for (let sIdx = 0; sIdx < segments.length; sIdx++) {
     const seg = segments[sIdx];
@@ -1231,6 +1248,7 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
 
     let activeToken = null;
     let reserveToken = null;
+    let segSeedZoneId = null;
     if (sIdx === 0) {
       activeToken = startItems[0];
       usedInSeg.add(startItems[0]);
@@ -1239,37 +1257,133 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
         reserveToken = startItems[1];
       }
     } else if (segZones.length > 0) {
-      const freshPool = shuffle(CHAIN_ITEMS.filter(id => !usedInSeg.has(id)), rng);
-      const seedItem = freshPool[0] || CHAIN_ITEMS[0];
-      usedInSeg.add(seedItem);
-      activeToken = seedItem;
-      let seedZoneId;
-      if ((zoneRemainingCapacity.get(segZones[0].id) || 0) > 0) {
-        seedZoneId = segZones[0].id;
-        consumeZoneSlot(seedZoneId);
+      const prevReqs = new Set(prevBarrierSpec?.requires || []);
+      const freshPool = shuffle(CHAIN_ITEMS.filter(id => !usedInSeg.has(id) && !prevReqs.has(id)), rng);
+      const fallbackPool = shuffle(CHAIN_ITEMS.filter(id => !prevReqs.has(id)), rng);
+      let seedItem = freshPool[0] || fallbackPool[0] || CHAIN_ITEMS[0];
+
+      // Anti-silliness: place preset_seg_seed in a DIFFERENT zone within segZones than its first consumer
+      // (`k === 0` trader if `stepsInSeg > 0`, or `seg.barrier.fromZone` if `stepsInSeg === 0`).
+      // Gatekeepers (Trolls, Rocks, Chasms) never carry reward items.
+      const forbiddenZeroZone = stepsInSeg === 0 ? seg.barrier?.fromZone : null;
+      const nonForbiddenSegZones = segZones.filter(z => z.id !== forbiddenZeroZone);
+
+      const safeEncOutIdx = segOutputs.findIndex(outId =>
+        !entitySpecs.some(
+          p => p.isPreset && (!p.requires || p.requires.length === 0) && p.zone === segZones[0].id && p.reward === outId
+        )
+      );
+
+      if (stepsInSeg === 0 && segOutputs.length > 0) {
+        // Case A: 0-barter segment with an encounter output already feeds its barrier
+        activeToken = null;
+      } else if (stepsInSeg > 0 && segZones.length === 1 && safeEncOutIdx !== -1) {
+        // Case B: 1-zone segment with an encounter output starts its barter chain from that output
+        const [encOut] = segOutputs.splice(safeEncOutIdx, 1);
+        usedInSeg.add(encOut);
+        activeToken = encOut;
+      } else if (stepsInSeg > 0 && segZones.length >= 2) {
+        // Case C: Multi-zone segment places seed pickup in a separate floor zone from Trader k=0
+        usedInSeg.add(seedItem);
+        activeToken = seedItem;
+        if ((zoneRemainingCapacity.get(segZones[0].id) || 0) > 0) {
+          segSeedZoneId = segZones[0].id;
+          consumeZoneSlot(segSeedZoneId);
+        } else {
+          segSeedZoneId = pickCapacityZone(segZones);
+        }
+        const seedMeta = getItemMeta(seedItem, 'Floor Item');
+        entitySpecs.push({
+          kind: 'preset_seg_seed',
+          id: `seg_${sIdx}_cache_${entitySeq++}`,
+          name: seedMeta.name,
+          emoji: seedMeta.emoji,
+          isPreset: seedItem,
+          requires: [],
+          reqType: 'AND',
+          reward: seedItem,
+          zone: segSeedZoneId
+        });
+      } else if (stepsInSeg === 0 && nonForbiddenSegZones.length > 0) {
+        // Case D: 0-barter multi-zone segment places seed pickup in a zone other than barrier.fromZone
+        usedInSeg.add(seedItem);
+        activeToken = seedItem;
+        segSeedZoneId = pickCapacityZone(nonForbiddenSegZones);
+        const seedMeta = getItemMeta(seedItem, 'Floor Item');
+        entitySpecs.push({
+          kind: 'preset_seg_seed',
+          id: `seg_${sIdx}_cache_${entitySeq++}`,
+          name: seedMeta.name,
+          emoji: seedMeta.emoji,
+          isPreset: seedItem,
+          requires: [],
+          reqType: 'AND',
+          reward: seedItem,
+          zone: segSeedZoneId
+        });
       } else {
-        seedZoneId = pickCapacityZone(segZones);
+        // Case E: Single-zone segment with no usable encounter output -> place seed in a safe ancestor zone
+        const ancZones = getAncestorZoneIds(segZones[0].id)
+          .filter(zId => zId !== segZones[0].id)
+          .map(zId => regularZones.find(z => z.id === zId))
+          .filter(Boolean);
+        if (ancZones.length === 0) {
+          return { ok: false, reason: 'NO_SAFE_SEG_SEED_SLOT' };
+        }
+        const prevBarrierZone = prevBarrierSpec
+          ? ancZones.find(z => z.id === prevBarrierSpec.zone)
+          : null;
+        let chosenAncZoneId = null;
+        if (prevBarrierZone && (zoneRemainingCapacity.get(prevBarrierZone.id) || 0) > 0) {
+          chosenAncZoneId = prevBarrierZone.id;
+          consumeZoneSlot(chosenAncZoneId);
+        } else {
+          chosenAncZoneId = pickCapacityZone(ancZones);
+        }
+
+        const alreadyRequired = new Set(entitySpecs.flatMap(e => e.requires || []));
+        const requiredInSeedZone = new Set(
+          entitySpecs.filter(e => e.zone === chosenAncZoneId).flatMap(e => e.requires || [])
+        );
+        const ancCandidates = [...freshPool, ...fallbackPool];
+        seedItem =
+          ancCandidates.find(id => !alreadyRequired.has(id) && !usedInSeg.has(id)) ||
+          ancCandidates.find(id => !requiredInSeedZone.has(id) && !usedInSeg.has(id)) ||
+          shuffle(CHAIN_ITEMS, rng).find(id => !requiredInSeedZone.has(id));
+        if (!seedItem || requiredInSeedZone.has(seedItem)) {
+          return { ok: false, reason: 'NO_SAFE_SEG_SEED_SLOT' };
+        }
+        usedInSeg.add(seedItem);
+        activeToken = seedItem;
+
+        const seedMeta = getItemMeta(seedItem, 'Floor Item');
+        entitySpecs.push({
+          kind: 'preset_seg_seed',
+          id: `seg_${sIdx}_cache_${entitySeq++}`,
+          name: seedMeta.name,
+          emoji: seedMeta.emoji,
+          isPreset: seedItem,
+          requires: [],
+          reqType: 'AND',
+          reward: seedItem,
+          zone: chosenAncZoneId
+        });
       }
-      entitySpecs.push({
-        kind: 'preset_seg_seed',
-        id: `seg_${sIdx}_cache_${entitySeq++}`,
-        isPreset: seedItem,
-        requires: [],
-        reqType: 'AND',
-        reward: seedItem,
-        zone: seedZoneId
-      });
     }
 
     let curMaxZone = segZones[0]?.id ?? null;
     for (let k = 0; k < stepsInSeg; k++) {
       let tradeZone;
       if (k === 0) {
-        if ((zoneRemainingCapacity.get(segZones[0].id) || 0) > 0) {
-          tradeZone = segZones[0].id;
+        const nonSeedZones = segSeedZoneId != null
+          ? segZones.filter(z => z.id !== segSeedZoneId)
+          : segZones;
+        const k0Pool = nonSeedZones.length > 0 ? nonSeedZones : segZones;
+        if (k0Pool[0] && (zoneRemainingCapacity.get(k0Pool[0].id) || 0) > 0) {
+          tradeZone = k0Pool[0].id;
           consumeZoneSlot(tradeZone);
         } else {
-          tradeZone = pickCapacityZone(segZones);
+          tradeZone = pickCapacityZone(k0Pool);
         }
       } else {
         const frac = (k + 1) / Math.max(1, stepsInSeg);
@@ -1337,9 +1451,10 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
     if (barrierReqs.length === 0) return null;
 
     const barrier = seg.barrier;
+    let barrierSpec;
     if (barrier.kind === 'guardian_lair') {
-      const tpl = GUARDIAN_TEMPLATES.find(t => t.id === 'spider') || GUARDIAN_TEMPLATES[0];
-      entitySpecs.push({
+      const tpl = GUARDIAN_TEMPLATES.find(t => t.id === 'troll') || GUARDIAN_TEMPLATES[0];
+      barrierSpec = {
         kind: 'encounter_gate',
         encounter: barrier.encounter,
         anchorType: 'G',
@@ -1354,10 +1469,10 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
         unlocksZones: [barrier.toZone],
         isGatekeeper: true,
         gateType: 'guardian'
-      });
+      };
     } else {
       const tpl = pickOne(GUARDIAN_TEMPLATES, rng);
-      entitySpecs.push({
+      barrierSpec = {
         kind: 'doorway_gate',
         edgeKey: barrier.gate.edgeKey,
         id: `guard_${entitySeq++}`,
@@ -1370,13 +1485,23 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
         unlocksZones: [barrier.toZone],
         isGatekeeper: true,
         gateType: 'guardian'
-      });
+      };
     }
+    entitySpecs.push(barrierSpec);
+    prevBarrierSpec = barrierSpec;
   }
 
-  // Place required tool pickups AFTER barter traders so tools spill cleanly into ancestor zones with free capacity
+  // Place required tool pickups AFTER barter traders, preferring strictly earlier ancestor zones with free capacity
   for (const tReq of toolInputs) {
     const ancestorIds = getAncestorZoneIds(tReq.fromZone);
+    const strictIds = ancestorIds.filter(zId => zId !== tReq.fromZone);
+    const strictSameSeg = strictIds
+      .filter(zId => zoneToSegIdx.get(zId) === tReq.segIdx)
+      .map(zId => regularZones.find(z => z.id === zId))
+      .filter(Boolean);
+    const strictAll = strictIds
+      .map(zId => regularZones.find(z => z.id === zId))
+      .filter(Boolean);
     const sameSegAncestors = ancestorIds
       .filter(zId => zoneToSegIdx.get(zId) === tReq.segIdx)
       .map(zId => regularZones.find(z => z.id === zId))
@@ -1387,7 +1512,15 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
     const withSoft = (list) => list.filter(z => (zoneRemainingCapacity.get(z.id) || 0) > 0);
     const withPhys = (list) => list.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
     let chosenZone;
-    if (withSoft(sameSegAncestors).length > 0) {
+    if (withSoft(strictSameSeg).length > 0) {
+      chosenZone = pickCapacityZone(withSoft(strictSameSeg));
+    } else if (withSoft(strictAll).length > 0) {
+      chosenZone = pickCapacityZone(withSoft(strictAll));
+    } else if (withPhys(strictSameSeg).length > 0) {
+      chosenZone = pickCapacityZone(withPhys(strictSameSeg));
+    } else if (withPhys(strictAll).length > 0) {
+      chosenZone = pickCapacityZone(withPhys(strictAll));
+    } else if (withSoft(sameSegAncestors).length > 0) {
       chosenZone = pickCapacityZone(withSoft(sameSegAncestors));
     } else if (withSoft(allAncestors).length > 0) {
       chosenZone = pickCapacityZone(withSoft(allAncestors));
@@ -1400,9 +1533,12 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
     } else {
       chosenZone = pickCapacityZone([regularZones[0]]);
     }
+    const toolMeta = getItemMeta(tReq.itemId, 'Tool');
     entitySpecs.push({
       kind: 'preset_tool',
       id: `preset_${tReq.itemId}_${entitySeq++}`,
+      name: toolMeta.name,
+      emoji: toolMeta.emoji,
       isPreset: tReq.itemId,
       requires: [],
       reqType: 'AND',
@@ -1413,9 +1549,12 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
   for (let s = 0; s < settings.pickaxeSurplus; s++) {
     const surplusCandidates = regularZones.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
     if (surplusCandidates.length === 0) break;
+    const pickaxeMeta = getItemMeta('pickaxe', 'Pickaxe');
     entitySpecs.push({
       kind: 'preset_surplus',
       id: `surplus_pickaxe_${entitySeq++}`,
+      name: pickaxeMeta.name,
+      emoji: pickaxeMeta.emoji,
       isPreset: 'pickaxe',
       requires: [],
       reqType: 'AND',
@@ -1446,16 +1585,20 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
   for (let d = 0; d < settings.decoyCount; d++) {
     const decoyCandidates = regularZones.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
     if (decoyCandidates.length === 0) break;
-    const makeDigger = diggersAssigned < settings.numDiggers;
-    if (makeDigger) diggersAssigned++;
-    const tpl = makeDigger ? MOLE_TEMPLATE : pickOne(TRADER_TEMPLATES, rng);
-    const idPrefix = makeDigger ? 'mole' : tpl.id;
+    const decoyZone = pickCapacityZone(decoyCandidates);
+    const freeInDecoyZone = new Set(
+      entitySpecs.filter(p => p.isPreset && p.zone === decoyZone && p.reward).map(p => p.reward)
+    );
     const rew = decoySinkItem && !allNeededByChain.has(decoySinkItem)
       ? decoySinkItem
       : (safeDecoyRewards.length > 0 ? pickOne(safeDecoyRewards, rng) : null);
     if (!rew) continue;
-    const req = pickOne(CHAIN_ITEMS.filter(i => i !== rew), rng);
+    const req = pickOne(CHAIN_ITEMS.filter(i => i !== rew && !freeInDecoyZone.has(i)), rng);
     if (!req) continue;
+    const makeDigger = diggersAssigned < settings.numDiggers;
+    if (makeDigger) diggersAssigned++;
+    const tpl = makeDigger ? MOLE_TEMPLATE : pickOne(TRADER_TEMPLATES, rng);
+    const idPrefix = makeDigger ? 'mole' : tpl.id;
     entitySpecs.push({
       kind: 'decoy_trader',
       id: `${idPrefix}_decoy_${entitySeq++}`,
@@ -1465,8 +1608,29 @@ function synthesizeMissionGraph(settings, blueprint, levelStub, rng) {
       requires: [req],
       reqType: 'AND',
       reward: rew,
-      zone: pickCapacityZone(decoyCandidates)
+      zone: decoyZone
     });
+  }
+
+  // Hard anti-silliness invariant: gatekeepers never give reward items, and no creature (trader or Troll guardian)
+  // may share a zone with an unguarded free floor pickup (`isPreset` with no requirements) whose reward it requires.
+  for (const ent of entitySpecs) {
+    if (ent.isGatekeeper && ent.reward != null) {
+      return { ok: false, reason: 'GATEKEEPER_HAS_REWARD' };
+    }
+    if (ent.isPreset || !ent.requires || ent.requires.length === 0) continue;
+    if (ent.gateType === 'rock' || ent.gateType === 'chasm') continue;
+    const sameZoneFree = entitySpecs.find(
+      p =>
+        p.isPreset &&
+        (!p.requires || p.requires.length === 0) &&
+        p.reward &&
+        p.zone === ent.zone &&
+        ent.requires.includes(p.reward)
+    );
+    if (sameZoneFree) {
+      return { ok: false, reason: 'SAME_ZONE_FREE_REQUIRED_ITEM' };
+    }
   }
 
   // Run BFS solvePuzzle on abstract entities first (cheap pre-geometry validation!)
@@ -1504,9 +1668,18 @@ function placeEntitiesInSlots(specs, blueprint, geometry, rng) {
 
   const placed = [];
 
-  const minDistToSegments = (pt) => {
+  const wallClearanceThreshold = DEEP_CAVE_MIN_WALL_MARGIN + 0.1;
+  const minDistToSegments = (pt, earlyExitBelow = 0) => {
     let minD = Infinity;
     for (const seg of wallSegments) {
+      if (earlyExitBelow > 0) {
+        const ax = seg.a.x, bx = seg.b.x;
+        if ((ax < pt.x - earlyExitBelow && bx < pt.x - earlyExitBelow) ||
+            (ax > pt.x + earlyExitBelow && bx > pt.x + earlyExitBelow)) continue;
+        const ay = seg.a.y, by = seg.b.y;
+        if ((ay < pt.y - earlyExitBelow && by < pt.y - earlyExitBelow) ||
+            (ay > pt.y + earlyExitBelow && by > pt.y + earlyExitBelow)) continue;
+      }
       const l2 = (seg.a.x - seg.b.x) ** 2 + (seg.a.y - seg.b.y) ** 2;
       let d;
       if (l2 === 0) d = Math.hypot(pt.x - seg.a.x, pt.y - seg.a.y);
@@ -1515,6 +1688,7 @@ function placeEntitiesInSlots(specs, blueprint, geometry, rng) {
         t = Math.max(0, Math.min(1, t));
         d = Math.hypot(pt.x - (seg.a.x + t * (seg.b.x - seg.a.x)), pt.y - (seg.a.y + t * (seg.b.y - seg.a.y)));
       }
+      if (earlyExitBelow > 0 && d < earlyExitBelow) return d;
       if (d < minD) minD = d;
     }
     return minD;
@@ -1536,7 +1710,7 @@ function placeEntitiesInSlots(specs, blueprint, geometry, rng) {
 
   const isValidFreePos = (pt, checkExisting = placed) => {
     if (geometry.obstaclePolygons?.some(poly => isPointInPolygon(pt, poly))) return false;
-    if (minDistToSegments(pt) < DEEP_CAVE_MIN_WALL_MARGIN + 0.1) return false;
+    if (minDistToSegments(pt, wallClearanceThreshold) < wallClearanceThreshold) return false;
     if (isInsideCollar(pt)) return false;
     if (Math.hypot(pt.x - campPos.x, pt.y - campPos.y) < DEEP_CAVE_MIN_ENTITY_DIST) return false;
 
@@ -1565,7 +1739,9 @@ function placeEntitiesInSlots(specs, blueprint, geometry, rng) {
       const anchorData = geometry.encounterAnchors.find(
         a => a.encounterId === ep.encounter.id && a.originCol === ep.originCol && a.originRow === ep.originRow
       );
-      const bucket = anchorData?.[spec.anchorType];
+      const bucket = spec.anchorType === 'E' && anchorData?.E
+        ? [...anchorData.E].sort((a, b) => a.x - b.x)
+        : anchorData?.[spec.anchorType];
       const anchor = bucket?.[spec.anchorIndex || 0];
       if (!anchor) return null;
       const ent = {
@@ -1701,6 +1877,9 @@ function verifyGeneratedLevel(startItems, entities, goalEntityId, geometry, sett
   const allGateIds = entities.filter(e => e.isGatekeeper).map(e => e.id);
   const wallOnlySegments = getProceduralObstacleSegments(entities, geometry, allGateIds);
   for (const gk of entities.filter(e => e.isGatekeeper)) {
+    if (gk.reward != null) {
+      return { valid: false, reason: 'GATEKEEPER_HAS_REWARD' };
+    }
     const cb = gk.collarBounds;
     if (!cb) return { valid: false, reason: 'MISSING_COLLAR_BOUNDS' };
     if (cb.orientation === 'horizontal') {

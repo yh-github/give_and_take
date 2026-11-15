@@ -3,6 +3,11 @@ const { createServer } = require('vite');
 const path = require('path');
 
 async function runSmokeTests() {
+  const watchdog = setTimeout(() => {
+    console.error('❌ E2E Smoke Test FAILED: Stuck / timed out after 60s');
+    process.exit(1);
+  }, 60000);
+  watchdog.unref();
   console.log('🚀 Starting Vite dev server for headless E2E smoke tests...');
   const server = await createServer({
     configFile: path.resolve(__dirname, '../vite.config.js'),
@@ -368,6 +373,7 @@ async function runSmokeTests() {
 
     console.log('🎉 All Headless Browser E2E Smoke Tests PASSED with 0 errors!');
   } finally {
+    clearTimeout(watchdog);
     if (browser) await browser.close();
     await server.close();
   }

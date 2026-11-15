@@ -20,6 +20,7 @@ export function GameEntity({
   wallSegments,
   displayPlayerPos,
   breakingRockIds,
+  bridgingChasmIds = {},
   isTransformed,
   hasDeepTreasure,
   getCustomEntityMovement,
@@ -44,7 +45,7 @@ export function GameEntity({
   const isCurrent = ent.id === 'current' || (ent.isGatekeeper && ent.id?.startsWith('current_'));
   const effectiveYScale = yScale ?? (level.mechanics.useIsotropicCoords ? 1 : (level.mechanics.screens || 2.5));
 
-  const inZoneFog = level.mechanics.hasFog && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
+  const inZoneFog = level.mechanics.hasFog && level.id !== 'deep_cave' && !unlockedZones.includes(ent.zone) && !(ent.isGatekeeper && ent.unlocksZones && ent.unlocksZones.some(z => unlockedZones.includes(z)));
   const inInkFog = inkFogEntities.has(ent.id);
 
   const isVisible = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
@@ -54,14 +55,14 @@ export function GameEntity({
   const isInteractable = !inZoneFog && !inDarkness && !inInkFog;
 
   const interactableHover = (inDarkness || inZoneFog)
-    ? 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
+    ? `pointer-events-none cursor-default opacity-0 invisible ${(isRock || isChasm) ? '' : 'scale-0'} transition-opacity duration-1000`
     : inInkFog
       ? 'pointer-events-none cursor-default'
       : !isInteractable
         ? (isRock || isChasm || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
         : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1' && ent.id !== 'sea_witch') || (isRock && isDefeated) || (isChasm && isDefeated) || (isCurrent && isDefeated)
           ? 'cursor-default'
-          : 'hover:scale-110 cursor-pointer';
+          : (isRock || isChasm) ? 'cursor-pointer' : 'hover:scale-110 cursor-pointer';
 
   const hasCustomCollar = Boolean((isRock || isChasm || ent.isExtraRock) && ent.collarBounds);
   const isGatekeeperRock = hasCustomCollar || ((isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES);
@@ -76,7 +77,7 @@ export function GameEntity({
   const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
   const customMove = getCustomEntityMovement ? getCustomEntityMovement(ent) : null;
   const isCustomEntity = Boolean(customMove && customMove.isActiveMotion);
-  const wrapperClasses = `absolute flex flex-col items-center ${isCustomEntity ? 'transition-none' : 'transition-all duration-300'} ${isGatekeeperRock ? 'transform -translate-y-1/2' : (ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : 'transform -translate-x-1/2 -translate-y-1/2'} ${interactableHover}`;
+  const wrapperClasses = `absolute transform flex flex-col items-center ${isCustomEntity ? 'transition-none' : 'transition-all duration-300'} ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : ''} ${interactableHover}`;
 
   let visualX = ent.x;
   let visualY = ent.y;
@@ -145,7 +146,7 @@ export function GameEntity({
 
   return (
     <div onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
-      <div className="relative">
+      <div className={`relative ${isGatekeeperRock ? 'w-full h-full flex items-center justify-center' : ''}`}>
         {inInkFog && (
           <div className="absolute inset-0 -top-4 left-1/2 -translate-x-1/2 z-[180] flex items-center justify-center pointer-events-none">
             <InkCloudSVG />
@@ -154,7 +155,7 @@ export function GameEntity({
 
         {!isDefeated && isSelected && !ent.isPreset && !inInkFog && (
           <div className={`absolute ${tooltipY} ${tooltipAlign} z-[100]`}>
-            <div className="relative bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg font-bold whitespace-nowrap animate-bounce gap-1">
+            <div dir="ltr" className="relative bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg font-bold whitespace-nowrap animate-bounce gap-1">
               {ent.id === 'final_gate' ? (
                 <>
                   <span className="emoji-shadow">🔑</span>
@@ -201,17 +202,15 @@ export function GameEntity({
           </div>
         )}
 
-        <div className={`relative ${inInkFog ? 'opacity-20 blur-[2px]' : ''}`}>
-          {ent.isGatekeeper && !isRock && !isCurrent && GatekeeperProp && <GatekeeperProp />}
+        <div className={`relative ${isGatekeeperRock ? 'w-full h-full flex items-center justify-center' : ''} ${inInkFog ? 'opacity-20 blur-[2px]' : ''}`}>
+          {ent.isGatekeeper && !isRock && !isChasm && !isCurrent && GatekeeperProp && <GatekeeperProp />}
 
-          <div className={`relative transition-all duration-700 ease-in-out ${
-            (!isRock && !isCurrent && ent.isGatekeeper && isDefeated) 
+          <div className={`relative ${isGatekeeperRock ? 'w-full h-full flex items-center justify-center' : ''} transition-all duration-700 ease-in-out ${
+            (!isRock && !isChasm && !isCurrent && ent.isGatekeeper && isDefeated) 
               ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' 
-              : (!isRock && !isCurrent && ent.isGatekeeper && isSelected) 
-                ? 'translate-x-8 translate-y-2 rotate-3' 
-                : (!isRock && !isCurrent && isDefeated && ent.id !== 'dolphin_1') 
-                  ? 'opacity-50 grayscale' 
-                  : ''
+              : (!isRock && !isChasm && !isCurrent && isDefeated && ent.id !== 'dolphin_1') 
+                ? 'opacity-50 grayscale' 
+                : ''
           }`}>
 
             {!isGoal && !ent.isRepeatable && !ent.isPreset && (
@@ -249,7 +248,20 @@ export function GameEntity({
               {isChasm ? (
                 <div className={`flex justify-center items-center w-full h-full ${!isDefeated ? 'cursor-pointer' : 'pointer-events-none'}`}>
                   {level.ChasmComponent ? (
-                    <level.ChasmComponent isDefeated={isDefeated} isAlerting={isAlerting} orientation={rockBounds?.orientation || 'horizontal'} />
+                    <level.ChasmComponent
+                      isDefeated={isDefeated}
+                      isAlerting={isAlerting}
+                      isBridging={Boolean(bridgingChasmIds?.[ent.id])}
+                      isSelected={isSelected}
+                      orientation={rockBounds?.orientation || 'horizontal'}
+                      seed={ent.id}
+                      heroPos={displayPlayerPos}
+                      yNode={ent.y}
+                      nodeX={ent.x}
+                      boundsOverride={ent.collarBounds || null}
+                      geometry={puzzle?.geometry || null}
+                      yScale={effectiveYScale}
+                    />
                   ) : (
                     <div className={`w-full h-4 rounded border border-stone-900 ${isDefeated ? 'bg-amber-700/90' : 'bg-black/95'}`} />
                   )}
@@ -267,6 +279,7 @@ export function GameEntity({
                       yNode={ent.y}
                       nodeX={ent.x}
                       boundsOverride={ent.collarBounds || null}
+                      geometry={puzzle?.geometry || null}
                       yScale={effectiveYScale}
                     />
                   ) : (
@@ -322,7 +335,7 @@ export function GameEntity({
                       ent.emoji
                     )
                   ) : (
-                    ent.emoji
+                    ent.emoji || rewardItem?.emoji
                   )}
                 </div>
               )}

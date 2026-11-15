@@ -374,7 +374,15 @@ describe('Underground Level Movement Suite', () => {
       expect(rockEntity.className).not.toContain('opacity-0');
       expect(rockEntity.className).not.toContain('pointer-events-none');
 
-      // Click on the rock to break it
+      // Select pickaxe in inventory bar, then click on the rock to break it
+      const pickaxeSlot = Array.from(container.querySelectorAll('button')).find(
+        b => b.textContent.includes('⛏️')
+      );
+      if (pickaxeSlot) {
+        await act(async () => {
+          fireEvent.click(pickaxeSlot);
+        });
+      }
       await act(async () => {
         fireEvent.click(rockEntity);
       });

@@ -13,16 +13,23 @@ function segmentsIntersect(a, b, c, d) {
  */
 export function checkPolygonCollision(p1, p2, polygons) {
     if (!polygons || polygons.length === 0) return false;
+    const rMinX = p1.x < p2.x ? p1.x : p2.x;
+    const rMaxX = p1.x > p2.x ? p1.x : p2.x;
+    const rMinY = p1.y < p2.y ? p1.y : p2.y;
+    const rMaxY = p1.y > p2.y ? p1.y : p2.y;
+    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+
     for (const poly of polygons) {
         if (!poly || poly.length < 3) continue;
-        // 1. Check if segment intersects any edge of the polygon
+        // 1. Check if segment intersects any edge of the polygon (with AABB rejection)
         for (let i = 0; i < poly.length; i++) {
             const a = poly[i];
             const b = poly[(i + 1) % poly.length];
+            if ((a.x < rMinX && b.x < rMinX) || (a.x > rMaxX && b.x > rMaxX)) continue;
+            if ((a.y < rMinY && b.y < rMinY) || (a.y > rMaxY && b.y > rMaxY)) continue;
             if (segmentsIntersect(p1, p2, a, b)) return true;
         }
         // 2. Check if midpoint of segment is inside polygon
-        const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
         if (isPointInPolygon(mid, poly)) return true;
     }
     return false;
@@ -47,7 +54,7 @@ export function smoothPath(path, segments, polygons = [], cornerClearance = 1.2)
                 checkCollision(p1, p2, segments) ||
                 hasCornerClearanceCollision(p1, p2, segments, cornerClearance)
             );
-            const hasPolyColl = polygons && polygons.length > 0 && checkPolygonCollision(p1, p2, polygons);
+            const hasPolyColl = !hasSegColl && polygons && polygons.length > 0 && checkPolygonCollision(p1, p2, polygons);
             if (!hasSegColl && !hasPolyColl) {
                 furthest = next;
                 break;
@@ -66,14 +73,21 @@ function hasCornerClearanceCollision(p1, p2, segments, clearance = 1.2) {
     const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
     if (l2 < 1e-6) return false;
     const c2 = clearance * clearance;
+    const minX = (p1.x < p2.x ? p1.x : p2.x) - clearance;
+    const maxX = (p1.x > p2.x ? p1.x : p2.x) + clearance;
+    const minY = (p1.y < p2.y ? p1.y : p2.y) - clearance;
+    const maxY = (p1.y > p2.y ? p1.y : p2.y) + clearance;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
 
     for (const seg of segments) {
         for (const pt of [seg.a, seg.b]) {
             if (!pt) continue;
-            const t = ((pt.x - p1.x) * (p2.x - p1.x) + (pt.y - p1.y) * (p2.y - p1.y)) / l2;
+            if (pt.x < minX || pt.x > maxX || pt.y < minY || pt.y > maxY) continue;
+            const t = ((pt.x - p1.x) * dx + (pt.y - p1.y) * dy) / l2;
             if (t > 0.15 && t < 0.85) {
-                const projX = p1.x + t * (p2.x - p1.x);
-                const projY = p1.y + t * (p2.y - p1.y);
+                const projX = p1.x + t * dx;
+                const projY = p1.y + t * dy;
                 const d2 = (pt.x - projX) ** 2 + (pt.y - projY) ** 2;
                 if (d2 < c2) return true;
             }
@@ -109,6 +123,121 @@ export function isPointInPolygon(p, poly) {
 }
 
 /**
+ * Precomputes per-row scanline X-intercepts for polygons and row-bucketed segments/rocks
+ * so A* and batch BFS evaluate grid walkability lazily in O(1) amortized time per cell.
+ */
+function buildGridSpatialContext(cols, rows, resolution, segments, actualPolys, radius) {
+    const polyRowIntercepts = [];
+    for (let p = 0; p < actualPolys.length; p++) {
+        const poly = actualPolys[p];
+        if (!poly || poly.length < 3) continue;
+        let minY = Infinity, maxY = -Infinity;
+        for (let i = 0; i < poly.length; i++) {
+            const py = poly[i].y;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+        }
+        const rowLists = new Array(rows).fill(null);
+        const minGy = Math.max(0, Math.floor(minY / resolution));
+        const maxGy = Math.min(rows - 1, Math.ceil(maxY / resolution));
+        const n = poly.length;
+        for (let gy = minGy; gy <= maxGy; gy++) {
+            const y = gy * resolution;
+            const xs = [];
+            for (let i = 0, j = n - 1; i < n; j = i++) {
+                const yi = poly[i].y, yj = poly[j].y;
+                if ((yi > y) !== (yj > y)) {
+                    xs.push((poly[j].x - poly[i].x) * (y - yi) / (yj - yi) + poly[i].x);
+                }
+            }
+            if (xs.length > 0) rowLists[gy] = xs;
+        }
+        polyRowIntercepts.push(rowLists);
+    }
+
+    const rowSegs = Array.from({ length: rows }, () => []);
+    const rowRocks = Array.from({ length: rows }, () => []);
+    const seenRockBoxes = new Set();
+    const pad = Math.max(radius, resolution) + 1e-6;
+
+    if (segments) {
+        for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            if (seg.isRock && seg.minX !== undefined) {
+                const rKey = `${seg.minX},${seg.maxX},${seg.yTop},${seg.yBottom}`;
+                if (!seenRockBoxes.has(rKey)) {
+                    seenRockBoxes.add(rKey);
+                    const box = { minX: seg.minX, maxX: seg.maxX, yTop: seg.yTop, yBottom: seg.yBottom };
+                    const minRGy = Math.max(0, Math.floor(seg.yTop / resolution));
+                    const maxRGy = Math.min(rows - 1, Math.ceil(seg.yBottom / resolution));
+                    for (let gy = minRGy; gy <= maxRGy; gy++) {
+                        rowRocks[gy].push(box);
+                    }
+                }
+            }
+            const sMinY = seg.a.y < seg.b.y ? seg.a.y : seg.b.y;
+            const sMaxY = seg.a.y > seg.b.y ? seg.a.y : seg.b.y;
+            const minGy = Math.max(0, Math.floor((sMinY - pad) / resolution));
+            const maxGy = Math.min(rows - 1, Math.ceil((sMaxY + pad) / resolution));
+            for (let gy = minGy; gy <= maxGy; gy++) {
+                rowSegs[gy].push(seg);
+            }
+        }
+    }
+
+    // 0 = uncomputed, 1 = walkable, 2 = solid
+    const solidCache = new Uint8Array(cols * rows);
+
+    const isCellBlockedBase = (gx, gy) => {
+        const x = gx * resolution;
+        const y = gy * resolution;
+
+        for (let p = 0; p < polyRowIntercepts.length; p++) {
+            const xs = polyRowIntercepts[p][gy];
+            if (!xs) continue;
+            let inside = false;
+            for (let k = 0; k < xs.length; k++) {
+                if (x < xs[k]) inside = !inside;
+            }
+            if (inside) return true;
+        }
+
+        const rocks = rowRocks[gy];
+        for (let r = 0; r < rocks.length; r++) {
+            const box = rocks[r];
+            if (x >= box.minX && x <= box.maxX && y >= box.yTop && y <= box.yBottom) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const isNearWallSeg = (gx, gy) => {
+        const segs = rowSegs[gy];
+        if (segs.length === 0) return false;
+        const x = gx * resolution;
+        const y = gy * resolution;
+        for (let i = 0; i < segs.length; i++) {
+            const seg = segs[i];
+            const ax = seg.a.x, bx = seg.b.x;
+            const minX = (ax < bx ? ax : bx) - radius;
+            if (x < minX) continue;
+            const maxX = (ax > bx ? ax : bx) + radius;
+            if (x > maxX) continue;
+            const ay = seg.a.y, by = seg.b.y;
+            const minY = (ay < by ? ay : by) - radius;
+            if (y < minY) continue;
+            const maxY = (ay > by ? ay : by) + radius;
+            if (y > maxY) continue;
+            if (distToSegment({ x, y }, seg.a, seg.b) < radius) return true;
+        }
+        return false;
+    };
+
+    return { rowSegs, solidCache, isCellBlockedBase, isNearWallSeg };
+}
+
+/**
  * Finds a path from start to end using A* algorithm.
  * @param {Object} start {x, y}
  * @param {Object} end {x, y}
@@ -120,15 +249,16 @@ export function isPointInPolygon(p, poly) {
  */
 export function findGlobalPath(start, end, segments, bounds, polygons = [], resolution = 3, options = {}) {
     const actualPolys = Array.isArray(polygons) ? polygons : [];
-    if ((!segments || segments.length === 0) && actualPolys.length === 0) return [end];
+    const segs = segments || [];
+    if (segs.length === 0 && actualPolys.length === 0) return [end];
 
     const cornerClearance = options.cornerClearance ?? 1.2;
 
     // Direct line-of-sight fast path: if no wall obstacles intersect start->end, go directly
     if (
-        !checkCollision(start, end, segments || []) &&
+        !checkCollision(start, end, segs) &&
         !checkPolygonCollision(start, end, actualPolys) &&
-        !hasCornerClearanceCollision(start, end, segments || [], cornerClearance)
+        !hasCornerClearanceCollision(start, end, segs, cornerClearance)
     ) {
         return [end];
     }
@@ -140,146 +270,128 @@ export function findGlobalPath(start, end, segments, bounds, polygons = [], reso
     const height = actualBounds.height || 250;
     const cols = Math.ceil(width / resolution);
     const rows = Math.ceil(height / resolution);
+    const totalCells = cols * rows;
 
     // Grid coordinates (clamped to valid grid bounds)
-    const toGrid = (p) => ({
-        x: Math.max(0, Math.min(cols - 1, Math.round(p.x / resolution))),
-        y: Math.max(0, Math.min(rows - 1, Math.round(p.y / resolution)))
-    });
-
-    const startG = toGrid(start);
-    const endG = toGrid(end);
+    const startGx = Math.max(0, Math.min(cols - 1, Math.round(start.x / resolution)));
+    const startGy = Math.max(0, Math.min(rows - 1, Math.round(start.y / resolution)));
+    const endGx = Math.max(0, Math.min(cols - 1, Math.round(end.x / resolution)));
+    const endGy = Math.max(0, Math.min(rows - 1, Math.round(end.y / resolution)));
+    const startIdx = startGy * cols + startGx;
+    const endIdx = endGy * cols + endGx;
 
     const radius = options.radius ?? 2.0;
     const maxIters = options.maxIters ?? 15000;
 
+    const { rowSegs, solidCache, isCellBlockedBase, isNearWallSeg } = buildGridSpatialContext(
+        cols, rows, resolution, segs, actualPolys, radius
+    );
+
     const isSolid = (gx, gy) => {
-        const x = gx * resolution;
-        const y = gy * resolution;
-
-        // 1. Check if point is inside any solid polygon (volume check)
-        for (const poly of polygons) {
-            if (isPointInPolygon({ x, y }, poly)) return true;
-        }
-
-        // 2. Check if point is inside any intact rock bounding box (volume check)
-        if (segments) {
-            for (const seg of segments) {
-                if (seg.isRock && seg.minX !== undefined) {
-                    if (x >= seg.minX && x <= seg.maxX && y >= seg.yTop && y <= seg.yBottom) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        // 3. Check if point is too close to any wall segment (clearance check)
+        const idx = gy * cols + gx;
+        const cached = solidCache[idx];
+        if (cached !== 0) return cached === 2;
         // Skip clearance check for start and target points so we can path close to walls/destinations
-        const isStartOrTarget = (gx === startG.x && gy === startG.y) || (gx === endG.x && gy === endG.y);
-        if (!isStartOrTarget) {
-            for (const seg of segments) {
-                const minX = Math.min(seg.a.x, seg.b.x) - radius;
-                const maxX = Math.max(seg.a.x, seg.b.x) + radius;
-                const minY = Math.min(seg.a.y, seg.b.y) - radius;
-                const maxY = Math.max(seg.a.y, seg.b.y) + radius;
-                if (x < minX || x > maxX || y < minY || y > maxY) continue;
-
-                if (distToSegment({ x, y }, seg.a, seg.b) < radius) return true;
-            }
-        }
-        return false;
+        const isStartOrTarget = idx === startIdx || idx === endIdx;
+        const blocked = isCellBlockedBase(gx, gy) || (!isStartOrTarget && isNearWallSeg(gx, gy));
+        solidCache[idx] = blocked ? 2 : 1;
+        return blocked;
     };
 
-    // A* State
-    const key = (p) => `${p.x},${p.y}`;
-    const openSet = [startG];
-    const openSetKeys = new Set([key(startG)]);
-    const cameFrom = new Map();
-    const gScore = new Map();
-    const fScore = new Map();
+    // A* State using flat typed arrays keyed by gy * cols + gx
+    const openSet = [startIdx];
+    const inOpen = new Uint8Array(totalCells);
+    inOpen[startIdx] = 1;
+    const cameFrom = new Int32Array(totalCells).fill(-1);
+    const gScore = new Float64Array(totalCells).fill(Infinity);
+    const fScore = new Float64Array(totalCells).fill(Infinity);
 
-    gScore.set(key(startG), 0);
-    fScore.set(key(startG), Math.abs(startG.x - endG.x) + Math.abs(startG.y - endG.y));
+    gScore[startIdx] = 0;
+    fScore[startIdx] = Math.abs(startGx - endGx) + Math.abs(startGy - endGy);
 
     let count = 0;
     while (openSet.length > 0 && count < maxIters) {
         count++;
-        // Find node in openSet with lowest fScore in O(N) instead of O(N log N) sort
         let bestIdx = 0;
-        let bestF = fScore.get(key(openSet[0])) ?? Infinity;
+        let bestF = fScore[openSet[0]];
         for (let i = 1; i < openSet.length; i++) {
-            const f = fScore.get(key(openSet[i])) ?? Infinity;
+            const f = fScore[openSet[i]];
             if (f < bestF) {
                 bestF = f;
                 bestIdx = i;
             }
         }
-        const current = openSet[bestIdx];
+        const currentIdx = openSet[bestIdx];
         openSet[bestIdx] = openSet[openSet.length - 1];
         openSet.pop();
-        openSetKeys.delete(key(current));
+        inOpen[currentIdx] = 0;
 
-        if (current.x === endG.x && current.y === endG.y) {
-            // Reconstruct path
+        if (currentIdx === endIdx) {
             const path = [];
-            let temp = current;
-            while (cameFrom.has(key(temp))) {
-                const isGoal = temp.x === endG.x && temp.y === endG.y;
-                path.push(isGoal ? { x: end.x, y: end.y } : { x: temp.x * resolution, y: temp.y * resolution });
-                temp = cameFrom.get(key(temp));
+            let tempIdx = currentIdx;
+            while (cameFrom[tempIdx] !== -1) {
+                const isGoal = tempIdx === endIdx;
+                if (isGoal) {
+                    path.push({ x: end.x, y: end.y });
+                } else {
+                    const tx = tempIdx % cols;
+                    const ty = (tempIdx - tx) / cols;
+                    path.push({ x: tx * resolution, y: ty * resolution });
+                }
+                tempIdx = cameFrom[tempIdx];
             }
             const rawPath = path.reverse();
-            if (rawPath.length > 0 && segments && segments.length > 0 && checkCollision(start, rawPath[0], segments)) {
+            if (rawPath.length > 0 && segs.length > 0 && checkCollision(start, rawPath[0], segs)) {
                 return [];
             }
-            return smoothPath(rawPath, segments, polygons, cornerClearance);
+            return smoothPath(rawPath, segs, polygons, cornerClearance);
         }
 
-        const targetDx = endG.x - current.x;
-        const targetDy = endG.y - current.y;
+        const cx = currentIdx % cols;
+        const cy = (currentIdx - cx) / cols;
+        const targetDx = endGx - cx;
+        const targetDy = endGy - cy;
         const targetDist = Math.sqrt(targetDx * targetDx + targetDy * targetDy) || 1;
+        const currentG = gScore[currentIdx];
+        const isCurrentStart = currentIdx === startIdx;
+        const pCurrent = isCurrentStart ? start : { x: cx * resolution, y: cy * resolution };
 
         // Neighbors (8-way)
         for (let dx = -1; dx <= 1; dx++) {
+            const nx = cx + dx;
+            if (nx < 0 || nx >= cols) continue;
             for (let dy = -1; dy <= 1; dy++) {
                 if (dx === 0 && dy === 0) continue;
-                const neighbor = { x: current.x + dx, y: current.y + dy };
-                if (neighbor.x < 0 || neighbor.x >= cols || neighbor.y < 0 || neighbor.y >= rows) continue;
-                
-                // Skip if blocked
-                if (isSolid(neighbor.x, neighbor.y)) continue;
+                const ny = cy + dy;
+                if (ny < 0 || ny >= rows) continue;
 
-                // Check collision between current and neighbor positions to prevent stepping across obstacle segments
-                const pCurrent = (current.x === startG.x && current.y === startG.y)
-                    ? start
-                    : { x: current.x * resolution, y: current.y * resolution };
-                const pNeighbor = (neighbor.x === endG.x && neighbor.y === endG.y)
-                    ? end
-                    : { x: neighbor.x * resolution, y: neighbor.y * resolution };
+                if (isSolid(nx, ny)) continue;
 
-                if (segments && segments.length > 0 && checkCollision(pCurrent, pNeighbor, segments)) continue;
+                const neighborIdx = ny * cols + nx;
+                const isNeighborEnd = neighborIdx === endIdx;
+                const pNeighbor = isNeighborEnd ? end : { x: nx * resolution, y: ny * resolution };
+                const edgeSegs = (isCurrentStart || isNeighborEnd) ? segs : rowSegs[cy];
+                if (edgeSegs.length > 0 && checkCollision(pCurrent, pNeighbor, edgeSegs)) continue;
 
                 // Step cost: diagonal is 1.414, straight is 1.0
                 let stepCost = (dx !== 0 && dy !== 0 ? 1.414 : 1);
-                
+
                 // Directional penalty: penalize steps moving opposite/away from target direction
                 const dot = (dx * targetDx + dy * targetDy) / targetDist;
                 if (dot < 0) {
-                    stepCost += 0.5 * Math.abs(dot); // Penalty for stepping backwards
+                    stepCost += 0.5 * Math.abs(dot);
                 }
 
-                const tentativeGScore = (gScore.get(key(current)) || 0) + stepCost;
-                const neighborKey = key(neighbor);
-                const currentNeighborG = gScore.has(neighborKey) ? gScore.get(neighborKey) : Infinity;
-                if (tentativeGScore < currentNeighborG) {
-                    cameFrom.set(neighborKey, current);
-                    gScore.set(neighborKey, tentativeGScore);
-                    const dxH = Math.abs(neighbor.x - endG.x);
-                    const dyH = Math.abs(neighbor.y - endG.y);
-                    fScore.set(neighborKey, tentativeGScore + Math.max(dxH, dyH) + 0.414 * Math.min(dxH, dyH));
-                    if (!openSetKeys.has(neighborKey)) {
-                        openSet.push(neighbor);
-                        openSetKeys.add(neighborKey);
+                const tentativeGScore = currentG + stepCost;
+                if (tentativeGScore < gScore[neighborIdx]) {
+                    cameFrom[neighborIdx] = currentIdx;
+                    gScore[neighborIdx] = tentativeGScore;
+                    const dxH = Math.abs(nx - endGx);
+                    const dyH = Math.abs(ny - endGy);
+                    fScore[neighborIdx] = tentativeGScore + Math.max(dxH, dyH) + 0.414 * Math.min(dxH, dyH);
+                    if (!inOpen[neighborIdx]) {
+                        openSet.push(neighborIdx);
+                        inOpen[neighborIdx] = 1;
                     }
                 }
             }
@@ -310,70 +422,48 @@ export function checkBatchReachability(start, targets, segments, bounds, polygon
     const rows = Math.ceil(height / resolution);
     const radius = options.radius ?? 2.0;
 
-    // Precompute solid grid ONCE across all targets
-    const solid = new Uint8Array(cols * rows);
-    for (let gy = 0; gy < rows; gy++) {
-        const y = gy * resolution;
-        for (let gx = 0; gx < cols; gx++) {
-            const x = gx * resolution;
-            let blocked = false;
-            for (let p = 0; p < actualPolys.length; p++) {
-                if (isPointInPolygon({ x, y }, actualPolys[p])) {
-                    blocked = true;
-                    break;
-                }
-            }
-            if (!blocked && segs.length > 0) {
-                for (let i = 0; i < segs.length; i++) {
-                    const seg = segs[i];
-                    if (seg.isRock && seg.minX !== undefined) {
-                        if (x >= seg.minX && x <= seg.maxX && y >= seg.yTop && y <= seg.yBottom) {
-                            blocked = true;
-                            break;
-                        }
-                    }
-                    const minX = Math.min(seg.a.x, seg.b.x) - radius;
-                    const maxX = Math.max(seg.a.x, seg.b.x) + radius;
-                    const minY = Math.min(seg.a.y, seg.b.y) - radius;
-                    const maxY = Math.max(seg.a.y, seg.b.y) + radius;
-                    if (x < minX || x > maxX || y < minY || y > maxY) continue;
-                    if (distToSegment({ x, y }, seg.a, seg.b) < radius) {
-                        blocked = true;
-                        break;
-                    }
-                }
-            }
-            if (blocked) solid[gy * cols + gx] = 1;
-        }
-    }
+    const { rowSegs, solidCache, isCellBlockedBase, isNearWallSeg } = buildGridSpatialContext(
+        cols, rows, resolution, segs, actualPolys, radius
+    );
+
+    const isSolid = (gx, gy) => {
+        const idx = gy * cols + gx;
+        const cached = solidCache[idx];
+        if (cached !== 0) return cached === 2;
+        const blocked = isCellBlockedBase(gx, gy) || isNearWallSeg(gx, gy);
+        solidCache[idx] = blocked ? 2 : 1;
+        return blocked;
+    };
 
     const toGrid = (p) => ({
         x: Math.max(0, Math.min(cols - 1, Math.round(p.x / resolution))),
         y: Math.max(0, Math.min(rows - 1, Math.round(p.y / resolution)))
     });
     const startG = toGrid(start);
+    const startIdx = startG.y * cols + startG.x;
     const visited = new Uint8Array(cols * rows);
     const queueX = [startG.x];
     const queueY = [startG.y];
-    visited[startG.y * cols + startG.x] = 1;
+    visited[startIdx] = 1;
 
     let head = 0;
     while (head < queueX.length) {
         const cx = queueX[head];
         const cy = queueY[head];
         head++;
-        const pCur = (cx === startG.x && cy === startG.y)
-            ? start
-            : { x: cx * resolution, y: cy * resolution };
+        const isStart = (cy * cols + cx) === startIdx;
+        const pCur = isStart ? start : { x: cx * resolution, y: cy * resolution };
+        const edgeSegs = isStart ? segs : rowSegs[cy];
         for (let dx = -1; dx <= 1; dx++) {
+            const nx = cx + dx;
+            if (nx < 0 || nx >= cols) continue;
             for (let dy = -1; dy <= 1; dy++) {
                 if (dx === 0 && dy === 0) continue;
-                const nx = cx + dx;
                 const ny = cy + dy;
-                if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+                if (ny < 0 || ny >= rows) continue;
                 const nIdx = ny * cols + nx;
-                if (visited[nIdx] || solid[nIdx]) continue;
-                if (segs.length > 0 && checkCollision(pCur, { x: nx * resolution, y: ny * resolution }, segs)) continue;
+                if (visited[nIdx] || isSolid(nx, ny)) continue;
+                if (edgeSegs.length > 0 && checkCollision(pCur, { x: nx * resolution, y: ny * resolution }, edgeSegs)) continue;
                 visited[nIdx] = 1;
                 queueX.push(nx);
                 queueY.push(ny);

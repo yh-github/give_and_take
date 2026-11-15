@@ -409,6 +409,166 @@ export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
 }
 
 /**
+ * Returns true if segment `a -> b` runs directly along a locked orthogonal collar flank
+ * (the exact doorway boundary walls that gatekeepers must seal seamlessly).
+ */
+function isLockedCollarEdge(a, b, collarLockBoxes, eps = 0.28) {
+  if (!collarLockBoxes || collarLockBoxes.length === 0) return false;
+  for (const box of collarLockBoxes) {
+    if (box.orientation === 'horizontal') {
+      const bothOnLeft =
+        Math.abs(a.x - box.xLeft) <= eps &&
+        Math.abs(b.x - box.xLeft) <= eps &&
+        a.y >= box.yTop - eps && a.y <= box.yBottom + eps &&
+        b.y >= box.yTop - eps && b.y <= box.yBottom + eps;
+      const bothOnRight =
+        Math.abs(a.x - box.xRight) <= eps &&
+        Math.abs(b.x - box.xRight) <= eps &&
+        a.y >= box.yTop - eps && a.y <= box.yBottom + eps &&
+        b.y >= box.yTop - eps && b.y <= box.yBottom + eps;
+      if (bothOnLeft || bothOnRight) return true;
+    } else if (box.orientation === 'vertical') {
+      const bothOnTop =
+        Math.abs(a.y - box.yTop) <= eps &&
+        Math.abs(b.y - box.yTop) <= eps &&
+        a.x >= box.xLeft - eps && a.x <= box.xRight + eps &&
+        b.x >= box.xLeft - eps && b.x <= box.xRight + eps;
+      const bothOnBot =
+        Math.abs(a.y - box.yBottom) <= eps &&
+        Math.abs(b.y - box.yBottom) <= eps &&
+        a.x >= box.xLeft - eps && a.x <= box.xRight + eps &&
+        b.x >= box.xLeft - eps && b.x <= box.xRight + eps;
+      if (bothOnTop || bothOnBot) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Checks if a candidate point lies inside any collar lock box (with margin).
+ */
+function isPointInAnyLockBox(pt, collarLockBoxes, pad = 0.35) {
+  if (!collarLockBoxes || collarLockBoxes.length === 0) return false;
+  for (const box of collarLockBoxes) {
+    if (
+      pt.x >= box.xLeft - pad &&
+      pt.x <= box.xRight + pad &&
+      pt.y >= box.yTop - pad &&
+      pt.y <= box.yBottom + pad
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Transforms an orthogonal/beveled contour into natural winding cave stone walls
+ * by subdividing unlocked walls with outward-biased rock crags and smoothing unlocked
+ * corners, while keeping every doorway collar flank vertex and segment 100% locked.
+ */
+function sculptOrganicCaveLoop(pts, collarLockBoxes, worldWidth, worldHeight) {
+  const n = pts.length;
+  if (n < 4) return pts;
+
+  const isVertexLocked = (pt) => isCollarLockedVertex(pt, collarLockBoxes, 0.32);
+
+  // 1. Subdivide unlocked edges longer than 4.2 units and add outward solid-rock undulation
+  const subdivided = [];
+  const subLocked = [];
+
+  for (let i = 0; i < n; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    const aLocked = isVertexLocked(a);
+    const edgeLocked = isLockedCollarEdge(a, b, collarLockBoxes);
+
+    subdivided.push(a);
+    subLocked.push(aLocked);
+
+    if (edgeLocked) continue;
+
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len <= 6.2) continue;
+
+    // Outward normal points into SOLID (boundary convention: SOLID on LEFT, OPEN on RIGHT)
+    const nx = dy / len;
+    const ny = -dx / len;
+    const steps = Math.max(2, Math.round(len / 5.5));
+
+    for (let s = 1; s < steps; s++) {
+      const t = s / steps;
+      const bx = a.x + dx * t;
+      const by = a.y + dy * t;
+      const distFromEnd = Math.min(t * len, (1 - t) * len);
+      const fade = Math.min(1, distFromEnd / 2.8);
+
+      const wave =
+        Math.sin(bx * 0.27 + by * 0.19) * 0.65 +
+        Math.cos(bx * 0.53 - by * 0.41) * 0.42 +
+        Math.sin((bx - by) * 0.89) * 0.22;
+      // Non-negative outward displacement into solid rock: widens chambers organically
+      const disp = Math.max(0, Math.min(1.3, (0.58 + wave * 0.72) * fade));
+
+      const cand = {
+        x: Math.max(1.2, Math.min(worldWidth - 1.2, bx + nx * disp)),
+        y: Math.max(1.2, Math.min(worldHeight - 1.2, by + ny * disp))
+      };
+
+      if (isPointInAnyLockBox(cand, collarLockBoxes, 0.4)) {
+        subdivided.push({ x: bx, y: by });
+        // Pin point right next to a collar box so relaxation doesn't pull it across the collar edge
+        subLocked.push(true);
+      } else {
+        subdivided.push({
+          x: Math.round(cand.x * 1e4) / 1e4,
+          y: Math.round(cand.y * 1e4) / 1e4
+        });
+        subLocked.push(false);
+      }
+    }
+  }
+
+  // 2. Single-pass collar-preserving curve relaxation to soften remaining 90-deg alcove corners
+  const m = subdivided.length;
+  if (m < 5) return subdivided;
+  const origArea = computeSignedArea(pts);
+  const smoothed = new Array(m);
+
+  for (let i = 0; i < m; i++) {
+    const curr = subdivided[i];
+    if (subLocked[i]) {
+      smoothed[i] = curr;
+      continue;
+    }
+    const prev = subdivided[(i - 1 + m) % m];
+    const next = subdivided[(i + 1) % m];
+    // Skip points too close to world border or collar boxes
+    const cand = {
+      x: Math.round((curr.x * 0.56 + prev.x * 0.22 + next.x * 0.22) * 1e4) / 1e4,
+      y: Math.round((curr.y * 0.56 + prev.y * 0.22 + next.y * 0.22) * 1e4) / 1e4
+    };
+    if (
+      cand.x < 1.2 || cand.x > worldWidth - 1.2 ||
+      cand.y < 1.2 || cand.y > worldHeight - 1.2 ||
+      isPointInAnyLockBox(cand, collarLockBoxes, 0.35)
+    ) {
+      smoothed[i] = curr;
+    } else {
+      smoothed[i] = cand;
+    }
+  }
+
+  const newArea = computeSignedArea(smoothed);
+  if (Math.sign(newArea) !== Math.sign(origArea) || Math.abs(newArea) < 1e-2) {
+    return subdivided;
+  }
+  return smoothed;
+}
+
+/**
  * Extracts simplified cave wall polylines and solid obstacle polygons from a tile raster.
  *
  * @param {number[][]} solidGrid - 2D array (rows x cols) of 0 (open) and 1 (solid)
@@ -421,6 +581,7 @@ export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
  * @param {boolean[][]} [options.lockedTiles] - Tiles excluded from checkerboard cleaning
  * @param {number} [options.bevelCut=1.25] - Bevel cut size in isotropic units (0 disables)
  * @param {number} [options.simplifyEpsilon=0.55] - RDP tolerance in isotropic units
+ * @param {boolean} [options.organicSculpt] - Applies natural curving rock wall sculpting (default true when worldHeight > 130)
  * @returns {{ wallPolylines: Array<Object>, obstaclePolygons: Array<Array<{x:number,y:number}>>, cleanedGrid: number[][] }}
  */
 export function extractCaveContours(solidGrid, {
@@ -431,7 +592,8 @@ export function extractCaveContours(solidGrid, {
   collarLockBoxes = [],
   lockedTiles = null,
   bevelCut = 1.25,
-  simplifyEpsilon = 0.55
+  simplifyEpsilon = 0.55,
+  organicSculpt = worldHeight > 130
 }) {
   const workingGrid = solidGrid.map(row => row.slice());
   cleanCheckerboards(workingGrid, lockedTiles);
@@ -451,18 +613,21 @@ export function extractCaveContours(solidGrid, {
       ? bevelUnlockedCorners(collapsed.pts, collapsed.locked, collarLockBoxes, bevelCut)
       : collapsed;
     const simplifiedPts = simplifyCollarPreservingLoop(beveled.pts, beveled.locked, simplifyEpsilon);
+    const finalPts = organicSculpt
+      ? sculptOrganicCaveLoop(simplifiedPts, collarLockBoxes, worldWidth, worldHeight)
+      : simplifiedPts;
 
     wallPolylines.push({
-      points: simplifiedPts,
+      points: finalPts,
       closed: true,
       isPillar
     });
 
     if (isPillar) {
-      obstaclePolygons.push(simplifiedPts);
+      obstaclePolygons.push(finalPts);
     } else if (loop.signedArea > maxPositiveArea) {
       maxPositiveArea = loop.signedArea;
-      primaryOuterPts = simplifiedPts;
+      primaryOuterPts = finalPts;
     }
   }
 

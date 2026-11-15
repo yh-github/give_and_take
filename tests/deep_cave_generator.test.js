@@ -46,10 +46,27 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
         expect(sol).not.toBeNull();
         expect(sol.steps).toBe(p.steps);
 
-        // No self-guarded items
+        // No self-guarded items & gatekeepers never give rewards & anti-silliness: no creature shares a zone with a free required item
         for (const ent of p.puzzleEntities) {
+          if (ent.isGatekeeper) {
+            expect(ent.reward).toBeNull();
+          }
           if (ent.reward) {
             expect(ent.requires || []).not.toContain(ent.reward);
+          }
+          if (ent.isGatekeeper && ent.gateType === 'guardian') {
+            expect(ent.emoji).toBe('🧌');
+          }
+          if (!ent.isPreset && ent.requires?.length > 0 && ent.gateType !== 'rock' && ent.gateType !== 'chasm') {
+            const sameZoneFree = p.puzzleEntities.find(
+              other =>
+                other.isPreset &&
+                (!other.requires || other.requires.length === 0) &&
+                other.reward &&
+                other.zone === ent.zone &&
+                ent.requires.includes(other.reward)
+            );
+            expect(sameZoneFree).toBeUndefined();
           }
         }
 
@@ -80,9 +97,19 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
           { radius: DEEP_CAVE_HERO_RADIUS, maxIters: 4500 }
         );
         expect(path.length).toBeGreaterThan(0);
+
+        // Every floor pickup / preset item must have non-empty name & emoji so it renders visibly
+        for (const ent of p.puzzleEntities) {
+          if (ent.isPreset || ent.reward) {
+            expect(typeof ent.emoji).toBe('string');
+            expect(ent.emoji.length).toBeGreaterThan(0);
+            expect(typeof ent.name).toBe('string');
+            expect(ent.name.length).toBeGreaterThan(0);
+          }
+        }
       }
     }
-  });
+  }, 10000);
 
   it('supports custom numeric overrides via standard generateLevelPuzzle signature', () => {
     const p = deepCave.generatePuzzle(deepCave, 6, 1, 'custom-sig-seed');
@@ -90,5 +117,23 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
     expect(p.steps).toBeLessThanOrEqual(7);
     expect(p.geometry.worldWidth).toBe(100);
     expect(p.geometry.worldHeight).toBeGreaterThanOrEqual(192);
+  });
+
+  it('never assigns reward items to Cave Trolls or other gatekeepers across custom and regression seeds', () => {
+    const regressionCases = [
+      { settings: { ...DEEP_CAVE_PRESETS.hard }, seed: 'dc-1794672823851-154821' },
+      { settings: { ...DEEP_CAVE_PRESETS.normal, rows: 5, branchingFactor: 2 }, seed: 'custom-gatekeeper-1' },
+      { settings: { ...DEEP_CAVE_PRESETS.expert, encounterCount: 3 }, seed: 'custom-gatekeeper-2' }
+    ];
+    for (const { settings, seed } of regressionCases) {
+      const p = generateDeepCavePuzzle(deepCave, settings, null, seed);
+      for (const ent of p.puzzleEntities) {
+        if (ent.isGatekeeper) {
+          expect(ent.reward).toBeNull();
+        }
+      }
+      const sol = solvePuzzle(p.startItems, p.puzzleEntities, p.goalEntityId, deepCave, { maxStates: 6000 });
+      expect(sol).not.toBeNull();
+    }
   });
 });

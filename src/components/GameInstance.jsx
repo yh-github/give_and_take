@@ -137,6 +137,7 @@ export function GameInstance({
   const [dolphinState, setDolphinState] = useState(() => savedState?.dolphinState || 'idle_surface');
   const [dolphinYPos, setDolphinYPos] = useState(() => typeof savedState?.dolphinYPos === 'number' ? savedState.dolphinYPos : 22);
   const [breakingRockIds, setBreakingRockIds] = useState({});
+  const [bridgingChasmIds, setBridgingChasmIds] = useState({});
   const dolphinStateRef = useRef('idle_surface');
   const dolphinYPosRef = useRef(22);
   useEffect(() => { dolphinStateRef.current = dolphinState; }, [dolphinState]);
@@ -748,6 +749,7 @@ export function GameInstance({
     setInventory(puzzle.startItems || []);
     setPathHistory([{ ...effectiveCampPos, zone: 1 }]);
     setBreakingRockIds({});
+    setBridgingChasmIds({});
     setDolphinState('idle_surface');
     setDolphinYPos(22);
     dolphinAnimRef.current = { startTime: 0, startY: 22, targetY: 22, duration: 0, isDiving: false, attachPlayer: false };
@@ -1437,7 +1439,6 @@ export function GameInstance({
     if ((level.id !== 'underwater' && !unlockedZones.includes(entity.zone) && !isReverseAccess) || isBlockedByTransformation) {
       setSelectedItemTypes([]);
       setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
-      setIsAnimatingLoot(true);
 
       const targetAlert = isBlockedByTransformation
         ? witchEnt
@@ -1445,6 +1446,16 @@ export function GameInstance({
             ent.isGatekeeper && !defeated.includes(ent.id) &&
             (ent.unlocksZones?.includes(entity.zone) || (ent.zone === entity.zone && ent.unlocksZones?.some(z => unlockedZones.includes(z))))
           ).sort((a, b) => Math.abs(a.y - pathHistory[pathHistory.length - 1].y) - Math.abs(b.y - pathHistory[pathHistory.length - 1].y))[0] || entity);
+
+      if (useIsotropic && !isBlockedByTransformation) {
+        setAlertEntityId(targetAlert.id);
+        scheduleTimeout(() => {
+          setAlertEntityId(null);
+        }, ALERT_DURATION_MS);
+        return;
+      }
+
+      setIsAnimatingLoot(true);
 
       const prevPoint = pathHistory[pathHistory.length - 1];
       let alertX = (targetAlert.roamClass && !targetAlert.roamClass.includes('elevator')) ? 50 : targetAlert.x;
@@ -1482,19 +1493,11 @@ export function GameInstance({
       hasDeepTreasure
     });
 
-    const isAutoToolGatekeeper = Boolean(
-      entity.isGatekeeper &&
-      entity.requires?.length === 1 &&
-      (entity.requires[0] === 'pickaxe' || entity.requires[0] === 'rope') &&
-      entity.gateType !== 'guardian'
-    );
-
-    // If tapping a nearby entity with no item selected to inspect its requirement bubble, toggle for free (0 Air, no move)
+    // If tapping an entity with no item selected to inspect its requirement bubble, toggle/walk-up to show requirement (no auto-use)
     const isInspectOnly =
       !defeated.includes(entity.id) &&
       !entity.isPreset &&
       !tradeResult.isFreeUnTransform &&
-      !(isAutoToolGatekeeper && tradeResult.canDefeat) &&
       selectedItemTypes.length === 0 &&
       entity.requires &&
       entity.requires.length > 0;
@@ -1571,7 +1574,8 @@ export function GameInstance({
 
       if (entity.reward) {
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
-        setFlyingItem({ emoji: entity.emoji, x: entityX, y: targetY, zIndex: 60 });
+        const rewardEmoji = entity.emoji || level.items.find(i => i.id === entity.reward)?.emoji;
+        setFlyingItem({ emoji: rewardEmoji, x: entityX, y: targetY, zIndex: 60 });
         scheduleTimeout(() => {
           setInventory(prev => [...prev, entity.reward]);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
@@ -1642,6 +1646,15 @@ export function GameInstance({
             return copy;
           });
         }, 1000);
+      } else if (isChasm) {
+        setBridgingChasmIds(prev => ({ ...prev, [entity.id]: true }));
+        scheduleTimeout(() => {
+          setBridgingChasmIds(prev => {
+            const copy = { ...prev };
+            delete copy[entity.id];
+            return copy;
+          });
+        }, 900);
       }
 
       setDefeated(prev => {
@@ -1929,6 +1942,7 @@ export function GameInstance({
               visibleEntitiesSet={visibleEntitiesSet}
               wallSegments={wallSegments}
               breakingRockIds={breakingRockIds}
+              bridgingChasmIds={bridgingChasmIds}
               getCustomEntityMovement={getCustomEntityMovement}
               handleInteract={handleInteract}
               playerVisualX={playerVisualX}

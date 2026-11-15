@@ -105,13 +105,14 @@ describe('Phase 1: Isotropic Engine & Decoupled Cave Primitives', () => {
     expect(tooClose.violations.some(v => v.type === 'ENTITY_DISTANCE')).toBe(true);
   });
 
-  it('handles rope chasm auto-use vs guardian manual selection and solver step deltas', () => {
+  it('requires explicit item selection for chasms and guardians, while solver matches null selection', () => {
     const chasm = { id: 'chasm_1', isGatekeeper: true, gateType: 'chasm', requires: ['rope'], reqType: 'AND', reward: null, zone: 1, unlocksZones: [2] };
     const guardian = { id: 'guard_1', isGatekeeper: true, gateType: 'guardian', requires: ['crystal'], reqType: 'AND', reward: null, zone: 2, unlocksZones: [3] };
     const goal = { id: 'vault_rock', isGatekeeper: true, gateType: 'rock', requires: ['pickaxe'], reqType: 'AND', reward: null, zone: 3, unlocksZones: [4] };
 
-    // Chasm auto-uses rope without explicit selection; guardian requires selection
-    expect(evaluateEntityTrade(['rope'], chasm, []).canDefeat).toBe(true);
+    // Both chasm and guardian require explicit selection in the UI (no auto-use)
+    expect(evaluateEntityTrade(['rope'], chasm, []).canDefeat).toBe(false);
+    expect(evaluateEntityTrade(['rope'], chasm, ['rope']).canDefeat).toBe(true);
     expect(evaluateEntityTrade(['crystal'], guardian, []).canDefeat).toBe(false);
     expect(evaluateEntityTrade(['crystal'], guardian, ['crystal']).canDefeat).toBe(true);
 
@@ -260,7 +261,16 @@ describe('Phase 1: Isotropic Engine & Decoupled Cave Primitives', () => {
       expect(chasmEl).toBeDefined();
       expect(chasmEl.style.top).toContain('17.578'); // 45 / 256 * 100
 
-      // Clicking chasm with rope in bag walks up and clears it
+      // Clicking chasm without selecting rope inspects its requirement rather than auto-consuming
+      await act(async () => { fireEvent.click(chasmEl); });
+      expect(container.textContent).toContain('🪢');
+
+      // Select rope in inventory bar, then click chasm to walk up and bridge it
+      const ropeSlot = Array.from(container.querySelectorAll('button')).find(
+        b => b.textContent.includes('🪢')
+      );
+      expect(ropeSlot).toBeDefined();
+      await act(async () => { fireEvent.click(ropeSlot); });
       await act(async () => { fireEvent.click(chasmEl); });
       await act(async () => { vi.advanceTimersByTime(1200); });
       expect(container.textContent).not.toContain('🪢'); // Rope consumed from inventory

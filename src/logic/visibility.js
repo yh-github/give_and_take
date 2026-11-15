@@ -157,7 +157,7 @@ export function getProceduralObstacleSegments(mapNodes, geometry, defeated = [])
       const maxX = cb ? cb.xRight : (node.x + 4);
       const yTop = cb ? cb.yTop : (node.y - 3);
       const yBottom = cb ? cb.yBottom : (node.y + 3);
-      const isBlockingSight = node.gateType !== 'chasm'; // Chasms block walking, not torchlight
+      const isBlockingSight = node.gateType !== 'chasm' && node.gateType !== 'guardian'; // Chasms and creature guardians block walking, not torchlight like solid rocks
 
       const meta = {
         isRock: true, // Used by pathfinding box-check for all solid gatekeepers
@@ -225,8 +225,22 @@ export function castRays(origin, segments, radius = 30) {
     const sightSegments = segments.filter(s => s.blocksSight !== false);
     if (sightSegments.length === 0) return [];
 
+    // Restrict sight segments to the bounding box around origin reachable by rays
+    const reach = radius * 1.35;
+    const minRx = origin.x - reach;
+    const maxRx = origin.x + reach;
+    const minRy = origin.y - reach;
+    const maxRy = origin.y + reach;
+    const localSightSegments = sightSegments.filter(s => {
+        const ax = s.a.x, bx = s.b.x;
+        if ((ax < minRx && bx < minRx) || (ax > maxRx && bx > maxRx)) return false;
+        const ay = s.a.y, by = s.b.y;
+        if ((ay < minRy && by < minRy) || (ay > maxRy && by > maxRy)) return false;
+        return true;
+    });
+
     const points = [];
-    sightSegments.forEach(s => {
+    localSightSegments.forEach(s => {
         if (s.a) points.push(s.a);
         if (s.b) points.push(s.b);
     });
@@ -269,13 +283,13 @@ export function castRays(origin, segments, radius = 30) {
         const ray = { a: origin, b: { x: origin.x + dx, y: origin.y + dy } };
 
         let closest = null;
-        sightSegments.forEach(s => {
-            const hit = getIntersection(ray, s);
-            if (!hit) return;
+        for (let i = 0; i < localSightSegments.length; i++) {
+            const hit = getIntersection(ray, localSightSegments[i]);
+            if (!hit) continue;
             if (!closest || hit.param < closest.param) {
                 closest = hit;
             }
-        });
+        }
 
         if (closest) {
             // Clamp to radius
@@ -338,8 +352,16 @@ export function isPointInVisibilityPolygon(point, polygonPoints) {
  */
 export function checkCollision(p1, p2, segments) {
     if (!p1 || !p2 || !segments || segments.length === 0) return false;
+    const minX = p1.x < p2.x ? p1.x : p2.x;
+    const maxX = p1.x > p2.x ? p1.x : p2.x;
+    const minY = p1.y < p2.y ? p1.y : p2.y;
+    const maxY = p1.y > p2.y ? p1.y : p2.y;
     const ray = { a: p1, b: p2 };
     for (const s of segments) {
+        const ax = s.a.x, bx = s.b.x;
+        if ((ax < minX && bx < minX) || (ax > maxX && bx > maxX)) continue;
+        const ay = s.a.y, by = s.b.y;
+        if ((ay < minY && by < minY) || (ay > maxY && by > maxY)) continue;
         const hit = getIntersection(ray, s);
         // hit.param is the distance multiplier. 0-1 means the intersection is between p1 and p2.
         if (hit && hit.param > 0.001 && hit.param < 0.999) {

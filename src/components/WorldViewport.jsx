@@ -54,6 +54,7 @@ export function WorldViewport({
   visibleEntitiesSet,
   wallSegments,
   breakingRockIds,
+  bridgingChasmIds,
   getCustomEntityMovement,
   handleInteract,
   playerVisualX,
@@ -249,6 +250,7 @@ export function WorldViewport({
           wallSegments={wallSegments}
           displayPlayerPos={displayPlayerPos}
           breakingRockIds={breakingRockIds}
+          bridgingChasmIds={bridgingChasmIds}
           isTransformed={isTransformed}
           hasDeepTreasure={hasDeepTreasure}
           getCustomEntityMovement={getCustomEntityMovement}

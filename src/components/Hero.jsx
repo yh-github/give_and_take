@@ -20,7 +20,7 @@ export function Hero({
 }) {
   return (
     <div 
-      className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} 
+      className={`absolute transform transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} 
       style={{ 
         left: `${playerVisualX}%`, 
         top: `${playerVisualYPct ?? playerVisualY}%`, 
