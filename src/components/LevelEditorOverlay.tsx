@@ -1,4 +1,13 @@
-import React from 'react';
+import React, { type Dispatch, type RefObject, type SetStateAction } from 'react';
+import type { LevelDefinition, MapNode } from '../types/index.ts';
+
+export interface LevelEditorOverlayProps {
+  isLevelEditor: boolean;
+  editorNodes: MapNode[];
+  setEditorNodes: Dispatch<SetStateAction<MapNode[]>>;
+  level: LevelDefinition;
+  innerMapRef: RefObject<HTMLDivElement | null>;
+}
 
 export function LevelEditorOverlay({
   isLevelEditor,
@@ -6,7 +15,7 @@ export function LevelEditorOverlay({
   setEditorNodes,
   level,
   innerMapRef
-}) {
+}: LevelEditorOverlayProps) {
   if (!isLevelEditor) return null;
 
   const handleSave = () => {
@@ -50,8 +59,9 @@ export function LevelEditorOverlay({
               }}
               onPointerDown={(e) => {
                 e.stopPropagation();
-                e.target.setPointerCapture(e.pointerId);
-                const handleMove = (eMove) => {
+                const target = e.currentTarget;
+                target.setPointerCapture(e.pointerId);
+                const handleMove = (eMove: PointerEvent) => {
                   if (!innerMapRef.current) return;
                   const rect = innerMapRef.current.getBoundingClientRect();
                   const newX = ((eMove.clientX - rect.left) / rect.width) * 100;
@@ -62,13 +72,13 @@ export function LevelEditorOverlay({
                     return copy;
                   });
                 };
-                const handleUp = (eUp) => {
-                  eUp.target.releasePointerCapture(eUp.pointerId);
-                  eUp.target.removeEventListener('pointermove', handleMove);
-                  eUp.target.removeEventListener('pointerup', handleUp);
+                const handleUp = (eUp: PointerEvent) => {
+                  target.releasePointerCapture(eUp.pointerId);
+                  target.removeEventListener('pointermove', handleMove);
+                  target.removeEventListener('pointerup', handleUp);
                 };
-                e.target.addEventListener('pointermove', handleMove);
-                e.target.addEventListener('pointerup', handleUp);
+                target.addEventListener('pointermove', handleMove);
+                target.addEventListener('pointerup', handleUp);
               }}
             >
               {isRock && level.RockComponent ? (

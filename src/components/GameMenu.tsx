@@ -1,15 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
 import {
   DEEP_CAVE_PRESETS,
   DEEP_CAVE_KNOB_DEFS,
   DEFAULT_DEEP_CAVE_SETTINGS,
   detectDeepCavePresetId,
   normalizeDeepCaveSettings
-} from '../levels/deep_cave/presets.js';
+} from '../levels/deep_cave/presets.ts';
+import type {
+  ActiveGameSettings,
+  DeepCaveKnobKey,
+  DeepCavePresetId,
+  DeepCaveSettings,
+  ImportStateResult,
+  LanguageCode,
+  LevelRegistry,
+  LightingSettings,
+  MenuView,
+  PuzzleData,
+  TranslationDictionary
+} from '../types/index.ts';
 
 export const GAME_VERSION = 'v1.7.10-secret-passage-sealed';
 
-export const DEFAULT_LIGHTING = {
+export const DEFAULT_LIGHTING: LightingSettings = {
   radius: 50,
   blur: 1.2,
   darknessColor: '#080604',
@@ -19,7 +32,17 @@ export const DEFAULT_LIGHTING = {
   flickerIntensity: 1.0
 };
 
-export function GenerationFailedScreen({ dict, failureHint = null, onOpenSettings }) {
+export interface GenerationFailedScreenProps {
+  dict: TranslationDictionary;
+  failureHint?: string | null;
+  onOpenSettings: () => void;
+}
+
+export function GenerationFailedScreen({
+  dict,
+  failureHint = null,
+  onOpenSettings
+}: GenerationFailedScreenProps) {
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative p-4 text-center">
       <div className="text-red-500 text-3xl font-black mb-4">{dict.genFailedTitle}</div>
@@ -39,7 +62,12 @@ export function GenerationFailedScreen({ dict, failureHint = null, onOpenSetting
   );
 }
 
-export function GeneratingScreen({ dict, isDeepCave = false }) {
+export interface GeneratingScreenProps {
+  dict: TranslationDictionary;
+  isDeepCave?: boolean;
+}
+
+export function GeneratingScreen({ dict, isDeepCave = false }: GeneratingScreenProps) {
   const message = isDeepCave && dict.carvingCave ? dict.carvingCave : dict.generating;
   return (
     <div className="min-h-screen bg-stone-900 flex flex-col items-center justify-center font-serif relative">
@@ -49,6 +77,32 @@ export function GeneratingScreen({ dict, isDeepCave = false }) {
       </div>
     </div>
   );
+}
+
+export interface GameMenuProps {
+  isOpen: boolean;
+  onClose: () => void;
+  menuView: MenuView;
+  setMenuView: Dispatch<SetStateAction<MenuView>>;
+  dict: TranslationDictionary;
+  lang: LanguageCode;
+  levelDictionary: LevelRegistry;
+  menuSettings: ActiveGameSettings;
+  setMenuSettings: Dispatch<SetStateAction<ActiveGameSettings>>;
+  onReplay: () => void;
+  onShowSolution: () => void;
+  onGenerateNew: (settings: ActiveGameSettings) => void;
+  onExportState?: (() => string) | null;
+  onImportState?: ((raw: string) => ImportStateResult) | null;
+  isVictorious: boolean;
+  isDemonstrating: boolean;
+  isAnimatingLoot: boolean;
+  puzzle: PuzzleData | null;
+  debugMode: boolean;
+  setDebugMode: Dispatch<SetStateAction<boolean>>;
+  lightingSettings: LightingSettings;
+  setLightingSettings: Dispatch<SetStateAction<LightingSettings>>;
+  currentLevelId?: string | null;
 }
 
 export function GameMenu({
@@ -75,20 +129,20 @@ export function GameMenu({
   lightingSettings,
   setLightingSettings,
   currentLevelId = null
-}) {
+}: GameMenuProps) {
   const [copied, setCopied] = useState(false);
   const [exportString, setExportString] = useState('');
   const [importText, setImportText] = useState('');
-  const [importError, setImportError] = useState(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [showAdvancedDeepCave, setShowAdvancedDeepCave] = useState(false);
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const resolvedDeepCaveSettings = normalizeDeepCaveSettings(
+  const resolvedDeepCaveSettings: DeepCaveSettings = normalizeDeepCaveSettings(
     menuSettings.deepCaveSettings || DEFAULT_DEEP_CAVE_SETTINGS
   );
   const activePresetId = detectDeepCavePresetId(resolvedDeepCaveSettings);
 
-  const handleSelectLevel = (newLevelId) => {
+  const handleSelectLevel = (newLevelId: string) => {
     if (newLevelId === 'deep_cave') {
       const nextDeep = normalizeDeepCaveSettings(
         menuSettings.deepCaveSettings || DEFAULT_DEEP_CAVE_SETTINGS
@@ -110,8 +164,8 @@ export function GameMenu({
     }
   };
 
-  const handleSelectDeepCavePreset = (presetId) => {
-    const preset = DEEP_CAVE_PRESETS[presetId];
+  const handleSelectDeepCavePreset = (presetId: string) => {
+    const preset = DEEP_CAVE_PRESETS[presetId as Exclude<DeepCavePresetId, 'custom'>];
     if (!preset) return;
     const normalized = normalizeDeepCaveSettings(preset);
     setMenuSettings({
@@ -122,7 +176,7 @@ export function GameMenu({
     });
   };
 
-  const handleUpdateDeepCaveKnob = (key, rawValue) => {
+  const handleUpdateDeepCaveKnob = (key: DeepCaveKnobKey, rawValue: string) => {
     const nextDeep = normalizeDeepCaveSettings({
       ...resolvedDeepCaveSettings,
       preset: undefined,
@@ -137,7 +191,7 @@ export function GameMenu({
     });
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportError(null);
@@ -310,24 +364,27 @@ export function GameMenu({
 
                     {showAdvancedDeepCave && (
                       <div className="mt-2 space-y-3 bg-stone-900/70 border border-stone-700 rounded-xl p-3">
-                        {Object.entries(DEEP_CAVE_KNOB_DEFS).map(([key, def]) => (
-                          <label key={key} className="flex flex-col gap-1 text-sm font-bold">
-                            <span className="flex justify-between text-stone-300">
-                              <span>{dict.knobs?.[key] || key}</span>
-                              <span className="text-amber-400 font-mono">{resolvedDeepCaveSettings[key]}</span>
-                            </span>
-                            <input
-                              type="range"
-                              min={def.min}
-                              max={def.max}
-                              step={def.step}
-                              data-testid={`knob-${key}`}
-                              value={resolvedDeepCaveSettings[key]}
-                              onChange={(e) => handleUpdateDeepCaveKnob(key, e.target.value)}
-                              className="w-full accent-amber-500 h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer"
-                            />
-                          </label>
-                        ))}
+                        {Object.entries(DEEP_CAVE_KNOB_DEFS).map(([key, def]) => {
+                          const knobKey = key as DeepCaveKnobKey;
+                          return (
+                            <label key={key} className="flex flex-col gap-1 text-sm font-bold">
+                              <span className="flex justify-between text-stone-300">
+                                <span>{dict.knobs?.[knobKey] || key}</span>
+                                <span className="text-amber-400 font-mono">{resolvedDeepCaveSettings[knobKey]}</span>
+                              </span>
+                              <input
+                                type="range"
+                                min={def.min}
+                                max={def.max}
+                                step={def.step}
+                                data-testid={`knob-${key}`}
+                                value={resolvedDeepCaveSettings[knobKey]}
+                                onChange={(e) => handleUpdateDeepCaveKnob(knobKey, e.target.value)}
+                                className="w-full accent-amber-500 h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer"
+                              />
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

@@ -1,4 +1,19 @@
 import React from 'react';
+import type { ItemDefinition, LevelDefinition, TranslationDictionary } from '../types/index.ts';
+
+export interface InventoryBarProps {
+  inventory: string[];
+  selectedItemTypes: string[];
+  toggleInventoryType: (itemId: string) => void;
+  handleUndo: () => void;
+  isDemonstrating: boolean;
+  isAnimatingLoot: boolean;
+  isRefillingAir: boolean;
+  historyStack: unknown[];
+  level: LevelDefinition;
+  dict: TranslationDictionary;
+  isInventoryFullAlert?: boolean;
+}
 
 export function InventoryBar({
   inventory,
@@ -12,7 +27,7 @@ export function InventoryBar({
   level,
   dict,
   isInventoryFullAlert = false
-}) {
+}: InventoryBarProps) {
   const uniqueInventoryItems = Array.from(new Set(inventory));
   const uniqueCount = uniqueInventoryItems.length;
   const isFull = uniqueCount >= 4;
@@ -89,12 +104,12 @@ export function InventoryBar({
 
         {[0, 1, 2, 3].map((slotIdx) => {
           const itemId = uniqueInventoryItems[slotIdx];
-          let item = itemId ? level.items.find(x => x.id === itemId) : null;
+          let item: ItemDefinition | null | undefined = itemId ? level.items.find(x => x.id === itemId) : null;
           if (itemId === 'fish' && !item) {
             item = { id: 'fish', name: dict.items?.fish || 'Fish', emoji: '🐟' };
           }
           const count = itemId ? inventory.filter(i => i === itemId).length : 0;
-          const isSelected = item && selectedItemTypes.includes(itemId);
+          const isSelected = Boolean(item && selectedItemTypes.includes(itemId));
 
           return (
             <button 

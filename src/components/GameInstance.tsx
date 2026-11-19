@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, type MouseEvent } from 'react';
 import {
   MAX_AIR,
-  MAX_UNIQUE_ITEMS,
   FISH_SPAWN_INTERVAL_MS,
   BOAT_SPAWN_INTERVAL_MS,
   INK_FOG_DURATION_MS,
@@ -15,36 +14,101 @@ import {
   UNDERWATER_INSPECT_RADIUS,
   CANONICAL_SCREEN_HEIGHT,
   DEEP_CAVE_HERO_RADIUS
-} from '../constants.js';
-import STRINGS from '../strings.js';
-import LEVEL_REGISTRY from '../levels/index.js';
-import { generateLevelPuzzle } from '../logic/generator.js';
-import { generateDeepCaveAsync } from '../levels/deep_cave/workerClient.js';
-import { DEFAULT_DEEP_CAVE_SETTINGS, normalizeDeepCaveSettings } from '../levels/deep_cave/presets.js';
-import { computeWaypoints, uniqueCount, inferTargetZone } from '../logic/navigation.js';
-import { getVisibilityPolygon, getObstacleSegments, getProceduralObstacleSegments, isPointInVisibilityPolygon, checkCollision } from '../logic/visibility.js';
-import { findGlobalPath } from '../logic/pathfinding.js';
-import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.js';
-import { createShuffleBag } from '../logic/rng.js';
+} from '../constants.ts';
+import STRINGS from '../strings.ts';
+import LEVEL_REGISTRY from '../levels/index.ts';
+import { generateLevelPuzzle } from '../logic/generator.ts';
+import { generateDeepCaveAsync } from '../levels/deep_cave/workerClient.ts';
+import { DEFAULT_DEEP_CAVE_SETTINGS, normalizeDeepCaveSettings } from '../levels/deep_cave/presets.ts';
+import { computeNavigationPath, computeWaypoints, inferTargetZone } from '../logic/navigation.ts';
+import {
+  computeVisibleEntitiesSet,
+  getVisibilityPolygon,
+  getObstacleSegments,
+  getProceduralObstacleSegments,
+  isPointInVisibilityPolygon
+} from '../logic/visibility.ts';
+import { findGlobalPath } from '../logic/pathfinding.ts';
+import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.ts';
+import { createShuffleBag } from '../logic/rng.ts';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
-import { getCorridorBounds } from '../logic/geometry.js';
 import {
   createSavePayload,
   saveToAutoSave,
   clearAutoSave,
   exportStateToString,
   importStateFromString
-} from '../logic/saveState.js';
+} from '../logic/saveState.ts';
 
-import { GameMenu, GeneratingScreen, GenerationFailedScreen, DEFAULT_LIGHTING } from './GameMenu.jsx';
-import InventoryBar from './InventoryBar.jsx';
-import AirIndicator from './AirIndicator.jsx';
-import TopBar from './TopBar.jsx';
-import WorldViewport from './WorldViewport.jsx';
-import { MagicTransformationOverlay, VictoryCelebration } from './EffectsOverlay.jsx';
-import LevelEditorOverlay from './LevelEditorOverlay.jsx';
+import { GameMenu, GeneratingScreen, GenerationFailedScreen, DEFAULT_LIGHTING } from './GameMenu.tsx';
+import InventoryBar from './InventoryBar.tsx';
+import AirIndicator from './AirIndicator.tsx';
+import TopBar from './TopBar.tsx';
+import WorldViewport from './WorldViewport.tsx';
+import { MagicTransformationOverlay, VictoryCelebration } from './EffectsOverlay.tsx';
+import LevelEditorOverlay from './LevelEditorOverlay.tsx';
+import type {
+  ActiveGameSettings,
+  AlertReason,
+  CampItemState,
+  ClickIndicatorState,
+  CollarBounds,
+  CustomEntityMovement,
+  DeepCaveSettings,
+  FlyingItemState,
+  GameHistoryEntry,
+  GameInstanceProps,
+  HeroBubbleBurst,
+  ImportStateResult,
+  LevelRegistry,
+  LightingSettings,
+  MapNode,
+  MenuView,
+  PathHistoryPoint,
+  Point2D,
+  PuzzleData,
+  PuzzleEntity,
+  RoamingBoatState,
+  SavePayload,
+  SchoolFishState,
+  SerializedHistoryEntry,
+  Waypoint
+} from '../types/index.ts';
 
-const LEVEL_DICTIONARY = LEVEL_REGISTRY;
+const LEVEL_DICTIONARY: LevelRegistry = LEVEL_REGISTRY;
+
+interface GameStateSnapshotRef {
+  inventory: string[];
+  defeated: string[];
+  pathHistory: PathHistoryPoint[];
+  envItemState: string;
+  unlockedZones: number[];
+  campItems: CampItemState[];
+  buriedEntities: string[];
+  air: number;
+  isTransformed: boolean;
+  hasDeepTreasure: boolean;
+  inkFogEntities: Set<string>;
+  dolphinState: string;
+  dolphinYPos: number;
+}
+
+const hydrateHistoryStack = (stack: SerializedHistoryEntry[] | undefined): GameHistoryEntry[] =>
+  (stack || []).map((entry) => ({
+    inventory: entry.inventory || [],
+    defeated: entry.defeated || [],
+    pathHistory: entry.pathHistory || [],
+    envItemState: entry.envItemState || 'active',
+    unlockedZones: entry.unlockedZones || [1],
+    campItems: entry.campItems || [],
+    buriedEntities: entry.buriedEntities || [],
+    air: entry.air ?? MAX_AIR,
+    isTransformed: Boolean(entry.isTransformed),
+    hasDeepTreasure: Boolean(entry.hasDeepTreasure),
+    inkFogEntities: new Set(entry.inkFogEntities || []),
+    dolphinState: entry.dolphinState || 'idle_surface',
+    dolphinYPos: typeof entry.dolphinYPos === 'number' ? entry.dolphinYPos : 22
+  }));
 
 export function GameInstance({
   level,
@@ -58,13 +122,13 @@ export function GameInstance({
   onDismissSaveVersionWarning = null,
   lang,
   setLang
-}) {
-  const [puzzle, setPuzzle] = useState(() => savedState?.puzzle || null);
+}: GameInstanceProps) {
+  const [puzzle, setPuzzle] = useState<PuzzleData | null>(() => savedState?.puzzle || null);
   const [generationFailed, setGenerationFailed] = useState(false);
-  const [generationFailureHint, setGenerationFailureHint] = useState(null);
+  const [generationFailureHint, setGenerationFailureHint] = useState<string | null>(null);
   const [isLevelEditor] = useState(() => new URLSearchParams(window.location.search).get('editor') === 'true');
   const [editorScrollY, setEditorScrollY] = useState(0);
-  const [editorNodes, setEditorNodes] = useState([]);
+  const [editorNodes, setEditorNodes] = useState<MapNode[]>([]);
 
   useEffect(() => {
     if (isLevelEditor && level && level.mapNodes) {
@@ -72,16 +136,13 @@ export function GameInstance({
     }
   }, [isLevelEditor, level]);
 
-  const [inventory, setInventory] = useState(() => savedState?.inventory || savedState?.puzzle?.startItems || []);
-  const [unlockedZones, setUnlockedZones] = useState(() => savedState?.unlockedZones || [1]);
-  const [defeated, setDefeated] = useState(() => savedState?.defeated || []);
-  const [selectedItemTypes, setSelectedItemTypes] = useState([]);
-  const [pathHistory, setPathHistory] = useState(() => savedState?.pathHistory || [{ ...level.campPos, zone: 1 }]);
-  const [historyStack, setHistoryStack] = useState(() => (savedState?.historyStack || []).map(entry => ({
-    ...entry,
-    inkFogEntities: new Set(entry.inkFogEntities || [])
-  })));
-  const [air, setAir] = useState(() => savedState?.air ?? MAX_AIR);
+  const [inventory, setInventory] = useState<string[]>(() => savedState?.inventory || savedState?.puzzle?.startItems || []);
+  const [unlockedZones, setUnlockedZones] = useState<number[]>(() => savedState?.unlockedZones || [1]);
+  const [defeated, setDefeated] = useState<string[]>(() => savedState?.defeated || []);
+  const [selectedItemTypes, setSelectedItemTypes] = useState<string[]>([]);
+  const [pathHistory, setPathHistory] = useState<PathHistoryPoint[]>(() => savedState?.pathHistory || [{ ...level.campPos, zone: 1 }]);
+  const [historyStack, setHistoryStack] = useState<GameHistoryEntry[]>(() => hydrateHistoryStack(savedState?.historyStack));
+  const [air, setAir] = useState<number>(() => savedState?.air ?? MAX_AIR);
 
   const dict = STRINGS[lang] || STRINGS.en;
 
@@ -90,22 +151,22 @@ export function GameInstance({
   const [showVictoryMsg, setShowVictoryMsg] = useState(false);
   const [isDemonstrating, setIsDemonstrating] = useState(false);
   const [isAnimatingLoot, setIsAnimatingLoot] = useState(false);
-  const [alertEntityId, setAlertEntityId] = useState(null);
-  const [alertReason, setAlertReason] = useState(null);
+  const [alertEntityId, setAlertEntityId] = useState<string | number | null>(null);
+  const [alertReason, setAlertReason] = useState<AlertReason>(null);
   const [isInventoryFullAlert, setIsInventoryFullAlert] = useState(false);
-  const [selectedEntityId, setSelectedEntityId] = useState(null);
-  const [flyingItem, setFlyingItem] = useState(null);
-  const [tempPlayerPos, setTempPlayerPos] = useState(null);
-  const [envItemState, setEnvItemState] = useState(() => savedState?.envItemState || 'active');
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [flyingItem, setFlyingItem] = useState<FlyingItemState | null>(null);
+  const [tempPlayerPos, setTempPlayerPos] = useState<PathHistoryPoint | null>(null);
+  const [envItemState, setEnvItemState] = useState<string>(() => savedState?.envItemState || 'active');
   const [envItemCaughtPos, setEnvItemCaughtPos] = useState(() => savedState?.envItemCaughtPos || { x: 50, y: 50 });
-  const [schoolsOfFish, setSchoolsOfFish] = useState([]);
-  const [campItems, setCampItems] = useState(() => savedState?.campItems || []);
-  const [massFlyingTreasures, setMassFlyingTreasures] = useState([]);
-  const [clickIndicator, setClickIndicator] = useState(null);
-  const [heroBubbleBursts, setHeroBubbleBursts] = useState([]);
+  const [schoolsOfFish, setSchoolsOfFish] = useState<SchoolFishState[]>([]);
+  const [campItems, setCampItems] = useState<CampItemState[]>(() => savedState?.campItems || []);
+  const [massFlyingTreasures, setMassFlyingTreasures] = useState<FlyingItemState[]>([]);
+  const [clickIndicator, setClickIndicator] = useState<ClickIndicatorState | null>(null);
+  const [heroBubbleBursts, setHeroBubbleBursts] = useState<HeroBubbleBurst[]>([]);
   const [moveDurationMs, setMoveDurationMs] = useState(300);
 
-  const resolvedDeepCaveSettings = useMemo(() => {
+  const resolvedDeepCaveSettings: DeepCaveSettings = useMemo(() => {
     if (level.id !== 'deep_cave') return DEFAULT_DEEP_CAVE_SETTINGS;
     if (savedState?.settings) return normalizeDeepCaveSettings(savedState.settings);
     if (deepCaveSettings) return normalizeDeepCaveSettings(deepCaveSettings);
@@ -113,31 +174,31 @@ export function GameInstance({
   }, [level.id, savedState?.settings, deepCaveSettings, targetSteps, numDiggers]);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuView, setMenuView] = useState('main');
-  const [menuSettings, setMenuSettings] = useState({
+  const [menuView, setMenuView] = useState<MenuView>('main');
+  const [menuSettings, setMenuSettings] = useState<ActiveGameSettings>({
     levelId: level.id,
     steps: targetSteps,
     diggers: numDiggers,
     deepCaveSettings: resolvedDeepCaveSettings
   });
 
-  const [animatingEntities, setAnimatingEntities] = useState([]);
-  const [buriedEntities, setBuriedEntities] = useState(() => savedState?.buriedEntities || []);
+  const [animatingEntities, setAnimatingEntities] = useState<string[]>([]);
+  const [buriedEntities, setBuriedEntities] = useState<string[]>(() => savedState?.buriedEntities || []);
   const [isTransformed, setIsTransformed] = useState(() => Boolean(savedState?.isTransformed));
   const [isRefillingAir, setIsRefillingAir] = useState(false);
   const [hasDeepTreasure, setHasDeepTreasure] = useState(() => Boolean(savedState?.hasDeepTreasure));
-  const [inkFogEntities, setInkFogEntities] = useState(() => new Set(savedState?.inkFogEntities || []));
-  const [roamingBoats, setRoamingBoats] = useState([]);
+  const [inkFogEntities, setInkFogEntities] = useState<Set<string>>(() => new Set(savedState?.inkFogEntities || []));
+  const [roamingBoats, setRoamingBoats] = useState<RoamingBoatState[]>([]);
   const [gameTime, setGameTime] = useState(0);
-  const [attachedEntityId, setAttachedEntityId] = useState(null);
+  const [attachedEntityId, setAttachedEntityId] = useState<string | null>(null);
   const [isMagicAnimating, setIsMagicAnimating] = useState(false);
   const [debugMode, setDebugMode] = useState(() => Boolean(savedState?.debugMode));
-  const [lightingSettings, setLightingSettings] = useState(() => savedState?.lightingSettings || DEFAULT_LIGHTING);
+  const [lightingSettings, setLightingSettings] = useState<LightingSettings>(() => savedState?.lightingSettings || DEFAULT_LIGHTING);
 
-  const [dolphinState, setDolphinState] = useState(() => savedState?.dolphinState || 'idle_surface');
-  const [dolphinYPos, setDolphinYPos] = useState(() => typeof savedState?.dolphinYPos === 'number' ? savedState.dolphinYPos : 22);
-  const [breakingRockIds, setBreakingRockIds] = useState({});
-  const [bridgingChasmIds, setBridgingChasmIds] = useState({});
+  const [dolphinState, setDolphinState] = useState<string>(() => savedState?.dolphinState || 'idle_surface');
+  const [dolphinYPos, setDolphinYPos] = useState<number>(() => typeof savedState?.dolphinYPos === 'number' ? savedState.dolphinYPos : 22);
+  const [breakingRockIds, setBreakingRockIds] = useState<Record<string, boolean>>({});
+  const [bridgingChasmIds, setBridgingChasmIds] = useState<Record<string, boolean>>({});
   const dolphinStateRef = useRef('idle_surface');
   const dolphinYPosRef = useRef(22);
   useEffect(() => { dolphinStateRef.current = dolphinState; }, [dolphinState]);
@@ -147,12 +208,26 @@ export function GameInstance({
   const airRef = useRef(air); airRef.current = air;
   const isDemoRef = useRef(isDemonstrating); isDemoRef.current = isDemonstrating;
   const isVicRef = useRef(isVictorious); isVicRef.current = isVictorious;
-  const stateRefs = useRef({});
-  const activeDigTimers = useRef({});
-  const managedTimeoutsRef = useRef(new Set());
+  const stateRefs = useRef<GameStateSnapshotRef>({
+    inventory,
+    defeated,
+    pathHistory,
+    envItemState,
+    unlockedZones,
+    campItems,
+    buriedEntities,
+    air,
+    isTransformed,
+    hasDeepTreasure,
+    inkFogEntities,
+    dolphinState,
+    dolphinYPos
+  });
+  const activeDigTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const managedTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const walkSessionRef = useRef(0);
 
-  const scheduleTimeout = useCallback((fn, delayMs) => {
+  const scheduleTimeout = useCallback((fn: () => void, delayMs: number) => {
     const id = setTimeout(() => {
       managedTimeoutsRef.current.delete(id);
       fn();
@@ -184,11 +259,15 @@ export function GameInstance({
   const effectiveCampPos = puzzle?.geometry?.campPos || level.campPos;
 
   const activeTorchRadius = useMemo(() => {
-    if (useIsotropic && !debugMode && puzzle?.settings?.torchRadius) {
-      return puzzle.settings.torchRadius;
+    const customTorchRadius =
+      puzzle?.settings && typeof puzzle.settings.torchRadius === 'number'
+        ? puzzle.settings.torchRadius
+        : null;
+    if (useIsotropic && !debugMode && customTorchRadius) {
+      return customTorchRadius;
     }
     return lightingSettings?.radius || lightingSettings?.torchRadius || 50;
-  }, [useIsotropic, debugMode, puzzle?.settings?.torchRadius, lightingSettings]);
+  }, [useIsotropic, debugMode, puzzle?.settings, lightingSettings]);
 
   const effectiveLighting = useMemo(() => ({
     ...lightingSettings,
@@ -217,55 +296,16 @@ export function GameInstance({
     if (!polyPoints || !puzzle) return null;
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
     if (!pPos) return null;
-    const visible = new Set();
-    const torchRadius = activeTorchRadius;
-    const sightSegments = obstacleSegments.filter(s => s.blocksSight !== false);
-
-    puzzle.puzzleEntities.forEach(e => {
-      const isChasm = Boolean(e.isGatekeeper && e.gateType === 'chasm');
-      const isRock = (e.isGatekeeper && level.mechanics.hasPickaxe && e.id !== 'final_gate' && !isChasm && e.gateType !== 'guardian') || e.isExtraRock;
-      let targetPoint;
-      let dist;
-      if (isRock || isChasm || e.isGatekeeper) {
-        if (e.collarBounds) {
-          const cb = e.collarBounds;
-          if (cb.orientation === 'vertical') {
-            const rockY = Math.max(cb.yTop + 2, Math.min(cb.yBottom - 2, pPos.y));
-            const facingX = pPos.x < e.x ? cb.xLeft : cb.xRight;
-            targetPoint = { x: facingX, y: rockY * yScale };
-            dist = Math.hypot(facingX - pPos.x, rockY - pPos.y);
-          } else {
-            const rockX = Math.max(cb.xLeft + 2, Math.min(cb.xRight - 2, pPos.x));
-            const facingY = pPos.y < e.y ? cb.yTop : cb.yBottom;
-            targetPoint = { x: rockX, y: facingY * yScale };
-            dist = Math.hypot(rockX - pPos.x, facingY - pPos.y);
-          }
-        } else {
-          let rockX = e.x;
-          if (level.id === 'underground' && CAVE_WALL_VERTICES) {
-            const bounds = getCorridorBounds(e.y, CAVE_WALL_VERTICES, e.x >= 50);
-            rockX = Math.max(bounds.xLeft + 2, Math.min(bounds.xRight - 2, pPos.x));
-          }
-          const facingY = pPos.y < e.y ? (e.y - 1.5) : (e.y + 1.5);
-          targetPoint = { x: rockX, y: facingY * yScale };
-          dist = Math.sqrt(Math.pow(rockX - pPos.x, 2) + Math.pow(facingY - pPos.y, 2));
-        }
-      } else {
-        targetPoint = { x: e.x, y: e.y * yScale };
-        dist = Math.sqrt(Math.pow(e.x - pPos.x, 2) + Math.pow(e.y - pPos.y, 2));
-      }
-
-      if (dist > torchRadius) return;
-
-      const pPosScaled = { x: pPos.x, y: pPos.y * yScale };
-      const otherSegments = sightSegments.filter(s => s.rockId !== e.id);
-      const isLoSBlocked = checkCollision(pPosScaled, targetPoint, otherSegments);
-
-      if (!isLoSBlocked) {
-        visible.add(e.id);
-      }
+    return computeVisibleEntitiesSet({
+      puzzleEntities: puzzle.puzzleEntities,
+      playerPos: pPos,
+      obstacleSegments,
+      torchRadius: activeTorchRadius,
+      yScale,
+      levelId: level.id,
+      hasPickaxe: Boolean(level.mechanics.hasPickaxe),
+      caveWallVertices: CAVE_WALL_VERTICES
     });
-    return visible;
   }, [polyPoints, puzzle, tempPlayerPos, pathHistory, obstacleSegments, yScale, activeTorchRadius, level.mechanics.hasPickaxe, level.id]);
 
   const debugSegments = useMemo(() => {
@@ -289,17 +329,14 @@ export function GameInstance({
     setGenerationFailed(false);
     setGenerationFailureHint(null);
 
-    const applySavedProgress = (saved, loadedPuzzle) => {
+    const applySavedProgress = (saved: SavePayload, loadedPuzzle: PuzzleData) => {
       const fallbackCamp = loadedPuzzle?.geometry?.campPos || level.campPos;
       setPuzzle(loadedPuzzle);
       setInventory(saved.inventory || loadedPuzzle?.startItems || []);
       setPathHistory(saved.pathHistory || [{ ...fallbackCamp, zone: 1 }]);
       setUnlockedZones(saved.unlockedZones || [1]);
       setDefeated(saved.defeated || []);
-      setHistoryStack((saved.historyStack || []).map(entry => ({
-        ...entry,
-        inkFogEntities: new Set(entry.inkFogEntities || [])
-      })));
+      setHistoryStack(hydrateHistoryStack(saved.historyStack));
       setCampItems(saved.campItems || []);
       setBuriedEntities(saved.buriedEntities || []);
       setAir(saved.air ?? MAX_AIR);
@@ -319,7 +356,7 @@ export function GameInstance({
       setAttachedEntityId(null);
     };
 
-    const applyFreshPuzzle = (generated) => {
+    const applyFreshPuzzle = (generated: PuzzleData) => {
       const startCamp = generated.geometry?.campPos || level.campPos;
       setPuzzle(generated);
       setInventory(generated.startItems || []);
@@ -345,28 +382,31 @@ export function GameInstance({
     if (level.id === 'deep_cave') {
       let cancelled = false;
       const controller = new AbortController();
-      const isCompactHydration = Boolean(savedState && !savedState.puzzle && savedState.seed != null);
+      const compactSavedState = (savedState && !savedState.puzzle && savedState.seed != null)
+        ? savedState
+        : null;
       const hydrateSettings = normalizeDeepCaveSettings(
-        isCompactHydration ? (savedState.settings || resolvedDeepCaveSettings) : resolvedDeepCaveSettings
+        compactSavedState ? (compactSavedState.settings || resolvedDeepCaveSettings) : resolvedDeepCaveSettings
       );
 
       setPuzzle(null);
       generateDeepCaveAsync(hydrateSettings, {
-        seed: isCompactHydration ? savedState.seed : null,
+        seed: compactSavedState ? compactSavedState.seed : null,
         signal: controller.signal
       })
         .then((result) => {
           if (cancelled || !result?.puzzle) return;
-          if (isCompactHydration) {
-            applySavedProgress(savedState, result.puzzle);
+          if (compactSavedState) {
+            applySavedProgress(compactSavedState, result.puzzle);
           } else {
             applyFreshPuzzle(result.puzzle);
           }
         })
-        .catch((err) => {
-          if (cancelled || err?.isCancelled) return;
-          if (err?.isCustomTimeout) {
-            setGenerationFailureHint(dict.deepCaveTimeoutHint || err.message);
+        .catch((err: unknown) => {
+          const workerErr = err as { isCancelled?: boolean; isCustomTimeout?: boolean; message?: string } | null;
+          if (cancelled || workerErr?.isCancelled) return;
+          if (workerErr?.isCustomTimeout) {
+            setGenerationFailureHint(dict.deepCaveTimeoutHint || workerErr.message || null);
           }
           setGenerationFailed(true);
         });
@@ -385,8 +425,8 @@ export function GameInstance({
     applyFreshPuzzle(p);
   }, [level, targetSteps, numDiggers, savedState, resolvedDeepCaveSettings, dict.deepCaveTimeoutHint]);
 
-  const mapRef = useRef(null);
-  const innerMapRef = useRef(null);
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const innerMapRef = useRef<HTMLDivElement | null>(null);
   const demoRef = useRef(false);
 
   const triggerVictory = useCallback(() => {
@@ -395,141 +435,37 @@ export function GameInstance({
     setShowVictoryMsg(true);
   }, []);
 
-  const navigateTo = useCallback((targetX, targetY, targetZone, targetDepth, isInteract = false, occluderType = null, collarBounds = null) => {
+  const navigateTo = useCallback((
+    targetX: number,
+    targetY: number,
+    targetZone: number,
+    targetDepth?: number,
+    isInteract = false,
+    occluderType: string | null = null,
+    collarBounds: CollarBounds | null = null
+  ): Waypoint[] => {
     if (!puzzle) return [];
     const lastPos = pathHistory[pathHistory.length - 1];
-    
-    if (level.mechanics.isCaveType && lastPos) {
-      const dynamicObstacles = obstacleSegments;
-      const polygons = obstaclePolygons;
-      const res = useIsotropic ? 2.5 : 3;
-      const pathOpts = useIsotropic
-        ? { radius: DEEP_CAVE_HERO_RADIUS, maxIters: 25000, cornerClearance: 1.5 }
-        : {};
-      const pathBounds = { width: 100, height: worldHeight };
-      let finalTargetX = targetX;
-      let finalTargetY = targetY;
-
-      if (occluderType === 'rock' || occluderType === 'chasm' || occluderType === 'guardian') {
-        if (collarBounds) {
-          let isAlreadyInRange = false;
-          if (collarBounds.orientation === 'vertical') {
-            finalTargetY = Math.max(collarBounds.yTop + 3, Math.min(collarBounds.yBottom - 3, lastPos.y));
-            const isLeft = lastPos.x <= targetX;
-            finalTargetX = isLeft ? (collarBounds.xLeft - 4.0) : (collarBounds.xRight + 4.0);
-            const yDist = Math.max(0, Math.max(collarBounds.yTop - lastPos.y, lastPos.y - collarBounds.yBottom));
-            isAlreadyInRange = yDist <= 2 && Math.abs(lastPos.x - targetX) <= 7.0;
-          } else {
-            finalTargetX = Math.max(collarBounds.xLeft + 3, Math.min(collarBounds.xRight - 3, lastPos.x));
-            const isAbove = lastPos.y <= targetY;
-            finalTargetY = isAbove ? (collarBounds.yTop - 4.0) : (collarBounds.yBottom + 4.0);
-            const xDist = Math.max(0, Math.max(collarBounds.xLeft - lastPos.x, lastPos.x - collarBounds.xRight));
-            isAlreadyInRange = xDist <= 2 && Math.abs(lastPos.y - targetY) <= 7.0;
-          }
-
-          const startPt = { x: lastPos.x, y: lastPos.y * yScale };
-          const endPt = { x: finalTargetX, y: finalTargetY * yScale };
-          const rawPath = findGlobalPath(startPt, endPt, dynamicObstacles, pathBounds, polygons, res, pathOpts);
-
-          if (rawPath.length > 0) {
-            return rawPath.map(p => ({
-              x: p.x,
-              y: p.y / yScale,
-              depth: targetDepth || 3,
-              zone: targetZone
-            }));
-          } else if (isAlreadyInRange) {
-            return [{
-              x: lastPos.x,
-              y: lastPos.y,
-              depth: targetDepth || 3,
-              zone: targetZone
-            }];
-          }
-          return [];
-        }
-
-        const bounds = getCorridorBounds(targetY, CAVE_WALL_VERTICES, targetX >= 50);
-        finalTargetX = Math.max(bounds.xLeft + 3, Math.min(bounds.xRight - 3, lastPos.x));
-        const isAbove = lastPos.y <= targetY;
-        finalTargetY = isAbove ? (targetY - 1.5 - 1.2) : (targetY + 1.5 + 1.2);
-
-        const xDist = Math.max(0, Math.max(bounds.xLeft - lastPos.x, lastPos.x - bounds.xRight));
-        const yDist = Math.abs(lastPos.y - targetY);
-        const isAlreadyInRange = xDist <= 2 && yDist <= 3.8;
-
-        const startPt = { x: lastPos.x, y: lastPos.y * yScale };
-        const endPt = { x: finalTargetX, y: finalTargetY * yScale };
-        const rawPath = findGlobalPath(startPt, endPt, dynamicObstacles, pathBounds, polygons, res, pathOpts);
-
-        if (rawPath.length > 0) {
-          return rawPath.map(p => ({
-            x: p.x,
-            y: p.y / yScale,
-            depth: targetDepth || 3,
-            zone: targetZone
-          }));
-        } else if (isAlreadyInRange) {
-          return [{
-            x: lastPos.x,
-            y: lastPos.y,
-            depth: targetDepth || 3,
-            zone: targetZone
-          }];
-        }
-        return [];
-      }
-
-      if (isInteract) {
-        const stopOffset = useIsotropic ? (DEEP_CAVE_HERO_RADIUS + 1.5) : 3.5;
-        const dx = finalTargetX - lastPos.x;
-        const dy = finalTargetY - lastPos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > stopOffset) {
-          finalTargetX = finalTargetX - (dx / dist) * stopOffset;
-          finalTargetY = finalTargetY - (dy / dist) * stopOffset;
-        } else if (dist > 0) {
-          finalTargetX = lastPos.x;
-          finalTargetY = lastPos.y;
-        }
-      }
-
-      const startPt = { x: lastPos.x, y: lastPos.y * yScale };
-      const endPt = { x: finalTargetX, y: finalTargetY * yScale };
-      const rawPath = findGlobalPath(startPt, endPt, dynamicObstacles, pathBounds, polygons, res, pathOpts);
-      
-      return rawPath.map(p => ({
-        x: p.x,
-        y: p.y / yScale,
-        depth: targetDepth || 3,
-        zone: targetZone
-      }));
-    }
-
-    let waypoints = computeWaypoints(lastPos.zone || 1, targetZone);
-    let path = [];
-    waypoints.forEach(wp => {
-      path.push({ x: wp.x, y: wp.y, depth: targetDepth || 3, zone: wp.zone });
+    return computeNavigationPath({
+      lastPos,
+      targetX,
+      targetY,
+      targetZone,
+      targetDepth,
+      isInteract,
+      occluderType,
+      collarBounds,
+      isCaveType: Boolean(level.mechanics.isCaveType),
+      useIsotropic,
+      worldHeight,
+      yScale,
+      obstacleSegments,
+      obstaclePolygons,
+      caveWallVertices: CAVE_WALL_VERTICES
     });
-
-    let finalX = targetX;
-    let finalY = targetY;
-    
-    if (isInteract) {
-      const prevPoint = path.length > 0 ? path[path.length - 1] : lastPos;
-      const dx = finalX - prevPoint.x;
-      const dy = finalY - prevPoint.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) {
-        finalX = finalX - (dx / dist) * 3.5;
-        finalY = finalY - (dy / dist) * 3.5;
-      }
-    }
-    
-    return [{ x: finalX, y: finalY, depth: targetDepth || 3, zone: targetZone }];
   }, [puzzle, pathHistory, level.mechanics.isCaveType, obstacleSegments, obstaclePolygons, useIsotropic, worldHeight, yScale]);
 
-  const handlePostActionAir = useCallback((finalY, isVentAction = false) => {
+  const handlePostActionAir = useCallback((finalY: number, isVentAction = false) => {
     if (!level.mechanics.hasAir || isTransformed) return;
     if (finalY <= 20 || isVentAction) {
       setAir(MAX_AIR);
@@ -586,7 +522,7 @@ export function GameInstance({
     if (level.id !== 'underwater') return;
     if (dolphinState !== 'diving' && dolphinState !== 'rising') return;
 
-    let frameId;
+    let frameId = 0;
     const update = () => {
       const anim = dolphinAnimRef.current;
       const state = dolphinStateRef.current;
@@ -626,7 +562,7 @@ export function GameInstance({
 
   useEffect(() => {
     if (!level.mechanics.hasSchoolsOfFish) return;
-    let timeoutIds = [];
+    const timeoutIds: Array<ReturnType<typeof setTimeout>> = [];
     const spawnFish = (isInitial = false) => {
       if (isDemoRef.current || isVicRef.current) return;
       const id = Date.now() + Math.random();
@@ -648,7 +584,7 @@ export function GameInstance({
 
   useEffect(() => {
     if (level.id !== 'underwater' || !puzzle) return;
-    let timeoutIds = [];
+    const timeoutIds: Array<ReturnType<typeof setTimeout>> = [];
     const primaryBoatItem = puzzle.boatOfferedItem || 'boot';
     const safePool = Array.isArray(puzzle.safeBoatItems) && puzzle.safeBoatItems.length > 0
       ? puzzle.safeBoatItems
@@ -784,7 +720,7 @@ export function GameInstance({
     setHeroBubbleBursts([]);
   };
 
-  const triggerInventoryFullAlert = useCallback((targetId) => {
+  const triggerInventoryFullAlert = useCallback((targetId: string | number) => {
     setAlertEntityId(targetId);
     setAlertReason('inventory_full');
     setIsInventoryFullAlert(true);
@@ -874,7 +810,7 @@ export function GameInstance({
     return payload ? exportStateToString(payload) : '';
   }, [getGameStatePayload]);
 
-  const handleImportStateString = useCallback((jsonString) => {
+  const handleImportStateString = useCallback((jsonString: string): ImportStateResult => {
     const res = importStateFromString(jsonString, LEVEL_DICTIONARY);
     if (!res.success) {
       if (res.versionMismatch) {
@@ -885,7 +821,7 @@ export function GameInstance({
       }
       return res;
     }
-    if (onLoadState) {
+    if (onLoadState && res.state) {
       onLoadState(res.state);
     }
     return { success: true };
@@ -900,11 +836,11 @@ export function GameInstance({
     demoRef.current = true;
     setIsMenuOpen(false);
 
-    let currentInv = [...(puzzle.startItems || [])];
-    let currentDefeated = [];
-    let currentPath = [{ ...effectiveCampPos, zone: 1 }];
+    const currentInv = [...(puzzle.startItems || [])];
+    const currentDefeated: string[] = [];
+    const currentPath: PathHistoryPoint[] = [{ ...effectiveCampPos, zone: 1 }];
     let currentZoneSim = 1;
-    let unlockedZonesSim = new Set([1]);
+    const unlockedZonesSim = new Set<number>([1]);
     let transformedSim = false;
     let hasTreasureSim = false;
 
@@ -914,33 +850,35 @@ export function GameInstance({
         if (step.isBoatTrade) {
           currentPath.push({ x: 50, y: 18, depth: 3, zone: 1 });
           setPathHistory([...currentPath]);
-          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji, x: 50, y: 16 });
-          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji || '', x: 50, y: 16 });
+          await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
           if (!demoRef.current) break;
           setFlyingItem(null);
         } else if (step.itemId === 'fish') {
           setEnvItemState('caught');
           setEnvItemCaughtPos({ x: 50, y: 53 });
-          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
           if (!demoRef.current) break;
           setEnvItemState('hidden');
         } else {
-          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji, x: 50, y: 19 });
-          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji || '', x: 50, y: 19 });
+          await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
           if (!demoRef.current) break;
           setFlyingItem(null);
         }
-        currentInv.push(step.itemId);
+        if (step.itemId) {
+          currentInv.push(step.itemId);
+        }
         setInventory([...currentInv]);
-        await new Promise(r => scheduleTimeout(r, 400));
+        await new Promise<void>(r => scheduleTimeout(r, 400));
         continue;
       }
 
       const entity = puzzle.puzzleEntities.find(e => e.id === step.entityId);
       if (!entity) continue;
 
-      let waypoints = [];
-      let demoWalkPath = null;
+      let waypoints: Waypoint[] = [];
+      let demoWalkPath: Point2D[] | null = null;
       if (useIsotropic && puzzle.geometry) {
         const simSegs = getProceduralObstacleSegments(puzzle.puzzleEntities, puzzle.geometry, currentDefeated);
         const startPos = currentPath[currentPath.length - 1];
@@ -977,12 +915,12 @@ export function GameInstance({
         waypoints = computeWaypoints(currentZoneSim, entity.zone);
       }
 
-      for (let wp of waypoints) {
+      for (const wp of waypoints) {
         if (!demoRef.current) break;
         currentPath.push(wp);
         setPathHistory([...currentPath]);
         currentZoneSim = wp.zone;
-        await new Promise(r => scheduleTimeout(r, 400));
+        await new Promise<void>(r => scheduleTimeout(r, 400));
       }
 
       if (demoWalkPath && demoWalkPath.length > 0) {
@@ -990,12 +928,12 @@ export function GameInstance({
           if (!demoRef.current) break;
           currentPath.push({ x: wp.x, y: wp.y, depth: entity.depth || 3, zone: entity.zone });
           setPathHistory([...currentPath]);
-          await new Promise(r => scheduleTimeout(r, 280));
+          await new Promise<void>(r => scheduleTimeout(r, 280));
         }
         currentZoneSim = entity.zone;
       }
 
-      await new Promise(r => scheduleTimeout(r, 600));
+      await new Promise<void>(r => scheduleTimeout(r, 600));
       if (!demoRef.current) break;
 
       if (step.reqType === 'AND') {
@@ -1004,7 +942,7 @@ export function GameInstance({
         setSelectedItemTypes([step.itemId]);
       }
 
-      await new Promise(r => scheduleTimeout(r, 600));
+      await new Promise<void>(r => scheduleTimeout(r, 600));
       if (!demoRef.current) break;
 
       if (!demoWalkPath) {
@@ -1027,7 +965,7 @@ export function GameInstance({
         setPathHistory([...currentPath]);
         currentZoneSim = entity.zone;
       }
-      await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+      await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
       if (!demoRef.current) break;
 
       if (step.reqType === 'AND') {
@@ -1054,8 +992,8 @@ export function GameInstance({
 
       if (entity.reward) {
         const entityX = entity.roamClass ? 50 : entity.x;
-        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: entity.y });
-        await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji || '', x: entityX, y: entity.y });
+        await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
         if (!demoRef.current) break;
         setFlyingItem(null);
         currentInv.push(entity.reward);
@@ -1077,17 +1015,17 @@ export function GameInstance({
       if (entity.id === puzzle.goalEntityId && !level.mechanics.hasTransformation) {
         if (level.mechanics.isCaveType) {
           const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
-          setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji, x: t.x, y: t.y, delay: idx * 150 })));
+          setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
           currentDefeated.push(...allTreasures.map(t => t.id));
           setDefeated([...currentDefeated]);
-          await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
           setMassFlyingTreasures([]);
         }
         triggerVictory();
       } else if (level.mechanics.hasTransformation && hasTreasureSim && !transformedSim && step.isReturnTrip) {
         currentPath.push({ x: level.campPos.x, y: level.campPos.y, depth: 3, zone: 1 });
         setPathHistory([...currentPath]);
-        await new Promise(r => scheduleTimeout(r, ACTION_ANIM_MS));
+        await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
         triggerVictory();
       }
     }
@@ -1095,7 +1033,7 @@ export function GameInstance({
     demoRef.current = false;
   };
 
-  const triggerAirLossBubbles = useCallback((x, y) => {
+  const triggerAirLossBubbles = useCallback((x: number, y: number) => {
     if (!level.mechanics.hasAir || isTransformed) return;
     const burstId = Date.now() + Math.random();
     const bubbles = Array.from({ length: 6 }, (_, i) => ({
@@ -1127,7 +1065,7 @@ export function GameInstance({
     return () => clearInterval(timer);
   }, [isRefillingAir]);
 
-  const handleCatchRiverFish = (e) => {
+  const handleCatchRiverFish = (e: MouseEvent) => {
     e.stopPropagation();
     const { fits } = canFitInInventory(inventory, [], 'fish');
     if (!fits) {
@@ -1135,8 +1073,9 @@ export function GameInstance({
       return;
     }
     if (envItemState !== 'active' || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+    const parentRect = e.currentTarget.parentElement?.getBoundingClientRect();
+    if (!parentRect) return;
     saveHistory();
-    const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
     setEnvItemCaughtPos({ x: ((e.clientX - parentRect.left) / parentRect.width) * 100, y: ((e.clientY - parentRect.top) / parentRect.height) * 100 });
     setEnvItemState('caught');
     scheduleTimeout(() => {
@@ -1146,7 +1085,7 @@ export function GameInstance({
     }, ACTION_ANIM_MS);
   };
 
-  const handleCatchSchoolFish = (e, fishObj) => {
+  const handleCatchSchoolFish = (e: MouseEvent, fishObj: SchoolFishState) => {
     e.stopPropagation();
     const { fits } = canFitInInventory(inventory, [], fishObj.type);
     if (!fits) {
@@ -1176,7 +1115,7 @@ export function GameInstance({
     }, 700);
   };
 
-  const handleBoatTrade = (e, boat) => {
+  const handleBoatTrade = (e: MouseEvent, boat: RoamingBoatState) => {
     e.stopPropagation();
     const tradeReq = boat.reqItem || 'fish';
     const { fits } = canFitInInventory(inventory, [tradeReq], boat.offeredItem);
@@ -1208,7 +1147,7 @@ export function GameInstance({
         return newInv;
       });
       setRoamingBoats(prev => prev.filter(b => b.id !== boat.id));
-      setFlyingItem({ emoji: level.items.find(i => i.id === boat.offeredItem)?.emoji, x: Math.max(10, Math.min(90, boatX)), y: 19 });
+      setFlyingItem({ emoji: level.items.find(i => i.id === boat.offeredItem)?.emoji || '', x: Math.max(10, Math.min(90, boatX)), y: 19 });
       scheduleTimeout(() => {
         setFlyingItem(null);
         setIsAnimatingLoot(false);
@@ -1217,7 +1156,7 @@ export function GameInstance({
     }, 700);
   };
 
-  const handleCampClick = (e) => {
+  const handleCampClick = (e: MouseEvent) => {
     const itemToDrop = selectedItemTypes[0];
     if (!itemToDrop && !level.mechanics.hasAir) return;
 
@@ -1268,7 +1207,7 @@ export function GameInstance({
     }, ACTION_ANIM_MS);
   };
 
-  const handleCampItemClick = (e, campItem) => {
+  const handleCampItemClick = (e: MouseEvent, campItem: CampItemState) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
@@ -1309,7 +1248,7 @@ export function GameInstance({
     }, ACTION_ANIM_MS);
   };
 
-  const handleCellClick = async (e, targetX, targetY) => {
+  const handleCellClick = async (e: MouseEvent, targetX: number, targetY: number) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
@@ -1346,7 +1285,7 @@ export function GameInstance({
       triggerAirLossBubbles(startP.x, startP.y);
 
       setIsAnimatingLoot(true);
-      let lastP = pathHistory[pathHistory.length - 1];
+      let lastP: Point2D = pathHistory[pathHistory.length - 1];
       const sessionId = ++walkSessionRef.current;
 
       for (let i = 0; i < newPath.length; i++) {
@@ -1361,7 +1300,7 @@ export function GameInstance({
         setPathHistory(prev => [...prev, wp]);
         lastP = wp;
 
-        await new Promise(r => scheduleTimeout(r, duration));
+        await new Promise<void>(r => scheduleTimeout(r, duration));
       }
 
       if (walkSessionRef.current !== sessionId) return;
@@ -1377,13 +1316,13 @@ export function GameInstance({
     }
   };
 
-  const toggleInventoryType = (itemId) => {
+  const toggleInventoryType = (itemId: string) => {
     if (isDemonstrating || isRefillingAir) return;
     if (selectedItemTypes.includes(itemId)) setSelectedItemTypes(prev => prev.filter(i => i !== itemId));
     else setSelectedItemTypes(prev => [...prev, itemId]);
   };
 
-  const getCustomEntityMovement = (ent) => {
+  const getCustomEntityMovement = (ent: PuzzleEntity): CustomEntityMovement | null => {
     if (level.id !== 'underwater') return null;
     if (ent.id === 'dolphin_1') {
       const state = dolphinStateRef.current;
@@ -1411,9 +1350,10 @@ export function GameInstance({
     return null;
   };
 
-  const handleInteract = (entity, e) => {
+  const handleInteract = (entity: PuzzleEntity, e: MouseEvent) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
+    if (!puzzle) return;
 
     if (attachedEntityId && attachedEntityId !== entity.id) setAttachedEntityId(null);
     if (dolphinStateRef.current === 'idle_deep' && entity.id !== 'dolphin_1') {
@@ -1423,7 +1363,7 @@ export function GameInstance({
     const isReverseAccess = entity.isGatekeeper && entity.unlocksZones && entity.unlocksZones.some(z => unlockedZones.includes(z));
     let targetY = entity.y;
 
-    if (level.id === 'underwater' && entity.id === 'dolphin_1' && puzzle) {
+    if (level.id === 'underwater' && entity.id === 'dolphin_1') {
       const cm = getCustomEntityMovement(entity);
       if (cm) targetY = cm.y;
     }
@@ -1440,7 +1380,7 @@ export function GameInstance({
       setSelectedItemTypes([]);
       setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
 
-      const targetAlert = isBlockedByTransformation
+      const targetAlert = (isBlockedByTransformation && witchEnt)
         ? witchEnt
         : (puzzle.puzzleEntities.filter(ent =>
             ent.isGatekeeper && !defeated.includes(ent.id) &&
@@ -1551,7 +1491,7 @@ export function GameInstance({
 
       if (level.mechanics.isCaveType && entity.isTreasure) {
         const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
-        setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji, x: t.x, y: t.y, delay: idx * 150 })));
+        setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
         setDefeated(prev => [...prev, ...allTreasures.map(t => t.id)]);
         scheduleTimeout(() => {
           triggerVictory();
@@ -1573,11 +1513,12 @@ export function GameInstance({
       });
 
       if (entity.reward) {
+        const rewardId = entity.reward;
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
-        const rewardEmoji = entity.emoji || level.items.find(i => i.id === entity.reward)?.emoji;
+        const rewardEmoji = entity.emoji || level.items.find(i => i.id === rewardId)?.emoji || '';
         setFlyingItem({ emoji: rewardEmoji, x: entityX, y: targetY, zIndex: 60 });
         scheduleTimeout(() => {
-          setInventory(prev => [...prev, entity.reward]);
+          setInventory(prev => [...prev, rewardId]);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
           handlePostActionAir(targetY, entity.isVent);
         }, ACTION_ANIM_MS);
@@ -1678,10 +1619,11 @@ export function GameInstance({
       setSelectedItemTypes([]); setSelectedEntityId(null);
 
       if (entity.reward) {
+        const rewardId = entity.reward;
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
-        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji, x: entityX, y: targetY, zIndex: 60 });
+        setFlyingItem({ emoji: level.items.find(i => i.id === rewardId)?.emoji || '', x: entityX, y: targetY, zIndex: 60 });
         scheduleTimeout(() => {
-          setInventory(prev => [...prev, entity.reward]);
+          setInventory(prev => [...prev, rewardId]);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
           handlePostActionAir(targetY);
           if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
@@ -1819,8 +1761,8 @@ export function GameInstance({
   const isSubmerged = level.id === 'underwater' && playerVisualY > (level.campPos.y + 2);
   const heroFace = isDrowning ? '😵' : (isTransformed ? '🧜‍♂️' : (isInventoryFullAlert ? '😥' : (isSubmerged ? '🤿' : '🤠')));
 
-  const handleSwimToSurface = (e) => {
-    e.stopPropagation();
+  const handleSwimToSurface = (e?: MouseEvent) => {
+    e?.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
     const curY = pathHistory[pathHistory.length - 1].y;
     if (curY <= level.campPos.y + 2) return;

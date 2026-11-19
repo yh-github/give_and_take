@@ -110,7 +110,7 @@ export interface LevelDefinition {
   entities: EntityTemplate[];
   mapNodes: MapNode[];
   sceneryNodes?: SceneryNode[];
-  campPos: Point2D;
+  campPos: Point2D & { depth?: number };
   mechanics: LevelMechanics;
   specialEntityTemplate?: string;
   presets?: Record<string, DeepCaveSettings>;

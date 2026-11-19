@@ -33,6 +33,9 @@ export interface MapNode {
   x: number;
   y: number;
   zone: number;
+  emoji?: string;
+  size?: 'small' | 'medium' | 'large' | (string & {});
+  gateType?: GateType;
   isGatekeeper?: boolean;
   isExtraRock?: boolean;
   isGoal?: boolean;
@@ -49,6 +52,9 @@ export interface MapNode {
 export interface SceneryNode {
   x: number;
   y: number;
+  z?: number;
+  s?: string;
+  e?: string;
   type?: string;
   [key: string]: unknown;
 }
@@ -61,6 +67,7 @@ export interface AbstractPuzzleEntity {
   x?: number;
   y?: number;
   zone: number;
+  depth?: number;
   requires?: string[];
   reqType?: RequirementType;
   reward?: string | null;
@@ -69,9 +76,14 @@ export interface AbstractPuzzleEntity {
   isExtraRock?: boolean;
   isGoal?: boolean;
   isPreset?: PresetType | boolean | (string & {});
+  isRepeatable?: boolean;
   isVent?: boolean;
   isTreasure?: boolean;
   isChasmGate?: boolean;
+  roamClass?: string;
+  isRight?: boolean;
+  size?: 'small' | 'medium' | 'large' | (string & {});
+  filterClass?: string;
   gateType?: GateType;
   unlocksZone?: number;
   unlocksZones?: number[];

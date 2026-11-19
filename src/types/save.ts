@@ -6,6 +6,13 @@ import type { DeepCaveSettings, PuzzleData, SolutionStep } from './level.ts';
  * Persistence, autosave, and export/import domain types.
  */
 
+export interface CampItemState {
+  uid: string | number;
+  id: string;
+  x: number;
+  y: number;
+}
+
 export interface LightingSettings {
   radius: number;
   blur: number;
@@ -13,7 +20,9 @@ export interface LightingSettings {
   darknessOpacity: number;
   ambientColor: string;
   ambientOpacity: number;
-  flicker: number;
+  flicker?: number;
+  flickerIntensity?: number;
+  torchRadius?: number;
   [key: string]: unknown;
 }
 
@@ -23,12 +32,36 @@ export interface PathHistoryPoint extends Point2D {
 }
 
 export interface HistoryEntryInput {
+  inventory?: string[];
+  defeated?: string[];
+  pathHistory?: PathHistoryPoint[];
+  envItemState?: string;
+  unlockedZones?: number[];
+  campItems?: CampItemState[];
+  buriedEntities?: string[];
+  air?: number;
+  isTransformed?: boolean;
+  hasDeepTreasure?: boolean;
   inkFogEntities?: Set<string> | string[];
+  dolphinState?: string;
+  dolphinYPos?: number;
   [key: string]: unknown;
 }
 
 export interface SerializedHistoryEntry {
+  inventory?: string[];
+  defeated?: string[];
+  pathHistory?: PathHistoryPoint[];
+  envItemState?: string;
+  unlockedZones?: number[];
+  campItems?: CampItemState[];
+  buriedEntities?: string[];
+  air?: number;
+  isTransformed?: boolean;
+  hasDeepTreasure?: boolean;
   inkFogEntities: string[];
+  dolphinState?: string;
+  dolphinYPos?: number;
   [key: string]: unknown;
 }
 
@@ -60,7 +93,7 @@ export interface CreateSavePayloadInput {
   defeated?: string[];
   pathHistory?: PathHistoryPoint[];
   historyStack?: HistoryEntryInput[];
-  campItems?: string[];
+  campItems?: CampItemState[];
   buriedEntities?: string[];
   air?: number;
   isTransformed?: boolean;
@@ -89,7 +122,7 @@ export interface SavePayload {
   defeated: string[];
   pathHistory: PathHistoryPoint[];
   historyStack: SerializedHistoryEntry[];
-  campItems: string[];
+  campItems: CampItemState[];
   buriedEntities: string[];
   air: number;
   isTransformed: boolean;

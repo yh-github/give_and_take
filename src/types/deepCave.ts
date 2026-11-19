@@ -1,4 +1,11 @@
-import type { CollarBounds, Point2D, WallPolylineObject } from './geometry.ts';
+import type {
+  CollarBounds,
+  CollarOrientation,
+  Point2D,
+  WallPolylineObject
+} from './geometry.ts';
+
+export type { CollarOrientation };
 import type { AbstractPuzzleEntity, GateType, PuzzleEntity } from './entities.ts';
 import type { DeepCavePresetId, DeepCaveSettings, PuzzleData, SolverResult } from './level.ts';
 
@@ -107,8 +114,6 @@ export interface WorldDimensions {
   tileWidth: number;
   tileHeight: number;
 }
-
-export type CollarOrientation = 'horizontal' | 'vertical';
 
 export interface OrientedBox extends CollarBounds {
   orientation?: CollarOrientation;

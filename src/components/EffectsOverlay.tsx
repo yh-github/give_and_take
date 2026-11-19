@@ -1,6 +1,18 @@
 import React from 'react';
+import type {
+  CSSCustomProperties,
+  ClickIndicatorState,
+  HeroBubbleBurst,
+  LevelDefinition,
+  TranslationDictionary
+} from '../types/index.ts';
 
-export function ClickIndicator({ indicator, toCssY = null }) {
+export interface ClickIndicatorProps {
+  indicator: ClickIndicatorState | null;
+  toCssY?: ((y: number) => number) | null;
+}
+
+export function ClickIndicator({ indicator, toCssY = null }: ClickIndicatorProps) {
   if (!indicator) return null;
   const topPct = toCssY ? toCssY(indicator.y) : indicator.y;
 
@@ -25,7 +37,11 @@ export function ClickIndicator({ indicator, toCssY = null }) {
   );
 }
 
-export function HeroBubbleBursts({ bursts }) {
+export interface HeroBubbleBurstsProps {
+  bursts: HeroBubbleBurst[];
+}
+
+export function HeroBubbleBursts({ bursts }: HeroBubbleBurstsProps) {
   if (!bursts || bursts.length === 0) return null;
 
   return (
@@ -46,7 +62,7 @@ export function HeroBubbleBursts({ bursts }) {
                 animationDelay: `${b.delay}ms`,
                 animationDuration: `${1.3 * b.speed}s`,
                 transform: `scale(${b.scale})`,
-              }}
+              } as CSSCustomProperties}
             >
               🫧
             </div>
@@ -57,7 +73,17 @@ export function HeroBubbleBursts({ bursts }) {
   );
 }
 
-export function MagicTransformationOverlay({ isMagicAnimating, playerVisualX, playerVisualY }) {
+export interface MagicTransformationOverlayProps {
+  isMagicAnimating: boolean;
+  playerVisualX: number;
+  playerVisualY: number;
+}
+
+export function MagicTransformationOverlay({
+  isMagicAnimating,
+  playerVisualX,
+  playerVisualY
+}: MagicTransformationOverlayProps) {
   if (!isMagicAnimating) return null;
 
   return (
@@ -75,7 +101,7 @@ export function MagicTransformationOverlay({ isMagicAnimating, playerVisualX, pl
               '--dy': `${(Math.random() - 0.5) * 600}px`,
               '--rot': `${Math.random() * 360}deg`,
               animationDelay: `${Math.random() * 0.5}s`
-            }}
+            } as CSSCustomProperties}
           >
             {['✨', '🌟', '💫', '🟣', '💎'][Math.floor(Math.random() * 5)]}
           </div>
@@ -85,7 +111,12 @@ export function MagicTransformationOverlay({ isMagicAnimating, playerVisualX, pl
   );
 }
 
-export function VictoryCelebration({ showVictoryMsg, dict }) {
+export interface VictoryCelebrationProps {
+  showVictoryMsg: boolean;
+  dict: TranslationDictionary;
+}
+
+export function VictoryCelebration({ showVictoryMsg, dict }: VictoryCelebrationProps) {
   if (!showVictoryMsg) return null;
 
   return (
@@ -100,7 +131,7 @@ export function VictoryCelebration({ showVictoryMsg, dict }) {
             '--tx': `${(Math.random() - 0.5) * 200}px`, 
             '--ty': `${(Math.random() - 0.5) * 200}px`, 
             animationDelay: `${Math.random() * 3}s` 
-          }}
+          } as CSSCustomProperties}
         >
           {['⭐', '🌟', '✨'][Math.floor(Math.random() * 3)]}
         </div>
@@ -116,7 +147,13 @@ export function VictoryCelebration({ showVictoryMsg, dict }) {
   );
 }
 
-export function FogOverlay({ level, unlockedZones, isTransformed }) {
+export interface FogOverlayProps {
+  level: LevelDefinition;
+  unlockedZones: number[];
+  isTransformed: boolean;
+}
+
+export function FogOverlay({ level, unlockedZones, isTransformed }: FogOverlayProps) {
   if (level.mechanics.isCaveType || !level.mechanics.hasFog) return null;
 
   return (

@@ -15,8 +15,9 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
   },
-  "include": ["src/**/*", "index.jsx", "main.jsx"],
+  "include": ["src/**/*", "index.tsx", "main.tsx"],
   "exclude": ["node_modules", "dist"]
 }

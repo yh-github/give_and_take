@@ -1,12 +1,20 @@
 import React from 'react';
-import { MAX_AIR } from '../constants.js';
+import { MAX_AIR } from '../constants.ts';
+import type { LevelDefinition } from '../types/index.ts';
+
+export interface AirIndicatorProps {
+  air: number;
+  level: LevelDefinition;
+  isTransformed: boolean;
+  onSwimToSurface: () => void;
+}
 
 export function AirIndicator({
   air,
   level,
   isTransformed,
   onSwimToSurface
-}) {
+}: AirIndicatorProps) {
   if (!level.mechanics.hasAir || isTransformed) return null;
 
   return (

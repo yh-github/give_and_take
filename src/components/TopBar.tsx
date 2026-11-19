@@ -1,4 +1,15 @@
-import React from 'react';
+import React, { type Dispatch, type SetStateAction } from 'react';
+import type { LanguageCode, MenuView } from '../types/index.ts';
+
+export interface TopBarProps {
+  lang: LanguageCode;
+  setLang: Dispatch<SetStateAction<LanguageCode>>;
+  levelId: string;
+  isMenuOpen: boolean;
+  menuView: MenuView;
+  onOpenMenu: () => void;
+  onOpenLighting: () => void;
+}
 
 export function TopBar({
   lang,
@@ -8,7 +19,7 @@ export function TopBar({
   menuView,
   onOpenMenu,
   onOpenLighting
-}) {
+}: TopBarProps) {
   return (
     <>
       <div className="absolute top-3 left-3 z-[150] flex gap-1.5 items-center">

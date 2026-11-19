@@ -44,11 +44,14 @@ export interface CorridorBounds {
   xRight: number;
 }
 
+export type CollarOrientation = 'horizontal' | 'vertical';
+
 export interface CollarBounds {
   xLeft: number;
   xRight: number;
   yTop: number;
   yBottom: number;
+  orientation?: CollarOrientation;
 }
 
 export interface CaveWallVertices {
@@ -74,8 +77,9 @@ export interface NormalizedWallPolyline {
 export interface ProceduralGeometry {
   worldWidth?: number;
   worldHeight?: number;
-  campPos?: Point2D;
+  campPos?: Point2D & { depth?: number };
   wallPolylines?: WallPolyline[];
+  obstaclePolygons?: Point2D[][];
   [key: string]: unknown;
 }
 

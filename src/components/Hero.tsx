@@ -1,4 +1,24 @@
 import React from 'react';
+import type { CSSCustomProperties, LevelDefinition } from '../types/index.ts';
+
+export interface HeroProps {
+  playerVisualX: number;
+  playerVisualY: number;
+  playerVisualYPct?: number | null;
+  playerRotation: number;
+  playerScale: string;
+  playerFilter: string;
+  playerZ: number;
+  playerTransition: string;
+  playerTransitionDuration?: string;
+  isTransformed: boolean;
+  isSubmerged: boolean;
+  isDrowning: boolean;
+  heroFace: string;
+  level: LevelDefinition;
+  isAnimatingLoot: boolean;
+  isInventoryFullAlert?: boolean;
+}
 
 export function Hero({
   playerVisualX,
@@ -17,7 +37,7 @@ export function Hero({
   level,
   isAnimatingLoot,
   isInventoryFullAlert = false
-}) {
+}: HeroProps) {
   return (
     <div 
       className={`absolute transform transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} 
@@ -65,7 +85,7 @@ export function Hero({
                   '--end-dx': `${(i - 1) * 16}px`,
                   animationDelay: `${i * 150}ms`,
                   animationDuration: '1.0s',
-                }}
+                } as CSSCustomProperties}
               >
                 🫧
               </div>

@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import LEVEL_REGISTRY from './src/levels/index.js';
-import ErrorBoundary from './src/components/ErrorBoundary.jsx';
-import GameInstance from './src/components/GameInstance.jsx';
-import { getAutoSaveWithStatus, clearAutoSave } from './src/logic/saveState.js';
-import STRINGS from './src/strings.js';
+import LEVEL_REGISTRY from './src/levels/index.ts';
+import ErrorBoundary from './src/components/ErrorBoundary.tsx';
+import GameInstance from './src/components/GameInstance.tsx';
+import { getAutoSaveWithStatus, clearAutoSave } from './src/logic/saveState.ts';
+import STRINGS from './src/strings.ts';
+import type {
+  ActiveGameSettings,
+  AutoSaveStatus,
+  LanguageCode,
+  LevelRegistry,
+  SavePayload
+} from './src/types/index.ts';
 
-const LEVEL_DICTIONARY = LEVEL_REGISTRY;
+const LEVEL_DICTIONARY: LevelRegistry = LEVEL_REGISTRY;
 
-const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
+export interface AppProps {
+  autoResumePrompt?: boolean;
+}
+
+const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }: AppProps) => {
   const isEditor = typeof window !== 'undefined' && new URLSearchParams(window.location?.search || '').get('editor') === 'true';
   const shouldPrompt = autoResumePrompt && !isEditor;
 
-  const [initialAutoSave] = useState(() => {
+  const [initialAutoSave] = useState<AutoSaveStatus>(() => {
     if (!shouldPrompt) return { state: null, versionMismatch: false };
     const status = getAutoSaveWithStatus(LEVEL_DICTIONARY);
     if (status.versionMismatch) {
@@ -20,18 +31,18 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
     return status;
   });
 
-  const [pendingResumeState, setPendingResumeState] = useState(() => initialAutoSave.state);
+  const [pendingResumeState, setPendingResumeState] = useState<SavePayload | null>(() => initialAutoSave.state);
   const [saveVersionWarning, setSaveVersionWarning] = useState(() => Boolean(initialAutoSave.versionMismatch));
   const [showResumePrompt, setShowResumePrompt] = useState(() => Boolean(initialAutoSave.state));
-  const [activeSettings, setActiveSettings] = useState(() => ({
+  const [activeSettings, setActiveSettings] = useState<ActiveGameSettings>(() => ({
     levelId: pendingResumeState?.levelId || 'underground',
     steps: pendingResumeState?.targetSteps || 5,
     diggers: pendingResumeState?.numDiggers ?? 1,
     deepCaveSettings: pendingResumeState?.settings || null
   }));
   const [gameKey, setGameKey] = useState(0);
-  const [lang, setLang] = useState('he');
-  const [savedState, setSavedState] = useState(() => pendingResumeState);
+  const [lang, setLang] = useState<LanguageCode>('he');
+  const [savedState, setSavedState] = useState<SavePayload | null>(() => pendingResumeState);
 
   const dict = STRINGS[lang] || STRINGS.en;
 
@@ -71,14 +82,14 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }) => {
     setGameKey(k => k + 1);
   };
 
-  const applyAndGenerate = (newSettings) => {
+  const applyAndGenerate = (newSettings: ActiveGameSettings) => {
     setActiveSettings(newSettings);
     setSavedState(null);
     setSaveVersionWarning(false);
     setGameKey(k => k + 1);
   };
 
-  const handleLoadState = (importedState) => {
+  const handleLoadState = (importedState: SavePayload) => {
     setActiveSettings({
       levelId: importedState.levelId,
       steps: importedState.targetSteps,

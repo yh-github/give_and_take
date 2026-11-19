@@ -1,8 +1,46 @@
-import React, { Fragment } from 'react';
-import { UNDERWATER_INSPECT_RADIUS } from '../constants.js';
+import React, { Fragment, type CSSProperties, type MouseEvent } from 'react';
+import { UNDERWATER_INSPECT_RADIUS } from '../constants.ts';
 import { GiantClamSVG, BubbleVentSVG, SeaWitchGateSVG, InkCloudSVG } from '../levels/underwater/components.jsx';
-import { getCorridorBounds } from '../logic/geometry.js';
+import { getCorridorBounds } from '../logic/geometry.ts';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
+import type {
+  AlertReason,
+  CollarBounds,
+  CorridorBounds,
+  CustomEntityMovement,
+  LevelDefinition,
+  ObstacleSegment,
+  Point2D,
+  PuzzleData,
+  PuzzleEntity,
+  TranslationDictionary
+} from '../types/index.ts';
+
+export interface GameEntityProps {
+  ent: PuzzleEntity;
+  puzzle: PuzzleData;
+  level: LevelDefinition;
+  defeated: string[];
+  alertEntityId: string | number | null;
+  alertReason: AlertReason;
+  selectedEntityId: string | null;
+  animatingEntities: string[];
+  buriedEntities: string[];
+  inkFogEntities: Set<string>;
+  unlockedZones: number[];
+  visibleEntitiesSet: Set<string> | null;
+  wallSegments: readonly ObstacleSegment[];
+  displayPlayerPos: Point2D | null;
+  breakingRockIds: Record<string, boolean>;
+  bridgingChasmIds?: Record<string, boolean>;
+  isTransformed: boolean;
+  hasDeepTreasure: boolean;
+  getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
+  handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
+  dict: TranslationDictionary;
+  toCssY?: (y: number) => number;
+  yScale?: number | null;
+}
 
 export function GameEntity({
   ent,
@@ -17,7 +55,7 @@ export function GameEntity({
   inkFogEntities,
   unlockedZones,
   visibleEntitiesSet,
-  wallSegments,
+  wallSegments: _wallSegments,
   displayPlayerPos,
   breakingRockIds,
   bridgingChasmIds = {},
@@ -28,7 +66,7 @@ export function GameEntity({
   dict,
   toCssY = (y) => y,
   yScale = null
-}) {
+}: GameEntityProps) {
   const isDefeated = defeated.includes(ent.id);
   if (ent.isPreset && isDefeated) return null;
 
@@ -66,7 +104,7 @@ export function GameEntity({
 
   const hasCustomCollar = Boolean((isRock || isChasm || ent.isExtraRock) && ent.collarBounds);
   const isGatekeeperRock = hasCustomCollar || ((isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES);
-  let rockBounds = null;
+  let rockBounds: (CorridorBounds & Partial<CollarBounds>) | null | undefined = null;
   if (hasCustomCollar) {
     rockBounds = ent.collarBounds;
   } else if (isGatekeeperRock) {
@@ -74,7 +112,7 @@ export function GameEntity({
   }
 
   const isBuried = isDigger && buriedEntities.includes(ent.id);
-  const groupedReqs = (ent.requires || []).reduce((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
+  const groupedReqs = (ent.requires || []).reduce<Record<string, number>>((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
   const customMove = getCustomEntityMovement ? getCustomEntityMovement(ent) : null;
   const isCustomEntity = Boolean(customMove && customMove.isActiveMotion);
   const wrapperClasses = `absolute transform flex flex-col items-center ${isCustomEntity ? 'transition-none' : 'transition-all duration-300'} ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : ''} ${interactableHover}`;
@@ -116,8 +154,8 @@ export function GameEntity({
   const isVerticalCollar = rockBounds?.orientation === 'vertical';
   const worldHeight = puzzle?.geometry?.worldHeight;
 
-  const entityStyle = isGatekeeperRock ? (
-    isVerticalCollar && worldHeight ? {
+  const entityStyle: CSSProperties = (isGatekeeperRock && rockBounds) ? (
+    isVerticalCollar && worldHeight && rockBounds.yTop != null && rockBounds.yBottom != null ? {
       left: `${rockBounds.xLeft}%`,
       top: `${toCssY(rockBounds.yTop)}%`,
       width: `${Math.max(4, rockBounds.xRight - rockBounds.xLeft)}%`,

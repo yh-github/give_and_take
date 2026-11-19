@@ -1,11 +1,95 @@
-import React from 'react';
+import React, { type MouseEvent, type RefObject } from 'react';
 import { BoatSVG } from '../levels/underwater/components.jsx';
 import { CaveEntranceProp } from '../levels/river_crossing/components.jsx';
 import CaveVisibility from '../levels/underground/CaveVisibility.jsx';
-import Hero from './Hero.jsx';
-import GameEntity from './GameEntity.jsx';
-import { ClickIndicator, HeroBubbleBursts, FogOverlay } from './EffectsOverlay.jsx';
-import DebugRays from './DebugRays.jsx';
+import Hero from './Hero.tsx';
+import GameEntity from './GameEntity.tsx';
+import { ClickIndicator, HeroBubbleBursts, FogOverlay } from './EffectsOverlay.tsx';
+import DebugRays from './DebugRays.tsx';
+import type {
+  AlertReason,
+  CampItemState,
+  ClickIndicatorState,
+  CustomEntityMovement,
+  FlyingItemState,
+  HeroBubbleBurst,
+  LevelDefinition,
+  LightingSettings,
+  ObstacleSegment,
+  PathHistoryPoint,
+  Point2D,
+  PuzzleData,
+  PuzzleEntity,
+  RoamingBoatState,
+  SchoolFishState,
+  TranslationDictionary
+} from '../types/index.ts';
+
+export interface WorldViewportProps {
+  innerMapRef: RefObject<HTMLDivElement | null>;
+  level: LevelDefinition;
+  totalMapHeight: string;
+  mapTranslateY: string;
+  unlockedZones: number[];
+  isTransformed: boolean;
+  hasDeepTreasure: boolean;
+  attachedEntityId: string | null;
+  debugMode: boolean;
+  polyPoints: readonly Point2D[] | null;
+  displayPlayerPos: Point2D;
+  debugSegments: readonly ObstacleSegment[];
+  lightingSettings: LightingSettings;
+  gameTime: number;
+  isLevelEditor: boolean;
+  clickIndicator: ClickIndicatorState | null;
+  heroBubbleBursts: HeroBubbleBurst[];
+  envItemState: string;
+  envItemCaughtPos: Point2D;
+  handleCatchRiverFish: (e: MouseEvent) => void;
+  schoolsOfFish: SchoolFishState[];
+  handleCatchSchoolFish: (e: MouseEvent, fish: SchoolFishState) => void;
+  roamingBoats: RoamingBoatState[];
+  handleBoatTrade: (e: MouseEvent, boat: RoamingBoatState) => void;
+  alertEntityId: string | number | null;
+  alertReason: AlertReason;
+  isInventoryFullAlert: boolean;
+  pathHistory: PathHistoryPoint[];
+  tempPlayerPos: Point2D | null;
+  playerPos: Point2D;
+  campItems: CampItemState[];
+  handleCampItemClick: (e: MouseEvent, item: CampItemState) => void;
+  handleCampClick: (e: MouseEvent) => void;
+  selectedItemTypes: string[];
+  flyingItem: FlyingItemState | null;
+  massFlyingTreasures: FlyingItemState[];
+  puzzle: PuzzleData | null;
+  defeated: string[];
+  dict: TranslationDictionary;
+  selectedEntityId: string | null;
+  animatingEntities: string[];
+  buriedEntities: string[];
+  inkFogEntities: Set<string>;
+  visibleEntitiesSet: Set<string> | null;
+  wallSegments: readonly ObstacleSegment[];
+  breakingRockIds: Record<string, boolean>;
+  bridgingChasmIds?: Record<string, boolean>;
+  getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
+  handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
+  playerVisualX: number;
+  playerVisualY: number;
+  playerRotation: number;
+  playerScale: string;
+  playerFilter: string;
+  playerZ: number;
+  playerTransition: string;
+  playerTransitionDuration?: string;
+  isSubmerged: boolean;
+  isDrowning: boolean;
+  heroFace: string;
+  isAnimatingLoot: boolean;
+  showTrophy: boolean;
+  onCellClick: (e: MouseEvent<HTMLDivElement>) => void;
+}
 
 export function WorldViewport({
   innerMapRef,
@@ -71,16 +155,16 @@ export function WorldViewport({
   isAnimatingLoot,
   showTrophy,
   onCellClick,
-}) {
+}: WorldViewportProps) {
   const Background = level.BackgroundComponent || (() => <div className="absolute inset-0 bg-[#dcb27b]" />);
   const viewportTransitionClass = attachedEntityId
     ? 'transition-none'
     : 'transition-transform duration-500 ease-out';
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords && puzzle?.geometry);
-  const worldHeight = useIsotropic ? puzzle.geometry.worldHeight : (level.mechanics.screens || 1) * 100;
+  const worldHeight = (useIsotropic && puzzle?.geometry?.worldHeight) ? puzzle.geometry.worldHeight : (level.mechanics.screens || 1) * 100;
   const yScale = useIsotropic ? 1 : (level.mechanics.screens || 1);
-  const toCssY = (y) => (useIsotropic ? (y / worldHeight) * 100 : y);
+  const toCssY = (y: number): number => (useIsotropic ? (y / worldHeight) * 100 : y);
   const effectiveCampPos = puzzle?.geometry?.campPos || level.campPos;
 
   return (

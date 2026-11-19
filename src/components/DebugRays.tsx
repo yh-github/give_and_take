@@ -1,4 +1,15 @@
 import React from 'react';
+import type { LevelDefinition, ObstacleSegment, Point2D } from '../types/index.ts';
+
+export interface DebugRaysProps {
+  debugMode: boolean;
+  level: LevelDefinition;
+  polyPoints: readonly Point2D[] | null;
+  displayPlayerPos: Point2D | null;
+  debugSegments: readonly ObstacleSegment[] | null;
+  worldHeight?: number | null;
+  yScale?: number | null;
+}
 
 export function DebugRays({
   debugMode,
@@ -8,7 +19,7 @@ export function DebugRays({
   debugSegments,
   worldHeight = null,
   yScale = null
-}) {
+}: DebugRaysProps) {
   if (!debugMode || !level.mechanics.hasDarkness) return null;
 
   const screens = level.mechanics.screens || 1;

@@ -1,4 +1,16 @@
-import type { LevelDefinition, Point2D, Waypoint } from '../types/index.ts';
+import { DEEP_CAVE_HERO_RADIUS } from '../constants.ts';
+import type {
+  CaveWallVertices,
+  CollarBounds,
+  LevelDefinition,
+  ObstacleSegment,
+  PathfindingOptions,
+  PathHistoryPoint,
+  Point2D,
+  Waypoint
+} from '../types/index.ts';
+import { getCorridorBounds } from './geometry.ts';
+import { findGlobalPath } from './pathfinding.ts';
 
 /**
  * Count unique values in an array.
@@ -121,4 +133,163 @@ export const inferTargetZone = (
     return 3;
   }
   return currentZone;
+};
+
+export interface ComputeNavigationPathParams {
+  lastPos: PathHistoryPoint | undefined;
+  targetX: number;
+  targetY: number;
+  targetZone: number;
+  targetDepth?: number;
+  isInteract?: boolean;
+  occluderType?: string | null;
+  collarBounds?: CollarBounds | null;
+  isCaveType: boolean;
+  useIsotropic: boolean;
+  worldHeight: number;
+  yScale: number;
+  obstacleSegments: readonly ObstacleSegment[];
+  obstaclePolygons: ReadonlyArray<readonly Point2D[]>;
+  caveWallVertices?: CaveWallVertices | null;
+}
+
+const mapPathToWaypoints = (
+  rawPath: readonly Point2D[],
+  yScale: number,
+  depth: number,
+  zone: number
+): Waypoint[] =>
+  rawPath.map((p) => ({
+    x: p.x,
+    y: p.y / yScale,
+    depth,
+    zone
+  }));
+
+/**
+ * Computes a walkable waypoint sequence from `lastPos` to `(targetX, targetY)`,
+ * handling cave A* pathfinding, obstacle collar approach standoffs, and open-level hops.
+ */
+export const computeNavigationPath = ({
+  lastPos,
+  targetX,
+  targetY,
+  targetZone,
+  targetDepth = 3,
+  isInteract = false,
+  occluderType = null,
+  collarBounds = null,
+  isCaveType,
+  useIsotropic,
+  worldHeight,
+  yScale,
+  obstacleSegments,
+  obstaclePolygons,
+  caveWallVertices
+}: ComputeNavigationPathParams): Waypoint[] => {
+  const depth = targetDepth || 3;
+
+  if (isCaveType && lastPos) {
+    const res = useIsotropic ? 2.5 : 3;
+    const pathOpts: PathfindingOptions = useIsotropic
+      ? { radius: DEEP_CAVE_HERO_RADIUS, maxIters: 25000, cornerClearance: 1.5 }
+      : {};
+    const pathBounds = { width: 100, height: worldHeight };
+    let finalTargetX = targetX;
+    let finalTargetY = targetY;
+
+    if (occluderType === 'rock' || occluderType === 'chasm' || occluderType === 'guardian') {
+      let isAlreadyInRange = false;
+
+      if (collarBounds) {
+        if (collarBounds.orientation === 'vertical') {
+          finalTargetY = Math.max(collarBounds.yTop + 3, Math.min(collarBounds.yBottom - 3, lastPos.y));
+          const isLeft = lastPos.x <= targetX;
+          finalTargetX = isLeft ? collarBounds.xLeft - 4.0 : collarBounds.xRight + 4.0;
+          const yDist = Math.max(0, Math.max(collarBounds.yTop - lastPos.y, lastPos.y - collarBounds.yBottom));
+          isAlreadyInRange = yDist <= 2 && Math.abs(lastPos.x - targetX) <= 7.0;
+        } else {
+          finalTargetX = Math.max(collarBounds.xLeft + 3, Math.min(collarBounds.xRight - 3, lastPos.x));
+          const isAbove = lastPos.y <= targetY;
+          finalTargetY = isAbove ? collarBounds.yTop - 4.0 : collarBounds.yBottom + 4.0;
+          const xDist = Math.max(0, Math.max(collarBounds.xLeft - lastPos.x, lastPos.x - collarBounds.xRight));
+          isAlreadyInRange = xDist <= 2 && Math.abs(lastPos.y - targetY) <= 7.0;
+        }
+      } else {
+        const bounds = getCorridorBounds(targetY, caveWallVertices ?? undefined, targetX >= 50);
+        finalTargetX = Math.max(bounds.xLeft + 3, Math.min(bounds.xRight - 3, lastPos.x));
+        const isAbove = lastPos.y <= targetY;
+        finalTargetY = isAbove ? targetY - 1.5 - 1.2 : targetY + 1.5 + 1.2;
+
+        const xDist = Math.max(0, Math.max(bounds.xLeft - lastPos.x, lastPos.x - bounds.xRight));
+        const yDist = Math.abs(lastPos.y - targetY);
+        isAlreadyInRange = xDist <= 2 && yDist <= 3.8;
+      }
+
+      const rawPath = findGlobalPath(
+        { x: lastPos.x, y: lastPos.y * yScale },
+        { x: finalTargetX, y: finalTargetY * yScale },
+        obstacleSegments,
+        pathBounds,
+        obstaclePolygons,
+        res,
+        pathOpts
+      );
+
+      if (rawPath.length > 0) {
+        return mapPathToWaypoints(rawPath, yScale, depth, targetZone);
+      }
+      if (isAlreadyInRange) {
+        return [{ x: lastPos.x, y: lastPos.y, depth, zone: targetZone }];
+      }
+      return [];
+    }
+
+    if (isInteract) {
+      const stopOffset = useIsotropic ? DEEP_CAVE_HERO_RADIUS + 1.5 : 3.5;
+      const dx = finalTargetX - lastPos.x;
+      const dy = finalTargetY - lastPos.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > stopOffset) {
+        finalTargetX = finalTargetX - (dx / dist) * stopOffset;
+        finalTargetY = finalTargetY - (dy / dist) * stopOffset;
+      } else if (dist > 0) {
+        finalTargetX = lastPos.x;
+        finalTargetY = lastPos.y;
+      }
+    }
+
+    const rawPath = findGlobalPath(
+      { x: lastPos.x, y: lastPos.y * yScale },
+      { x: finalTargetX, y: finalTargetY * yScale },
+      obstacleSegments,
+      pathBounds,
+      obstaclePolygons,
+      res,
+      pathOpts
+    );
+
+    return mapPathToWaypoints(rawPath, yScale, depth, targetZone);
+  }
+
+  const waypoints = computeWaypoints(lastPos?.zone || 1, targetZone);
+  const path = waypoints.map((wp) => ({ x: wp.x, y: wp.y, depth, zone: wp.zone }));
+
+  let finalX = targetX;
+  let finalY = targetY;
+
+  if (isInteract) {
+    const prevPoint = path.length > 0 ? path[path.length - 1] : lastPos;
+    if (prevPoint) {
+      const dx = finalX - prevPoint.x;
+      const dy = finalY - prevPoint.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 0) {
+        finalX = finalX - (dx / dist) * 3.5;
+        finalY = finalY - (dy / dist) * 3.5;
+      }
+    }
+  }
+
+  return [{ x: finalX, y: finalY, depth, zone: targetZone }];
 };
