@@ -10,9 +10,9 @@
  * Usage: node scripts/fuzz_deep_cave.mjs [seedsPerPreset]
  */
 
-import { generateDeepCavePuzzle } from '../src/levels/deep_cave/generator.js';
-import { DEEP_CAVE_PRESETS } from '../src/levels/deep_cave/presets.js';
-import { DEEP_CAVE_SEED_BANK } from '../src/levels/deep_cave/seedBank.js';
+import { generateDeepCavePuzzle } from '../src/levels/deep_cave/generator.ts';
+import { DEEP_CAVE_PRESETS } from '../src/levels/deep_cave/presets.ts';
+import { DEEP_CAVE_SEED_BANK } from '../src/levels/deep_cave/seedBank.ts';
 
 const SEEDS_PER_PRESET = Number(process.argv[2]) || 250;
 const PRESETS = ['easy', 'normal', 'hard', 'expert'];

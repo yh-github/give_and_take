@@ -1,7 +1,13 @@
 import mapNodesData from './mapNodes.json';
+import type {
+  EntityTemplate,
+  ItemDefinition,
+  MapNode,
+  SceneryNode
+} from '../../types/index.ts';
 
 // === Underground: Items ===
-export const items = [
+export const items: ItemDefinition[] = [
   { id: 'crystal', name: 'Crystal', emoji: '🔮' }, { id: 'gold_nugget', name: 'Gold Nugget', emoji: '🪙' },
   { id: 'mushroom', name: 'Mushroom', emoji: '🍄' }, { id: 'emerald', name: 'Emerald', emoji: '🟩' },
   { id: 'relic', name: 'Relic', emoji: '🏺' }, { id: 'rope', name: 'Rope', emoji: '🪢' },
@@ -10,7 +16,7 @@ export const items = [
 ];
 
 // === Underground: Entity Templates ===
-export const entities = [
+export const entities: EntityTemplate[] = [
   { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
   { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'rope'] },
   { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['rope', 'bone', 'emerald', 'relic', 'mushroom'] },
@@ -21,8 +27,7 @@ export const entities = [
   { id: 'goblin', name: 'Cave Goblin', emoji: '👺', allowedReqs: ['gold_nugget', 'gem', 'mushroom', 'emerald', 'rope'] },
 ];
 
-export const mapNodes = mapNodesData;
+export const mapNodes: MapNode[] = mapNodesData;
 
 // === Underground: Scenery ===
-export const sceneryNodes = [
-];
+export const sceneryNodes: SceneryNode[] = [];

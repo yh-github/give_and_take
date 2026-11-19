@@ -1,8 +1,9 @@
-import { items, entities, mapNodes, sceneryNodes } from './data.js';
+import { items, entities, mapNodes, sceneryNodes } from './data.ts';
 import { UnderwaterBackground, CampIcon } from './components.jsx';
-import { generateUnderwaterPuzzle } from './generator.js';
+import { generateUnderwaterPuzzle } from './generator.ts';
+import type { LevelDefinition } from '../../types/index.ts';
 
-const underwater = {
+const underwater: LevelDefinition = {
   id: 'underwater',
   name: 'Under the Sea',
   items,

@@ -3,23 +3,35 @@
  * 3,000 ms timeout cap and verified CI seed-bank fallback.
  */
 
-import { generateDeepCavePuzzle } from './generator.js';
-import { detectDeepCavePresetId, normalizeDeepCaveSettings } from './presets.js';
-import { getFallbackDeepCavePuzzle } from './seedBank.js';
+import { generateDeepCavePuzzle } from './generator.ts';
+import { detectDeepCavePresetId, normalizeDeepCaveSettings } from './presets.ts';
+import { getFallbackDeepCavePuzzle } from './seedBank.ts';
+import type {
+  DeepCaveAsyncOptions,
+  DeepCaveAsyncResult,
+  DeepCaveWorkerRequest,
+  DeepCaveWorkerResponse
+} from '../../types/index.ts';
 
 export const DEEP_CAVE_WORKER_TIMEOUT_MS = 3000;
 
 let nextRequestId = 1;
 
-function makeCancelledError() {
-  const err = new Error('Deep Cave generation cancelled');
+interface WorkerTaggedError extends Error {
+  code?: string;
+  isCancelled?: boolean;
+  isCustomTimeout?: boolean;
+}
+
+function makeCancelledError(): WorkerTaggedError {
+  const err: WorkerTaggedError = new Error('Deep Cave generation cancelled');
   err.code = 'DEEP_CAVE_CANCELLED';
   err.isCancelled = true;
   return err;
 }
 
-function makeCustomTimeoutError(timeoutMs) {
-  const err = new Error(`Deep Cave custom generation timed out after ${timeoutMs}ms`);
+function makeCustomTimeoutError(timeoutMs: number): WorkerTaggedError {
+  const err: WorkerTaggedError = new Error(`Deep Cave custom generation timed out after ${timeoutMs}ms`);
   err.code = 'DEEP_CAVE_CUSTOM_TIMEOUT';
   err.isCustomTimeout = true;
   return err;
@@ -29,16 +41,11 @@ function makeCustomTimeoutError(timeoutMs) {
  * Generates a `deep_cave` puzzle asynchronously in a Web Worker when available,
  * enforcing a timeout cap and falling back to the verified CI seed bank for
  * standard presets (`easy`, `normal`, `hard`, `expert`).
- *
- * @param {Object|string|null} settingsInput - Preset ID or Deep Cave knobs
- * @param {Object} [options]
- * @param {string|number|null} [options.seed]
- * @param {number} [options.timeoutMs=3000]
- * @param {AbortSignal} [options.signal]
- * @param {Function|null} [options.WorkerClass] - Test injection hook
- * @returns {Promise<{ puzzle: Object, usedFallback: boolean, timedOut: boolean, presetId: string, durationMs: number }>}
  */
-export function generateDeepCaveAsync(settingsInput = null, options = {}) {
+export function generateDeepCaveAsync(
+  settingsInput: any = null,
+  options: DeepCaveAsyncOptions = {}
+): Promise<DeepCaveAsyncResult> {
   const {
     seed = null,
     timeoutMs = DEEP_CAVE_WORKER_TIMEOUT_MS,
@@ -72,11 +79,11 @@ export function generateDeepCaveAsync(settingsInput = null, options = {}) {
     });
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise<DeepCaveAsyncResult>((resolve, reject) => {
     const requestId = nextRequestId++;
     let settled = false;
-    let worker = null;
-    let timerId = null;
+    let worker: any = null;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
 
     const cleanup = () => {
       if (timerId !== null) {
@@ -98,7 +105,13 @@ export function generateDeepCaveAsync(settingsInput = null, options = {}) {
       }
     };
 
-    const resolveFallbackOrReject = ({ timedOut, errToThrow }) => {
+    const resolveFallbackOrReject = ({
+      timedOut,
+      errToThrow
+    }: {
+      timedOut: boolean;
+      errToThrow: Error;
+    }) => {
       if (settled) return;
       settled = true;
       cleanup();
@@ -134,11 +147,11 @@ export function generateDeepCaveAsync(settingsInput = null, options = {}) {
 
     try {
       // Call literal `new Worker(new URL(...), { type: 'module' })` when using the native
-      // global Worker so Vite bundles `worker.js` and its imports into a standalone worker chunk.
+      // global Worker so Vite bundles `worker.ts` and its imports into a standalone worker chunk.
       const nativeWorkerCtor = typeof Worker !== 'undefined' ? Worker : null;
       worker = WorkerClass === nativeWorkerCtor && nativeWorkerCtor
-        ? new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
-        : new WorkerClass(new URL('./worker.js', import.meta.url), { type: 'module' });
+        ? new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+        : new WorkerClass(new URL('./worker.ts', import.meta.url), { type: 'module' });
     } catch (spawnErr) {
       settled = true;
       cleanup();
@@ -165,7 +178,7 @@ export function generateDeepCaveAsync(settingsInput = null, options = {}) {
       });
     }, timeoutMs);
 
-    worker.onmessage = (event) => {
+    worker.onmessage = (event: MessageEvent<DeepCaveWorkerResponse>) => {
       const data = event?.data;
       if (!data || (data.requestId != null && data.requestId !== requestId)) return;
       if (settled) return;
@@ -181,14 +194,15 @@ export function generateDeepCaveAsync(settingsInput = null, options = {}) {
           durationMs: performance.now() - startTime
         });
       } else {
+        const errMsg = !data.ok && data.error ? data.error : 'Deep Cave generation failed';
         resolveFallbackOrReject({
           timedOut: false,
-          errToThrow: new Error(data.error || 'Deep Cave generation failed')
+          errToThrow: new Error(errMsg)
         });
       }
     };
 
-    worker.onerror = (event) => {
+    worker.onerror = (event: ErrorEvent) => {
       if (settled) return;
       // If standard preset, resolve immediately from verified CI Seed Bank
       if (presetId !== 'custom') {
@@ -215,6 +229,7 @@ export function generateDeepCaveAsync(settingsInput = null, options = {}) {
       }
     };
 
-    worker.postMessage({ requestId, seed: resolvedSeed, settings });
+    const reqPayload: DeepCaveWorkerRequest = { requestId, seed: resolvedSeed, settings };
+    worker.postMessage(reqPayload);
   });
 }

@@ -1,10 +1,12 @@
+import type { EncounterModule } from '../../../types/index.ts';
+
 /**
  * Curated Encounter 2: Guardian Lair (1x1 slot)
  *
  * An ambush chamber narrowed into an orthogonal stone collar guarded by a
  * blocking Cave Troll (`guardian`). Must be cleared via barter rather than mined.
  */
-export default {
+const guardianLair: EncounterModule = {
   id: 'guardian_lair',
   footprint: { cols: 1, rows: 1 },
   sockets: {
@@ -50,3 +52,5 @@ export default {
   },
   mechanicHook: null
 };
+
+export default guardianLair;

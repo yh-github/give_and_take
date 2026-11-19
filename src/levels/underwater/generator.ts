@@ -1,7 +1,16 @@
-import { SOLVER_TIME_LIMIT_MS, GENERATOR_MAX_ATTEMPTS } from '../../constants.js';
-import { solvePuzzle } from '../../logic/solver.js';
-import { createRNG, shuffle } from '../../logic/rng.js';
-import { sanitizePuzzleEntities } from '../../logic/rules.js';
+import { GENERATOR_MAX_ATTEMPTS, SOLVER_TIME_LIMIT_MS } from '../../constants.ts';
+import { createRNG, shuffle } from '../../logic/rng.ts';
+import type { SeedInput } from '../../logic/rng.ts';
+import { sanitizePuzzleEntities } from '../../logic/rules.ts';
+import { solvePuzzle } from '../../logic/solver.ts';
+import type {
+  EntityTemplate,
+  LevelDefinition,
+  PuzzleData,
+  PuzzleEntity,
+  PuzzleEntityArray,
+  RequirementType
+} from '../../types/index.ts';
 
 /**
  * Procedural, solver-verified puzzle generator for the Underwater level.
@@ -12,17 +21,16 @@ import { sanitizePuzzleEntities } from '../../logic/rules.js';
  * - Reef traders (Mermaids, Octopus, Crab) in Zones 1 & 2
  * - Sea Witch transformation gate (`sea_witch`) requiring 2 items
  * - Deep Trench (Zone 3) Clams and Crabs guarding the Glowing Crown (`clam_3`)
- *
- * @param {Object} level - The underwater level definition
- * @param {number} [targetSteps=5] - Minimum quest chain steps (3..8)
- * @param {number} [numDiggers=1] - Number of memory clams that close after 3s (0..3)
- * @param {number|string|null} [seed=null] - Optional deterministic PRNG seed
- * @returns {Object} Generated puzzle
  */
-export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1, seed = null) {
+export function generateUnderwaterPuzzle(
+  level: LevelDefinition,
+  targetSteps = 5,
+  numDiggers = 1,
+  seed: SeedInput = null
+): PuzzleData | null {
   const rng = createRNG(seed);
   const startTime = Date.now();
-  let bestPuzzle = null;
+  let bestPuzzle: PuzzleData | null = null;
   let bestScore = Infinity;
 
   const tradableItemIds = level.items
@@ -36,8 +44,8 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
 
   const dolphinTpl = level.entities.find(e => e.id === 'dolphin');
   const witchEnt = level.entities.find(e => e.id === 'sea_witch');
-  const clamTpl = level.entities.find(e => e.id === 'clam');
-  const crabTpl = level.entities.find(e => e.id === 'crab');
+  const clamTpl = level.entities.find(e => e.id === 'clam') || { id: 'clam', name: 'Giant Clam', emoji: '🐚' };
+  const crabTpl = level.entities.find(e => e.id === 'crab') || { id: 'crab', name: 'Crab', emoji: '🦀' };
   const octopusTpl = level.entities.find(e => e.id === 'octopus');
   const mermaidTemplates = level.entities.filter(e => e.id.startsWith('mermaid'));
   const mermaidEmojis = ['🧜‍♀️', '🧜🏻‍♀️', '🧜🏼‍♀️', '🧜🏽‍♀️', '🧜🏾‍♀️'];
@@ -45,7 +53,7 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
   for (let attempt = 0; attempt < GENERATOR_MAX_ATTEMPTS; attempt++) {
     if (Date.now() - startTime > SOLVER_TIME_LIMIT_MS && bestPuzzle) break;
 
-    const puzzleEntities = [];
+    const puzzleEntities: PuzzleEntityArray = [];
 
     // 1. Include preset bubble vents from mapNodes
     level.mapNodes.forEach(n => {
@@ -91,9 +99,9 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
     }
 
     // 4. Reef Traders in Zone 1 (2 nodes) & Zone 2 (3 nodes)
-    const reefTraders = [];
+    const reefTraders: PuzzleEntity[] = [];
     const z1TraderNodes = z1Nodes.slice(0, 2);
-    const z1Templates = shuffle([octopusTpl, crabTpl].filter(Boolean), rng);
+    const z1Templates = shuffle([octopusTpl, crabTpl].filter((t): t is EntityTemplate => Boolean(t)), rng);
     z1TraderNodes.forEach((node, idx) => {
       const tpl = z1Templates[idx % z1Templates.length] || crabTpl;
       reefTraders.push({
@@ -137,13 +145,11 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
     const orderedZ3Nodes = [...clamNodes, ...creatureNodes];
 
     const clampedDiggers = Math.max(0, Math.min(3, numDiggers ?? 1));
-    const deepTraders = [];
+    const deepTraders: PuzzleEntity[] = [];
 
     for (let i = 0; i < Math.min(5, orderedZ3Nodes.length); i++) {
       const node = orderedZ3Nodes[i];
       if (i < 3) {
-        // First `clampedDiggers` clams use ID prefix `clam_` (triggers isDigger memory closing);
-        // remaining non-goal clams use `giant_clam_` (stays open).
         const isMemoryClam = i < clampedDiggers;
         const clamId = isMemoryClam ? `clam_${i}` : `giant_clam_${i}`;
         deepTraders.push({
@@ -177,7 +183,6 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
     }
 
     // 6. Wire the procedural quest chain to match `targetSteps`
-    // Total solver steps = kReef + kDeep + 3 (sea_witch transform + clam_3 goal + sea_witch return)
     const neededTraders = Math.max(1, Math.min(6, (targetSteps || 5) - 3));
     const kReef = Math.max(1, Math.min(3, Math.ceil(neededTraders * 0.6)));
     const kDeep = Math.max(0, Math.min(3, neededTraders - kReef));
@@ -187,7 +192,7 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
 
     let chainCursor = 0;
     const nextChainItem = () => chainPool[chainCursor++ % chainPool.length];
-    const usedChainRewards = new Set();
+    const usedChainRewards = new Set<string>();
 
     let prevReef = startItems[0];
     for (let i = 0; i < kReef; i++) {
@@ -224,8 +229,8 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
     }
 
     const goalReqs = (targetSteps >= 8 && kDeep >= 2) ? [prevDeep, 'fish'] : [prevDeep];
-    const goalReqType = goalReqs.length > 1 ? 'AND' : 'OR';
-    const goalClam = {
+    const goalReqType: RequirementType = goalReqs.length > 1 ? 'AND' : 'OR';
+    const goalClam: PuzzleEntity = {
       ...clamTpl,
       id: 'clam_3',
       emoji: '🐚',
@@ -240,7 +245,9 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
     };
 
     // Configure remaining Reef & Deep traders as red herrings that don't short-circuit the chain
-    const safeRewards = tradableItemIds.filter(id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep && id !== boatOfferedItem);
+    const safeRewards = tradableItemIds.filter(
+      id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep && id !== boatOfferedItem
+    );
     const remainingTraders = [...shuffledReef.slice(kReef), ...shuffledDeep.slice(kDeep)];
     remainingTraders.forEach((t, idx) => {
       if (idx === remainingTraders.length - 1) {
@@ -267,10 +274,12 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
 
     const solved = solvePuzzle(startItems, puzzleEntities, 'clam_3', level, { boatOfferedItem });
     if (solved) {
-      const safeBoatItems = boatPool.filter(id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep);
-      const sanitizedCandidateEntities = sanitizePuzzleEntities(puzzleEntities, level.items);
+      const safeBoatItems = boatPool.filter(
+        id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep
+      );
+      const sanitizedCandidateEntities: PuzzleEntityArray = sanitizePuzzleEntities(puzzleEntities, level.items);
       sanitizedCandidateEntities.boatOfferedItem = boatOfferedItem;
-      const candidate = {
+      const candidate: PuzzleData = {
         startItems,
         boatOfferedItem,
         safeBoatItems: safeBoatItems.length > 0 ? safeBoatItems : [boatOfferedItem],
@@ -296,7 +305,7 @@ export function generateUnderwaterPuzzle(level, targetSteps = 5, numDiggers = 1,
   }
 
   if (bestPuzzle && bestPuzzle.puzzleEntities) {
-    const sanitized = sanitizePuzzleEntities(bestPuzzle.puzzleEntities, level.items);
+    const sanitized: PuzzleEntityArray = sanitizePuzzleEntities(bestPuzzle.puzzleEntities, level.items);
     if (bestPuzzle.boatOfferedItem) sanitized.boatOfferedItem = bestPuzzle.boatOfferedItem;
     bestPuzzle.puzzleEntities = sanitized;
   }

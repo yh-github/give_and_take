@@ -2,6 +2,7 @@ import { MAX_UNIQUE_ITEMS, RESERVED_TOOL_ITEMS } from '../constants.ts';
 import { minDistToPolyline, normalizeWallPolyline } from './geometry.ts';
 import { uniqueCount } from './navigation.ts';
 import type {
+  AbstractPuzzleEntity,
   InventoryFitResult,
   ItemDefinition,
   Point2D,
@@ -191,7 +192,7 @@ export function isValidEntityTrade(
  * If a violation is found, it replaces the conflicting requirement with a valid alternative
  * from the entity's allowed requirements or available items in the level.
  */
-export function sanitizePuzzleEntities<T extends PuzzleEntity>(
+export function sanitizePuzzleEntities<T extends AbstractPuzzleEntity>(
   entities: T[],
   levelItems: ReadonlyArray<ItemDefinition | string> = []
 ): T[] {

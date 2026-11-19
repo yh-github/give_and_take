@@ -1,3 +1,12 @@
+import type {
+  ExtractCaveContoursOptions,
+  ExtractedCaveContours,
+  OrientedBox,
+  Point2D,
+  RawTileContourLoop,
+  WallPolylineObject
+} from '../../types/index.ts';
+
 /**
  * Contour Extraction & Collar-Preserving Simplification for `deep_cave`.
  *
@@ -11,11 +20,8 @@
  * Computes signed polygon area via Shoelace formula in screen coordinates (+x right, +y down).
  * Positive area => clockwise winding in screen space (open interior surrounded by solid).
  * Negative area => counter-clockwise winding in screen space (solid island surrounded by open).
- *
- * @param {Array<{x:number,y:number}>} pts
- * @returns {number}
  */
-export function computeSignedArea(pts) {
+export function computeSignedArea(pts: readonly Point2D[] | null | undefined): number {
   if (!pts || pts.length < 3) return 0;
   let sum = 0;
   for (let i = 0; i < pts.length; i++) {
@@ -29,11 +35,11 @@ export function computeSignedArea(pts) {
 /**
  * Eliminates isolated 2x2 diagonal checkerboard pinholes (`[[1,0],[0,1]]` or `[[0,1],[1,0]]`)
  * by sealing one unlocked open corner tile. Guarantees manifold degree-2 contour loops.
- *
- * @param {number[][]} solidGrid - Mutable 2D array (rows x cols) of 0/1
- * @param {boolean[][]} [lockedTiles] - Optional mask of protected collar tiles
  */
-export function cleanCheckerboards(solidGrid, lockedTiles = null) {
+export function cleanCheckerboards(
+  solidGrid: number[][],
+  lockedTiles: boolean[][] | null = null
+): void {
   const rows = solidGrid.length;
   const cols = rows > 0 ? solidGrid[0].length : 0;
   if (rows < 2 || cols < 2) return;
@@ -54,7 +60,7 @@ export function cleanCheckerboards(solidGrid, lockedTiles = null) {
         const isDiagB = tl === 0 && tr === 1 && bl === 1 && br === 0;
         if (!isDiagA && !isDiagB) continue;
 
-        const candidates = isDiagA
+        const candidates: Array<[number, number]> = isDiagA
           ? [[r, c + 1], [r + 1, c]]
           : [[r, c], [r + 1, c + 1]];
 
@@ -80,25 +86,23 @@ export function cleanCheckerboards(solidGrid, lockedTiles = null) {
 /**
  * Traces exact boundary contours between solid (1) and open (0) tiles in grid space.
  * Directed edges follow the convention: SOLID is on the LEFT, OPEN is on the RIGHT.
- *
- * @param {number[][]} solidGrid
- * @param {number} tileWidth
- * @param {number} tileHeight
- * @returns {Array<{points: Array<{x:number,y:number}>, signedArea: number}>}
  */
-export function extractRawTileContours(solidGrid, tileWidth, tileHeight) {
+export function extractRawTileContours(
+  solidGrid: ReadonlyArray<readonly number[]>,
+  tileWidth: number,
+  tileHeight: number
+): RawTileContourLoop[] {
   const rows = solidGrid.length;
   const cols = rows > 0 ? solidGrid[0].length : 0;
   if (rows === 0 || cols === 0) return [];
 
-  const isSolid = (tx, ty) => {
+  const isSolid = (tx: number, ty: number): boolean => {
     if (tx < 0 || tx >= cols || ty < 0 || ty >= rows) return true;
     return solidGrid[ty][tx] !== 0;
   };
 
-  // Adjacency map from start vertex key -> array of outgoing end vertices
-  const outgoing = new Map();
-  const addEdge = (x1, y1, x2, y2) => {
+  const outgoing = new Map<string, Point2D[]>();
+  const addEdge = (x1: number, y1: number, x2: number, y2: number) => {
     const k = `${x1},${y1}`;
     let list = outgoing.get(k);
     if (!list) {
@@ -111,23 +115,19 @@ export function extractRawTileContours(solidGrid, tileWidth, tileHeight) {
   for (let ty = 0; ty < rows; ty++) {
     for (let tx = 0; tx < cols; tx++) {
       if (isSolid(tx, ty)) continue;
-      // Top edge: solid above => move right
       if (isSolid(tx, ty - 1)) addEdge(tx, ty, tx + 1, ty);
-      // Right edge: solid right => move down
       if (isSolid(tx + 1, ty)) addEdge(tx + 1, ty, tx + 1, ty + 1);
-      // Bottom edge: solid below => move left
       if (isSolid(tx, ty + 1)) addEdge(tx + 1, ty + 1, tx, ty + 1);
-      // Left edge: solid left => move up
       if (isSolid(tx - 1, ty)) addEdge(tx, ty + 1, tx, ty);
     }
   }
 
-  const loops = [];
+  const loops: RawTileContourLoop[] = [];
   for (const [startKey, startTargets] of outgoing.entries()) {
     while (startTargets.length > 0) {
       const [sx, sy] = startKey.split(',').map(Number);
-      const firstTarget = startTargets.pop();
-      const gridLoop = [{ x: sx, y: sy }];
+      const firstTarget = startTargets.pop()!;
+      const gridLoop: Point2D[] = [{ x: sx, y: sy }];
       let curr = firstTarget;
       let steps = 0;
       const maxSteps = (rows + 2) * (cols + 2) * 4;
@@ -137,11 +137,11 @@ export function extractRawTileContours(solidGrid, tileWidth, tileHeight) {
         gridLoop.push(curr);
         const nextList = outgoing.get(`${curr.x},${curr.y}`);
         if (!nextList || nextList.length === 0) break;
-        curr = nextList.pop();
+        curr = nextList.pop()!;
       }
 
       if (gridLoop.length >= 4 && curr.x === sx && curr.y === sy) {
-        const worldPts = gridLoop.map(p => ({
+        const worldPts: Point2D[] = gridLoop.map(p => ({
           x: Math.round(p.x * tileWidth * 1e6) / 1e6,
           y: Math.round(p.y * tileHeight * 1e6) / 1e6
         }));
@@ -159,7 +159,11 @@ export function extractRawTileContours(solidGrid, tileWidth, tileHeight) {
 /**
  * Checks whether a world-space vertex lies on a doorway collar flank that must stay locked.
  */
-function isCollarLockedVertex(pt, collarLockBoxes, eps = 0.25) {
+function isCollarLockedVertex(
+  pt: Point2D,
+  collarLockBoxes: readonly OrientedBox[] | null | undefined,
+  eps = 0.25
+): boolean {
   if (!collarLockBoxes || collarLockBoxes.length === 0) return false;
   for (const box of collarLockBoxes) {
     if (box.orientation === 'horizontal') {
@@ -179,10 +183,13 @@ function isCollarLockedVertex(pt, collarLockBoxes, eps = 0.25) {
  * Removes collinear interior points along straight horizontal/vertical chains while
  * keeping any locked collar vertices intact.
  */
-function collapseCollinear(pts, lockedFlags) {
+function collapseCollinear(
+  pts: Point2D[],
+  lockedFlags: boolean[]
+): { pts: Point2D[]; locked: boolean[] } {
   if (pts.length < 3) return { pts, locked: lockedFlags };
-  const outPts = [];
-  const outLocked = [];
+  const outPts: Point2D[] = [];
+  const outLocked: boolean[] = [];
   const n = pts.length;
   const eps = 1e-4;
 
@@ -195,8 +202,6 @@ function collapseCollinear(pts, lockedFlags) {
     const cross = (curr.x - prev.x) * (next.y - curr.y) - (curr.y - prev.y) * (next.x - curr.x);
     const isCollinear = Math.abs(cross) <= eps;
 
-    // Preserve transition vertices where locked collar meets unlocked wall,
-    // while merging redundant interior collinear ticks along straight walls/collars.
     const bothNeighborsLocked = lockedFlags[prevIdx] && lockedFlags[nextIdx];
     if (isCollinear && (!lockedFlags[i] || bothNeighborsLocked)) {
       continue;
@@ -213,12 +218,17 @@ function collapseCollinear(pts, lockedFlags) {
  * Bevels sharp unlocked 90-degree tile staircase corners (analogous to Marching Squares
  * diagonal smoothing) while preserving collar edges strictly orthogonal.
  */
-function bevelUnlockedCorners(pts, lockedFlags, collarLockBoxes, cutLimit = 1.25) {
+function bevelUnlockedCorners(
+  pts: Point2D[],
+  lockedFlags: boolean[],
+  collarLockBoxes: readonly OrientedBox[],
+  cutLimit = 1.25
+): { pts: Point2D[]; locked: boolean[] } {
   const n = pts.length;
   if (n < 4) return { pts, locked: lockedFlags };
 
-  const outPts = [];
-  const outLocked = [];
+  const outPts: Point2D[] = [];
+  const outLocked: boolean[] = [];
 
   for (let i = 0; i < n; i++) {
     const curr = pts[i];
@@ -227,8 +237,8 @@ function bevelUnlockedCorners(pts, lockedFlags, collarLockBoxes, cutLimit = 1.25
 
     const touchesLock =
       lockedFlags[i] ||
-      isCollarLockedVertex(prev, collarLockBoxes, 0.3) && isCollarLockedVertex(curr, collarLockBoxes, 0.3) ||
-      isCollarLockedVertex(curr, collarLockBoxes, 0.3) && isCollarLockedVertex(next, collarLockBoxes, 0.3);
+      (isCollarLockedVertex(prev, collarLockBoxes, 0.3) && isCollarLockedVertex(curr, collarLockBoxes, 0.3)) ||
+      (isCollarLockedVertex(curr, collarLockBoxes, 0.3) && isCollarLockedVertex(next, collarLockBoxes, 0.3));
 
     if (touchesLock) {
       outPts.push(curr);
@@ -250,7 +260,6 @@ function bevelUnlockedCorners(pts, lockedFlags, collarLockBoxes, cutLimit = 1.25
     }
 
     const dot = (dx1 * dx2 + dy1 * dy2) / (len1 * len2);
-    // Bevel orthogonal and near-orthogonal staircase turns
     if (Math.abs(dot) < 0.35) {
       const cut = Math.min(cutLimit, len1 * 0.32, len2 * 0.32);
       outPts.push({
@@ -272,7 +281,7 @@ function bevelUnlockedCorners(pts, lockedFlags, collarLockBoxes, cutLimit = 1.25
   return { pts: outPts, locked: outLocked };
 }
 
-function perpDistance(pt, a, b) {
+function perpDistance(pt: Point2D, a: Point2D, b: Point2D): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;
@@ -283,7 +292,7 @@ function perpDistance(pt, a, b) {
 /**
  * Ramer-Douglas-Peucker simplification on an open point slice [start..end].
  */
-function rdpSlice(slice, epsilon) {
+function rdpSlice(slice: Point2D[], epsilon: number): Point2D[] {
   if (slice.length <= 2) return slice;
   let maxDist = -1;
   let splitIdx = 0;
@@ -307,17 +316,20 @@ function rdpSlice(slice, epsilon) {
 /**
  * Simplifies a closed contour loop while pinning all locked collar vertices.
  */
-function simplifyCollarPreservingLoop(pts, lockedFlags, epsilon = 0.55) {
+function simplifyCollarPreservingLoop(
+  pts: Point2D[],
+  lockedFlags: readonly boolean[],
+  epsilon = 0.55
+): Point2D[] {
   const n = pts.length;
   if (n <= 4 || epsilon <= 0) return pts;
 
-  const lockIndices = [];
+  const lockIndices: number[] = [];
   for (let i = 0; i < n; i++) {
     if (lockedFlags[i]) lockIndices.push(i);
   }
 
   if (lockIndices.length === 0) {
-    // Rotate to start at extreme vertex and run RDP around the closed cycle
     let minIdx = 0;
     for (let i = 1; i < n; i++) {
       if (pts[i].y < pts[minIdx].y || (pts[i].y === pts[minIdx].y && pts[i].x < pts[minIdx].x)) {
@@ -329,11 +341,11 @@ function simplifyCollarPreservingLoop(pts, lockedFlags, epsilon = 0.55) {
     return simplified.slice(0, -1);
   }
 
-  const out = [];
+  const out: Point2D[] = [];
   for (let k = 0; k < lockIndices.length; k++) {
     const startIdx = lockIndices[k];
     const endIdx = lockIndices[(k + 1) % lockIndices.length];
-    const span = [];
+    const span: Point2D[] = [];
     let cur = startIdx;
     let safety = 0;
     while (safety <= n) {
@@ -342,7 +354,6 @@ function simplifyCollarPreservingLoop(pts, lockedFlags, epsilon = 0.55) {
       cur = (cur + 1) % n;
       safety++;
     }
-    // Keep consecutive locked spans intact (orthogonal collar runs)
     const isDirectLockedSegment = span.length === 2;
     const reduced = isDirectLockedSegment ? span : rdpSlice(span, epsilon);
     for (let j = 0; j < reduced.length - 1; j++) {
@@ -357,9 +368,13 @@ function simplifyCollarPreservingLoop(pts, lockedFlags, epsilon = 0.55) {
  * Splits `[0..worldWidth, 0..worldHeight] \ Interior(outerOpenPoly)` into two
  * non-overlapping simple polygons representing the solid rock framing the cave.
  */
-export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
+export function buildOuterRockPolygons(
+  outerOpenPoly: readonly Point2D[] | null | undefined,
+  worldWidth: number,
+  worldHeight: number
+): Point2D[][] {
   const n = outerOpenPoly?.length || 0;
-  if (n < 3) return [];
+  if (n < 3 || !outerOpenPoly) return [];
 
   let iTop = 0;
   let iBot = 0;
@@ -369,7 +384,7 @@ export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
   }
   if (iTop === iBot) return [];
 
-  const arcTopToBot = [];
+  const arcTopToBot: Point2D[] = [];
   let idx = iTop;
   let steps = 0;
   while (steps <= n) {
@@ -379,7 +394,7 @@ export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
     steps++;
   }
 
-  const arcBotToTop = [];
+  const arcBotToTop: Point2D[] = [];
   idx = iBot;
   steps = 0;
   while (steps <= n) {
@@ -389,7 +404,7 @@ export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
     steps++;
   }
 
-  const rightSolid = [
+  const rightSolid: Point2D[] = [
     { x: outerOpenPoly[iBot].x, y: worldHeight },
     { x: worldWidth, y: worldHeight },
     { x: worldWidth, y: 0 },
@@ -397,7 +412,7 @@ export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
     ...arcTopToBot
   ];
 
-  const leftSolid = [
+  const leftSolid: Point2D[] = [
     { x: outerOpenPoly[iTop].x, y: 0 },
     { x: 0, y: 0 },
     { x: 0, y: worldHeight },
@@ -412,7 +427,12 @@ export function buildOuterRockPolygons(outerOpenPoly, worldWidth, worldHeight) {
  * Returns true if segment `a -> b` runs directly along a locked orthogonal collar flank
  * (the exact doorway boundary walls that gatekeepers must seal seamlessly).
  */
-function isLockedCollarEdge(a, b, collarLockBoxes, eps = 0.28) {
+function isLockedCollarEdge(
+  a: Point2D,
+  b: Point2D,
+  collarLockBoxes: readonly OrientedBox[] | null | undefined,
+  eps = 0.28
+): boolean {
   if (!collarLockBoxes || collarLockBoxes.length === 0) return false;
   for (const box of collarLockBoxes) {
     if (box.orientation === 'horizontal') {
@@ -447,7 +467,11 @@ function isLockedCollarEdge(a, b, collarLockBoxes, eps = 0.28) {
 /**
  * Checks if a candidate point lies inside any collar lock box (with margin).
  */
-function isPointInAnyLockBox(pt, collarLockBoxes, pad = 0.35) {
+function isPointInAnyLockBox(
+  pt: Point2D,
+  collarLockBoxes: readonly OrientedBox[] | null | undefined,
+  pad = 0.35
+): boolean {
   if (!collarLockBoxes || collarLockBoxes.length === 0) return false;
   for (const box of collarLockBoxes) {
     if (
@@ -467,15 +491,19 @@ function isPointInAnyLockBox(pt, collarLockBoxes, pad = 0.35) {
  * by subdividing unlocked walls with outward-biased rock crags and smoothing unlocked
  * corners, while keeping every doorway collar flank vertex and segment 100% locked.
  */
-function sculptOrganicCaveLoop(pts, collarLockBoxes, worldWidth, worldHeight) {
+function sculptOrganicCaveLoop(
+  pts: Point2D[],
+  collarLockBoxes: readonly OrientedBox[],
+  worldWidth: number,
+  worldHeight: number
+): Point2D[] {
   const n = pts.length;
   if (n < 4) return pts;
 
-  const isVertexLocked = (pt) => isCollarLockedVertex(pt, collarLockBoxes, 0.32);
+  const isVertexLocked = (pt: Point2D) => isCollarLockedVertex(pt, collarLockBoxes, 0.32);
 
-  // 1. Subdivide unlocked edges longer than 4.2 units and add outward solid-rock undulation
-  const subdivided = [];
-  const subLocked = [];
+  const subdivided: Point2D[] = [];
+  const subLocked: boolean[] = [];
 
   for (let i = 0; i < n; i++) {
     const a = pts[i];
@@ -493,7 +521,6 @@ function sculptOrganicCaveLoop(pts, collarLockBoxes, worldWidth, worldHeight) {
     const len = Math.hypot(dx, dy);
     if (len <= 6.2) continue;
 
-    // Outward normal points into SOLID (boundary convention: SOLID on LEFT, OPEN on RIGHT)
     const nx = dy / len;
     const ny = -dx / len;
     const steps = Math.max(2, Math.round(len / 5.5));
@@ -509,17 +536,15 @@ function sculptOrganicCaveLoop(pts, collarLockBoxes, worldWidth, worldHeight) {
         Math.sin(bx * 0.27 + by * 0.19) * 0.65 +
         Math.cos(bx * 0.53 - by * 0.41) * 0.42 +
         Math.sin((bx - by) * 0.89) * 0.22;
-      // Non-negative outward displacement into solid rock: widens chambers organically
       const disp = Math.max(0, Math.min(1.3, (0.58 + wave * 0.72) * fade));
 
-      const cand = {
+      const cand: Point2D = {
         x: Math.max(1.2, Math.min(worldWidth - 1.2, bx + nx * disp)),
         y: Math.max(1.2, Math.min(worldHeight - 1.2, by + ny * disp))
       };
 
       if (isPointInAnyLockBox(cand, collarLockBoxes, 0.4)) {
         subdivided.push({ x: bx, y: by });
-        // Pin point right next to a collar box so relaxation doesn't pull it across the collar edge
         subLocked.push(true);
       } else {
         subdivided.push({
@@ -531,11 +556,10 @@ function sculptOrganicCaveLoop(pts, collarLockBoxes, worldWidth, worldHeight) {
     }
   }
 
-  // 2. Single-pass collar-preserving curve relaxation to soften remaining 90-deg alcove corners
   const m = subdivided.length;
   if (m < 5) return subdivided;
   const origArea = computeSignedArea(pts);
-  const smoothed = new Array(m);
+  const smoothed = new Array<Point2D>(m);
 
   for (let i = 0; i < m; i++) {
     const curr = subdivided[i];
@@ -545,8 +569,7 @@ function sculptOrganicCaveLoop(pts, collarLockBoxes, worldWidth, worldHeight) {
     }
     const prev = subdivided[(i - 1 + m) % m];
     const next = subdivided[(i + 1) % m];
-    // Skip points too close to world border or collar boxes
-    const cand = {
+    const cand: Point2D = {
       x: Math.round((curr.x * 0.56 + prev.x * 0.22 + next.x * 0.22) * 1e4) / 1e4,
       y: Math.round((curr.y * 0.56 + prev.y * 0.22 + next.y * 0.22) * 1e4) / 1e4
     };
@@ -570,39 +593,29 @@ function sculptOrganicCaveLoop(pts, collarLockBoxes, worldWidth, worldHeight) {
 
 /**
  * Extracts simplified cave wall polylines and solid obstacle polygons from a tile raster.
- *
- * @param {number[][]} solidGrid - 2D array (rows x cols) of 0 (open) and 1 (solid)
- * @param {Object} options
- * @param {number} options.tileWidth
- * @param {number} options.tileHeight
- * @param {number} options.worldWidth
- * @param {number} options.worldHeight
- * @param {Array<Object>} [options.collarLockBoxes] - Doorway collar boxes to preserve orthogonally
- * @param {boolean[][]} [options.lockedTiles] - Tiles excluded from checkerboard cleaning
- * @param {number} [options.bevelCut=1.25] - Bevel cut size in isotropic units (0 disables)
- * @param {number} [options.simplifyEpsilon=0.55] - RDP tolerance in isotropic units
- * @param {boolean} [options.organicSculpt] - Applies natural curving rock wall sculpting (default true when worldHeight > 130)
- * @returns {{ wallPolylines: Array<Object>, obstaclePolygons: Array<Array<{x:number,y:number}>>, cleanedGrid: number[][] }}
  */
-export function extractCaveContours(solidGrid, {
-  tileWidth,
-  tileHeight,
-  worldWidth,
-  worldHeight,
-  collarLockBoxes = [],
-  lockedTiles = null,
-  bevelCut = 1.25,
-  simplifyEpsilon = 0.55,
-  organicSculpt = worldHeight > 130
-}) {
+export function extractCaveContours(
+  solidGrid: ReadonlyArray<readonly number[]>,
+  {
+    tileWidth,
+    tileHeight,
+    worldWidth,
+    worldHeight,
+    collarLockBoxes = [],
+    lockedTiles = null,
+    bevelCut = 1.25,
+    simplifyEpsilon = 0.55,
+    organicSculpt = worldHeight > 130
+  }: ExtractCaveContoursOptions
+): ExtractedCaveContours {
   const workingGrid = solidGrid.map(row => row.slice());
   cleanCheckerboards(workingGrid, lockedTiles);
 
   const rawLoops = extractRawTileContours(workingGrid, tileWidth, tileHeight);
-  const wallPolylines = [];
-  const obstaclePolygons = [];
+  const wallPolylines: WallPolylineObject[] = [];
+  const obstaclePolygons: Point2D[][] = [];
 
-  let primaryOuterPts = null;
+  let primaryOuterPts: Point2D[] | null = null;
   let maxPositiveArea = -1;
 
   for (const loop of rawLoops) {

@@ -1,5 +1,12 @@
+import type {
+  EntityTemplate,
+  ItemDefinition,
+  MapNode,
+  SceneryNode
+} from '../../types/index.ts';
+
 // === Underwater: Items ===
-export const items = [
+export const items: ItemDefinition[] = [
   { id: 'pearl', name: 'Pearl', emoji: '⚪' }, { id: 'shell', name: 'Shell', emoji: '🐚' },
   { id: 'starfish', name: 'Starfish', emoji: '⭐' }, { id: 'trident', name: 'Trident', emoji: '🔱' },
   { id: 'comb', name: 'Dinglehopper', emoji: '🍴' }, { id: 'mirror', name: 'Looking Glass', emoji: '🪞' },
@@ -10,7 +17,7 @@ export const items = [
 ];
 
 // === Underwater: Entity Templates ===
-export const entities = [
+export const entities: EntityTemplate[] = [
   { id: 'mermaid_teal', name: 'Teal Mermaid', emoji: '🧜‍♀️', color: '#2dd4bf', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
   { id: 'mermaid_red', name: 'Red Mermaid', emoji: '🧜‍♀️', color: '#fb7185', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
   { id: 'mermaid_purple', name: 'Purple Mermaid', emoji: '🧜‍♀️', color: '#a855f7', allowedReqs: ['comb', 'mirror', 'boot', 'starfish', 'locket'] },
@@ -23,7 +30,7 @@ export const entities = [
 ];
 
 // === Underwater: Map Layout ===
-export const mapNodes = [
+export const mapNodes: MapNode[] = [
   /* Zone 1: Sunlit Shallows -> Dolphin station + 2 Reef Traders + Shallow Bubble Vent */
   { x: 26, y: 27, zone: 1 }, { x: 74, y: 27, zone: 1 }, { x: 50, y: 22, zone: 1 },
   { x: 24, y: 40, zone: 1, isPreset: 'bubble_vent', isVent: true },
@@ -38,7 +45,7 @@ export const mapNodes = [
 ];
 
 // === Underwater: Scenery ===
-export const sceneryNodes = [
+export const sceneryNodes: SceneryNode[] = [
   { x: 9, y: 24, e: '🪸', s: 'text-4xl', z: 20 }, { x: 91, y: 28, e: '🪸', s: 'text-5xl', z: 20 },
   { x: 7, y: 48, e: '🪸', s: 'text-5xl', z: 20 }, { x: 92, y: 53, e: '🪸', s: 'text-4xl', z: 20 },
   { x: 10, y: 64, e: '🪸', s: 'text-3xl', z: 20 }, { x: 90, y: 66, e: '🪸', s: 'text-3xl', z: 20 },

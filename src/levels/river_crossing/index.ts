@@ -1,7 +1,8 @@
-import { items, entities, mapNodes, sceneryNodes } from './data.js';
+import { items, entities, mapNodes, sceneryNodes } from './data.ts';
 import { RiverBackground, BridgeSVG, CampIcon } from './components.jsx';
+import type { LevelDefinition } from '../../types/index.ts';
 
-const riverCrossing = {
+const riverCrossing: LevelDefinition = {
   id: 'river_crossing',
   name: 'River Crossing',
   items,

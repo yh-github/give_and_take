@@ -14,20 +14,39 @@ import {
   DOOR_NS_COL_START,
   TILE_COLS_PER_SLOT,
   TILE_ROWS_PER_SLOT
-} from '../slotGrid.js';
+} from '../slotGrid.ts';
+import type {
+  EncounterDirection,
+  EncounterValidationResult,
+  PuzzleEntity
+} from '../../../types/index.ts';
 
 const VALID_TILE_CHARS = new Set(['#', '.', 'C', 'G', 'E', 'L']);
-const VALID_DIRECTIONS = ['north', 'south', 'east', 'west'];
+const VALID_DIRECTIONS: EncounterDirection[] = ['north', 'south', 'east', 'west'];
+
+interface TileCoord {
+  c: number;
+  r: number;
+}
+
+interface SocketTile extends TileCoord {
+  dir: EncounterDirection;
+  offset: number;
+}
 
 /**
  * Flood-fills open tiles from a starting tile set to verify reachability across
  * the encounter tileGrid (treating gatekeeper anchors 'G'/'L' as traversable once unlocked).
  */
-function bfsReachableTiles(tileGrid, startTiles, blockedTiles = new Set()) {
+function bfsReachableTiles(
+  tileGrid: readonly string[],
+  startTiles: readonly TileCoord[],
+  blockedTiles: Set<string> = new Set()
+): Set<string> {
   const rows = tileGrid.length;
   const cols = rows > 0 ? tileGrid[0].length : 0;
-  const visited = new Set();
-  const queue = [];
+  const visited = new Set<string>();
+  const queue: TileCoord[] = [];
 
   for (const t of startTiles) {
     const ch = tileGrid[t.r]?.[t.c];
@@ -40,8 +59,8 @@ function bfsReachableTiles(tileGrid, startTiles, blockedTiles = new Set()) {
   }
 
   while (queue.length > 0) {
-    const cur = queue.shift();
-    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const cur = queue.shift()!;
+    const dirs: Array<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (const [dc, dr] of dirs) {
       const nc = cur.c + dc;
       const nr = cur.r + dr;
@@ -59,12 +78,9 @@ function bfsReachableTiles(tileGrid, startTiles, blockedTiles = new Set()) {
 
 /**
  * Validates an encounter module against the v2.0 contract.
- *
- * @param {Object} encounter
- * @returns {{ valid: boolean, errors: string[] }}
  */
-export function validateEncounterModule(encounter) {
-  const errors = [];
+export function validateEncounterModule(encounter: any): EncounterValidationResult {
+  const errors: string[] = [];
   if (!encounter || typeof encounter !== 'object') {
     return { valid: false, errors: ['Encounter module must be an object'] };
   }
@@ -102,7 +118,7 @@ export function validateEncounterModule(encounter) {
 
   // Validate socket definitions and perimeter 'C' collar alignment
   const sockets = encounter.sockets || {};
-  const socketTiles = [];
+  const socketTiles: SocketTile[] = [];
   for (const dir of VALID_DIRECTIONS) {
     if (!Array.isArray(sockets[dir])) {
       errors.push(`sockets.${dir} must be an array`);
@@ -170,12 +186,14 @@ export function validateEncounterModule(encounter) {
       }
 
       // Verify declared gatekeepers + internalSteps solve cleanly from declared inputs
-      const simEntities = [];
+      const simEntities: PuzzleEntity[] = [];
       let curZone = 1;
       for (let i = 0; i < frag.gatekeepers.length; i++) {
         const g = frag.gatekeepers[i];
         simEntities.push({
           id: `enc_gate_${i}`,
+          x: 0,
+          y: 0,
           isGatekeeper: true,
           gateType: g.type || 'rock',
           requires: g.requires || [],
@@ -187,11 +205,12 @@ export function validateEncounterModule(encounter) {
         curZone++;
       }
 
-      // Check outputs/traders if any
       const internalRewards = [...(frag.outputs || [])];
       if (frag.internalTrade && internalRewards.length > 0) {
         simEntities.push({
           id: 'enc_trade_0',
+          x: 0,
+          y: 0,
           isGatekeeper: false,
           requires: frag.internalTrade.requires || [],
           reqType: 'AND',
@@ -201,8 +220,10 @@ export function validateEncounterModule(encounter) {
       }
 
       if (simEntities.length > 0) {
-        const goalEnt = {
+        const goalEnt: PuzzleEntity = {
           id: 'enc_goal_check',
+          x: 0,
+          y: 0,
           isGoal: true,
           isGatekeeper: true,
           requires: internalRewards.length > 0 ? [internalRewards[0]] : (frag.gatekeepers[frag.gatekeepers.length - 1]?.requires || []),
@@ -211,12 +232,20 @@ export function validateEncounterModule(encounter) {
           zone: curZone
         };
         const mockLevel = { mechanics: { isVertical: true, hasPickaxe: true } };
-        const simInputs = [...(frag.inputs || [])];
-        // If encounter produces free preset pickables inside, feed those in check
+        const simInputs: string[] = [...(frag.inputs || [])];
+        const entitiesForSolve =
+          internalRewards.length > 0 && !frag.internalTrade
+            ? [...simEntities]
+            : [...simEntities, goalEnt];
+        const targetGoalId =
+          internalRewards.length > 0 && !frag.internalTrade
+            ? (simEntities[simEntities.length - 1]?.id ?? 'enc_goal_check')
+            : 'enc_goal_check';
+
         const sol = solvePuzzle(
           frag.internalPresetItems ? [...simInputs, ...frag.internalPresetItems] : simInputs,
-          internalRewards.length > 0 && !frag.internalTrade ? [...simEntities] : [...simEntities, goalEnt],
-          internalRewards.length > 0 && !frag.internalTrade ? simEntities[simEntities.length - 1]?.id : 'enc_goal_check',
+          entitiesForSolve,
+          targetGoalId,
           mockLevel,
           { maxStates: 4000 }
         );

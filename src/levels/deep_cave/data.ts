@@ -1,9 +1,11 @@
+import type { EntityTemplate, ItemDefinition } from '../../types/index.ts';
+
 /**
  * Items and Entity Templates for `deep_cave` ("The Abyssal Descent").
  * Shares Underground art while keeping module imports JSON-free for Web Workers & Node fuzzers.
  */
 
-export const items = [
+export const items: ItemDefinition[] = [
   { id: 'crystal', name: 'Crystal', emoji: '🔮' },
   { id: 'gold_nugget', name: 'Gold Nugget', emoji: '🪙' },
   { id: 'mushroom', name: 'Mushroom', emoji: '🍄' },
@@ -15,7 +17,7 @@ export const items = [
   { id: 'pickaxe', name: 'Pickaxe', emoji: '⛏️' }
 ];
 
-export const entities = [
+export const entities: EntityTemplate[] = [
   { id: 'troll', name: 'Cave Troll', emoji: '🧌', allowedReqs: ['crystal', 'gold_nugget', 'mushroom', 'emerald', 'relic', 'bone', 'gem'] },
   { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
   { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'rope'] },

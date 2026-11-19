@@ -1,8 +1,9 @@
-import { items, entities, mapNodes, sceneryNodes } from './data.js';
+import { items, entities, mapNodes, sceneryNodes } from './data.ts';
 import { CaveBackground, CampIcon, RockSVG, CAVE_WALL_VERTICES } from './components.jsx';
-import { getObstacleSegments } from '../../logic/visibility.js';
+import { getObstacleSegments } from '../../logic/visibility.ts';
+import type { LevelDefinition, MapNode, PuzzleEntity } from '../../types/index.ts';
 
-const underground = {
+const underground: LevelDefinition = {
   id: 'underground',
   name: 'Underground',
   items,
@@ -24,8 +25,12 @@ const underground = {
   RockComponent: RockSVG,
   GatekeeperPropComponent: () => null,
   CampIcon,
-  getObstacleSegments: (puzzleEntities, unlockedZones, defeated, screens = 2.5) =>
-    getObstacleSegments(puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, screens),
+  getObstacleSegments: (
+    puzzleEntities: ReadonlyArray<MapNode | PuzzleEntity>,
+    unlockedZones: readonly number[] | null | undefined,
+    defeated: readonly string[] = [],
+    screens = 2.5
+  ) => getObstacleSegments(puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, screens),
 };
 
 export default underground;

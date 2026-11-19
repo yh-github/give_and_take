@@ -142,7 +142,7 @@ export function getObstacleSegments(
  */
 export function getProceduralObstacleSegments(
   mapNodes: ReadonlyArray<MapNode | PuzzleEntity> | null | undefined,
-  geometry: ProceduralGeometry | null | undefined,
+  geometry: Pick<ProceduralGeometry, 'worldWidth' | 'worldHeight' | 'wallPolylines'> | null | undefined,
   defeated: readonly string[] = []
 ): ObstacleSegment[] {
   const segments: ObstacleSegment[] = [];

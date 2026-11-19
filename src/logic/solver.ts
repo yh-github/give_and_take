@@ -2,16 +2,15 @@ import { MAX_UNIQUE_ITEMS, SOLVER_MAX_ITERS } from '../constants.ts';
 import { uniqueCount } from './navigation.ts';
 import { canFitInInventory, consumeRequiredItems } from './rules.ts';
 import type {
+  AbstractPuzzleEntity,
   LevelDefinition,
-  PuzzleEntity,
-  PuzzleEntityArray,
   SolutionStep,
   SolverOptions,
   SolverResult
 } from '../types/index.ts';
 
 function computeSimulatedUnlockedZones(
-  puzzleEntities: readonly PuzzleEntity[],
+  puzzleEntities: readonly AbstractPuzzleEntity[],
   defeatedIds: readonly string[],
   hasTransformation: boolean
 ): Set<number> {
@@ -39,7 +38,7 @@ function computeSimulatedUnlockedZones(
  */
 export function solvePuzzle(
   startItems: readonly string[],
-  puzzleEntities: PuzzleEntityArray,
+  puzzleEntities: ReadonlyArray<AbstractPuzzleEntity> & { boatOfferedItem?: string | null },
   goalEntityId: string,
   level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
   options: SolverOptions = {}

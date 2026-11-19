@@ -38,6 +38,9 @@ export interface LevelMechanics {
   useIsotropicCoords?: boolean;
   supportsProceduralWorker?: boolean;
   hasTransformation?: boolean;
+  hasAir?: boolean;
+  hasMurkyWater?: boolean;
+  heroBobs?: boolean;
   screens?: number;
   [key: string]: unknown;
 }
@@ -119,6 +122,11 @@ export interface LevelDefinition {
     seed?: any
   ) => PuzzleData | null;
   getObstacleSegments?: (...args: any[]) => ObstacleSegment[];
+  BackgroundComponent?: any;
+  RockComponent?: any;
+  ChasmComponent?: any;
+  GatekeeperPropComponent?: any;
+  CampIcon?: any;
   [key: string]: unknown;
 }
 

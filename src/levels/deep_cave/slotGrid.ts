@@ -4,14 +4,27 @@
  * Maps logical slot connectivity (plus curated encounter tile grids) onto a composite
  * isotropic tile raster (10 x 18 tiles per slot), stamps 4-tile symmetric straight
  * doorway collars (width >= 20.0 units) for zero-gap gatekeepers, and extracts
- * closed contours via `contouring.js`.
+ * closed contours via `contouring.ts`.
  */
 
 import {
   DEEP_CAVE_SLOT_COLS,
   DEEP_CAVE_SLOT_HEIGHT
 } from '../../constants.ts';
-import { extractCaveContours } from './contouring.js';
+import type { RNG } from '../../logic/rng.ts';
+import { extractCaveContours } from './contouring.ts';
+import type {
+  DoorwayCollar,
+  EncounterAnchorGroup,
+  EncounterModule,
+  OrientedBox,
+  Point2D,
+  RasterizedSlotGrid,
+  RoomArchetype,
+  SlotRecord,
+  StampedEncounterAnchors,
+  WorldDimensions
+} from '../../types/index.ts';
 
 export const TILE_COLS_PER_SLOT = 10;
 export const TILE_ROWS_PER_SLOT = 18;
@@ -22,7 +35,7 @@ export const DOOR_NS_COL_END = 8;
 export const DOOR_EW_ROW_START = 6; // 6 open rows: [6..11] => 21.33 isotropic units
 export const DOOR_EW_ROW_END = 12;
 
-export const ROOM_ARCHETYPES = [
+export const ROOM_ARCHETYPES: RoomArchetype[] = [
   'wide_hall',
   'angled_left',
   'angled_right',
@@ -33,7 +46,7 @@ export const ROOM_ARCHETYPES = [
 /**
  * Returns isotropic dimensions for a grid with `rows` slot rows.
  */
-export function getWorldDimensions(rows) {
+export function getWorldDimensions(rows: number): WorldDimensions {
   const totalTileCols = DEEP_CAVE_SLOT_COLS * TILE_COLS_PER_SLOT; // 30
   const totalTileRows = rows * TILE_ROWS_PER_SLOT;
   const worldHeight = rows * DEEP_CAVE_SLOT_HEIGHT;
@@ -52,10 +65,10 @@ export function getWorldDimensions(rows) {
 /**
  * Creates a blank `rows x 3` grid of slot records.
  */
-export function createEmptySlotGrid(rows) {
-  const grid = [];
+export function createEmptySlotGrid(rows: number): SlotRecord[][] {
+  const grid: SlotRecord[][] = [];
   for (let r = 0; r < rows; r++) {
-    const rowArr = [];
+    const rowArr: SlotRecord[] = [];
     for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
       rowArr.push({
         col: c,
@@ -77,7 +90,13 @@ export function createEmptySlotGrid(rows) {
 /**
  * Connects two cardinally adjacent slots symmetrically and marks both active.
  */
-export function connectSlots(slots, colA, rowA, colB, rowB) {
+export function connectSlots(
+  slots: SlotRecord[][],
+  colA: number,
+  rowA: number,
+  colB: number,
+  rowB: number
+): boolean {
   const a = slots[rowA]?.[colA];
   const b = slots[rowB]?.[colB];
   if (!a || !b) return false;
@@ -107,7 +126,7 @@ export function connectSlots(slots, colA, rowA, colB, rowB) {
 /**
  * Canonical edge key between two slots (always ordered top->bottom / left->right).
  */
-export function makeEdgeKey(colA, rowA, colB, rowB) {
+export function makeEdgeKey(colA: number, rowA: number, colB: number, rowB: number): string {
   if (rowA < rowB || (rowA === rowB && colA <= colB)) {
     return `${colA},${rowA}->${colB},${rowB}`;
   }
@@ -117,7 +136,12 @@ export function makeEdgeKey(colA, rowA, colB, rowB) {
 /**
  * Computes isotropic collar bounds and tile span for a seam doorway (`S` or `E`).
  */
-export function computeDoorwayCollar(col, row, dir, dims) {
+export function computeDoorwayCollar(
+  col: number,
+  row: number,
+  dir: 'S' | 'E',
+  dims: WorldDimensions
+): DoorwayCollar {
   const { tileWidth, tileHeight } = dims;
   if (dir === 'S') {
     const seamTileY = (row + 1) * TILE_ROWS_PER_SLOT;
@@ -147,7 +171,12 @@ export function computeDoorwayCollar(col, row, dir, dims) {
       },
       openCols: [xTileStart, xTileEnd - 1],
       openRows: [seamTileY - 2, seamTileY + 1],
-      flankCols: [col * TILE_COLS_PER_SLOT, col * TILE_COLS_PER_SLOT + 1, col * TILE_COLS_PER_SLOT + 8, col * TILE_COLS_PER_SLOT + 9]
+      flankCols: [
+        col * TILE_COLS_PER_SLOT,
+        col * TILE_COLS_PER_SLOT + 1,
+        col * TILE_COLS_PER_SLOT + 8,
+        col * TILE_COLS_PER_SLOT + 9
+      ]
     };
   }
 
@@ -191,7 +220,11 @@ export function computeDoorwayCollar(col, row, dir, dims) {
 /**
  * Computes isotropic chamber center and safe interior bounds for a slot `(col, row)`.
  */
-export function getSlotCenter(col, row, dims = getWorldDimensions(row + 1)) {
+export function getSlotCenter(
+  col: number,
+  row: number,
+  dims: WorldDimensions = getWorldDimensions(row + 1)
+): Point2D {
   const slotOriginX = col * TILE_COLS_PER_SLOT * dims.tileWidth;
   const slotOriginY = row * TILE_ROWS_PER_SLOT * dims.tileHeight;
   return {
@@ -204,7 +237,13 @@ export function getSlotCenter(col, row, dims = getWorldDimensions(row + 1)) {
  * Stamps a procedural 1x1 chamber archetype into `solidGrid`, keeping minimum
  * clear width >= 6 tiles (20.0 units) and preserving partition walls away from sockets.
  */
-function stampProceduralChamber(solidGrid, col, row, archetype, rng) {
+function stampProceduralChamber(
+  solidGrid: number[][],
+  col: number,
+  row: number,
+  archetype: RoomArchetype,
+  rng?: RNG
+): void {
   const c0 = col * TILE_COLS_PER_SLOT;
   const r0 = row * TILE_ROWS_PER_SLOT;
 
@@ -229,11 +268,9 @@ function stampProceduralChamber(solidGrid, col, row, archetype, rng) {
       if (lr >= 6 && lr <= 11) { minC = 1; maxC = 8; }
       else { minC = 2; maxC = 7; }
     } else {
-      // 'wide_hall': taper softly at north/south entrances to form an oval cavern instead of a box
       if (lr === 2 || lr === 15) { minC = 2; maxC = 7; }
     }
 
-    // Gentle seeded edge variation on outer wall columns while keeping >= 6 tiles clear
     if (rng && rng() < 0.4 && maxC - minC >= 7 && lr >= 4 && lr <= 13) {
       if (rng() < 0.5) minC += 1;
       else maxC -= 1;
@@ -245,16 +282,27 @@ function stampProceduralChamber(solidGrid, col, row, archetype, rng) {
   }
 }
 
+interface GridTilePos {
+  gc: number;
+  gr: number;
+}
+
 /**
  * Stamps a curated encounter tileGrid into `solidGrid` and extracts anchor coordinates.
  */
-function stampEncounter(solidGrid, lockedTiles, originSlot, encounter, dims) {
+function stampEncounter(
+  solidGrid: number[][],
+  lockedTiles: boolean[][],
+  originSlot: { col: number; row: number },
+  encounter: EncounterModule,
+  dims: WorldDimensions
+): StampedEncounterAnchors {
   const baseC = originSlot.col * TILE_COLS_PER_SLOT;
   const baseR = originSlot.row * TILE_ROWS_PER_SLOT;
   const rows = encounter.tileGrid.length;
   const cols = rows > 0 ? encounter.tileGrid[0].length : 0;
 
-  const anchorTiles = {
+  const anchorTiles: Record<'G' | 'E' | 'L', GridTilePos[]> = {
     G: [],
     E: [],
     L: []
@@ -284,20 +332,19 @@ function stampEncounter(solidGrid, lockedTiles, originSlot, encounter, dims) {
     }
   }
 
-  // Group contiguous anchor tiles (handles both single-tile entity anchors and wide chasm strips)
-  const groupContiguous = (tiles) => {
+  const groupContiguous = (tiles: readonly GridTilePos[]): EncounterAnchorGroup[] => {
     const remaining = new Set(tiles.map(t => `${t.gc},${t.gr}`));
-    const groups = [];
+    const groups: EncounterAnchorGroup[] = [];
     for (const t of tiles) {
       const k = `${t.gc},${t.gr}`;
       if (!remaining.has(k)) continue;
-      const queue = [t];
+      const queue: GridTilePos[] = [t];
       remaining.delete(k);
-      const members = [];
+      const members: GridTilePos[] = [];
       while (queue.length > 0) {
-        const cur = queue.shift();
+        const cur = queue.shift()!;
         members.push(cur);
-        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        const dirs: Array<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
         for (const [dc, dr] of dirs) {
           const nk = `${cur.gc + dc},${cur.gr + dr}`;
           if (remaining.has(nk)) {
@@ -306,7 +353,10 @@ function stampEncounter(solidGrid, lockedTiles, originSlot, encounter, dims) {
           }
         }
       }
-      let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+      let minC = Infinity;
+      let maxC = -Infinity;
+      let minR = Infinity;
+      let maxR = -Infinity;
       for (const m of members) {
         if (m.gc < minC) minC = m.gc;
         if (m.gc > maxC) maxC = m.gc;
@@ -342,7 +392,11 @@ function stampEncounter(solidGrid, lockedTiles, originSlot, encounter, dims) {
 /**
  * Stamps active doorway collar openings, flanking straight walls, and lock boxes.
  */
-function stampDoorwayCollar(solidGrid, lockedTiles, collar) {
+function stampDoorwayCollar(
+  solidGrid: number[][],
+  lockedTiles: boolean[][],
+  collar: DoorwayCollar
+): void {
   const [cStart, cEnd] = collar.openCols;
   const [rStart, rEnd] = collar.openRows;
 
@@ -355,13 +409,13 @@ function stampDoorwayCollar(solidGrid, lockedTiles, collar) {
 
   if (collar.orientation === 'horizontal') {
     for (let r = rStart; r <= rEnd; r++) {
-      for (const fc of collar.flankCols) {
+      for (const fc of collar.flankCols || []) {
         solidGrid[r][fc] = 1;
         lockedTiles[r][fc] = true;
       }
     }
   } else {
-    for (const fr of collar.flankRows) {
+    for (const fr of collar.flankRows || []) {
       for (let c = cStart; c <= cEnd; c++) {
         solidGrid[fr][c] = 1;
         lockedTiles[fr][c] = true;
@@ -373,25 +427,24 @@ function stampDoorwayCollar(solidGrid, lockedTiles, collar) {
 /**
  * Rasterizes the `3 x rows` slot grid into a composite tile map, stamps doorway collars,
  * and extracts contour polylines & obstacle polygons.
- *
- * @param {Array<Array<Object>>} slots
- * @param {number} rows
- * @param {Object<string, Object>} [encountersById={}]
- * @param {Function} [rng=Math.random]
- * @returns {Object} Rasterized geometry payload
  */
-export function rasterizeSlotGrid(slots, rows, encountersById = {}, rng = Math.random) {
+export function rasterizeSlotGrid(
+  slots: SlotRecord[][],
+  rows: number,
+  encountersById: Record<string, EncounterModule> = {},
+  rng: RNG = Math.random
+): RasterizedSlotGrid {
   const dims = getWorldDimensions(rows);
   const solidGrid = Array.from({ length: dims.totalTileRows }, () =>
-    Array(dims.totalTileCols).fill(1)
+    Array<number>(dims.totalTileCols).fill(1)
   );
   const lockedTiles = Array.from({ length: dims.totalTileRows }, () =>
-    Array(dims.totalTileCols).fill(false)
+    Array<boolean>(dims.totalTileCols).fill(false)
   );
 
-  const encounterAnchors = [];
-  const collarLockBoxes = [];
-  const stampedEncounters = new Set();
+  const encounterAnchors: StampedEncounterAnchors[] = [];
+  const collarLockBoxes: OrientedBox[] = [];
+  const stampedEncounters = new Set<string>();
 
   // 1. Carve procedural rooms & encounter footprints
   for (let r = 0; r < rows; r++) {
@@ -440,18 +493,19 @@ export function rasterizeSlotGrid(slots, rows, encountersById = {}, rng = Math.r
   }
 
   // 2. Stamp orthogonal seam doorway collars between connected slots
-  const doorways = {};
+  const doorways: Record<string, DoorwayCollar> = {};
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
       const slot = slots[r][c];
       if (!slot.active) continue;
 
       if (slot.sockets.S && r + 1 < rows && slots[r + 1][c].active) {
-        // Skip internal encounter seams if both belong to the same multi-row encounter instance
-        const sameEncounter = slot.encounterId &&
+        const sameEncounter = Boolean(
+          slot.encounterId &&
           slots[r + 1][c].encounterId === slot.encounterId &&
           slot.encounterOrigin?.col === slots[r + 1][c].encounterOrigin?.col &&
-          slot.encounterOrigin?.row === slots[r + 1][c].encounterOrigin?.row;
+          slot.encounterOrigin?.row === slots[r + 1][c].encounterOrigin?.row
+        );
         if (!sameEncounter) {
           const collar = computeDoorwayCollar(c, r, 'S', dims);
           stampDoorwayCollar(solidGrid, lockedTiles, collar);
@@ -461,10 +515,12 @@ export function rasterizeSlotGrid(slots, rows, encountersById = {}, rng = Math.r
       }
 
       if (slot.sockets.E && c + 1 < DEEP_CAVE_SLOT_COLS && slots[r][c + 1].active) {
-        const sameEncounter = slot.encounterId &&
+        const sameEncounter = Boolean(
+          slot.encounterId &&
           slots[r][c + 1].encounterId === slot.encounterId &&
           slot.encounterOrigin?.col === slots[r][c + 1].encounterOrigin?.col &&
-          slot.encounterOrigin?.row === slots[r][c + 1].encounterOrigin?.row;
+          slot.encounterOrigin?.row === slots[r][c + 1].encounterOrigin?.row
+        );
         if (!sameEncounter) {
           const collar = computeDoorwayCollar(c, r, 'E', dims);
           stampDoorwayCollar(solidGrid, lockedTiles, collar);
@@ -512,7 +568,7 @@ export function rasterizeSlotGrid(slots, rows, encountersById = {}, rng = Math.r
  * Helper utility (for standalone Phase 2 geometry tests) that builds a valid
  * connected `3 x rows` layout with branches and spurs.
  */
-export function buildTestSlotLayout(rows = 4, rng = Math.random) {
+export function buildTestSlotLayout(rows = 4, rng: RNG = Math.random): SlotRecord[][] {
   const slots = createEmptySlotGrid(rows);
   let curCol = 1;
   slots[0][curCol].active = true;
@@ -529,7 +585,6 @@ export function buildTestSlotLayout(rows = 4, rng = Math.random) {
   }
   slots[rows - 1][curCol].role = 'vault';
 
-  // Add side branch / spur
   if (rows >= 3) {
     for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
       if (slots[1][c].active && !slots[1][(c + 1) % 3].active) {

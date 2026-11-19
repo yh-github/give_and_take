@@ -39,7 +39,7 @@ export interface MapNode {
   isGoalNode?: boolean;
   isClamNode?: boolean;
   isVent?: boolean;
-  isPreset?: PresetType | boolean;
+  isPreset?: PresetType | boolean | (string & {});
   gkIdx?: number;
   unlocksZone?: number;
   unlocksZones?: number[];
@@ -53,13 +53,13 @@ export interface SceneryNode {
   [key: string]: unknown;
 }
 
-export interface PuzzleEntity {
+export interface AbstractPuzzleEntity {
   id: string;
   name?: string;
   emoji?: string;
   color?: string;
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
   zone: number;
   requires?: string[];
   reqType?: RequirementType;
@@ -68,7 +68,7 @@ export interface PuzzleEntity {
   isGatekeeper?: boolean;
   isExtraRock?: boolean;
   isGoal?: boolean;
-  isPreset?: PresetType | boolean;
+  isPreset?: PresetType | boolean | (string & {});
   isVent?: boolean;
   isTreasure?: boolean;
   isChasmGate?: boolean;
@@ -77,6 +77,11 @@ export interface PuzzleEntity {
   unlocksZones?: number[];
   collarBounds?: CollarBounds;
   [key: string]: unknown;
+}
+
+export interface PuzzleEntity extends AbstractPuzzleEntity {
+  x: number;
+  y: number;
 }
 
 export type PuzzleEntityArray = PuzzleEntity[] & {

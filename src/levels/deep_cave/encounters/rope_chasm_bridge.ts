@@ -1,3 +1,5 @@
+import type { EncounterModule } from '../../../types/index.ts';
+
 /**
  * Curated Encounter 1: Rope Chasm Bridge (2x1 slots)
  *
@@ -5,7 +7,7 @@
  * Consuming 1 `rope` at the chasm anchor strings a permanent crossing bridge to
  * unlock the treasure cache (`outputs`) and the south descent.
  */
-export default {
+const ropeChasmBridge: EncounterModule = {
   id: 'rope_chasm_bridge',
   footprint: { cols: 2, rows: 1 },
   sockets: {
@@ -51,3 +53,5 @@ export default {
   },
   mechanicHook: null
 };
+
+export default ropeChasmBridge;

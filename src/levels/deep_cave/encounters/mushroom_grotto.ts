@@ -1,10 +1,12 @@
+import type { EncounterModule } from '../../../types/index.ts';
+
 /**
  * Curated Encounter 3: Mushroom Grotto (2x1 slots)
  *
  * A hidden fungal pocket behind an interior rock doorway (`pickaxe`). Inside sits
  * a wild Mushroom resource plus an exchange hermit holding an essential progression item.
  */
-export default {
+const mushroomGrotto: EncounterModule = {
   id: 'mushroom_grotto',
   footprint: { cols: 2, rows: 1 },
   sockets: {
@@ -54,3 +56,5 @@ export default {
   },
   mechanicHook: null
 };
+
+export default mushroomGrotto;
