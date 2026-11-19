@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg-glow" cx="50%" cy="46%" r="55%">
+      <stop offset="0%" stop-color="#3b2b1e" />
+      <stop offset="60%" stop-color="#241b15" />
+      <stop offset="100%" stop-color="#1a1512" />
+    </radialGradient>
+    <radialGradient id="torch-halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.34" />
+      <stop offset="55%" stop-color="#f59e0b" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="gem-top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6ee7b7" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="gem-bottom" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#065f46" />
+    </linearGradient>
+    <linearGradient id="gold-arrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a" />
+      <stop offset="50%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="teal-arrow" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#7dd3fc" />
+      <stop offset="50%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed background (works cleanly for both standard and maskable icons) -->
+  <rect width="512" height="512" fill="url(#bg-glow)" />
+
+  <!-- Subtle compass/cave stone ring -->
+  <circle cx="256" cy="256" r="176" fill="url(#torch-halo)" />
+  <circle cx="256" cy="256" r="158" fill="none" stroke="#44352b" stroke-width="4" stroke-dasharray="10 12" />
+
+  <!-- Top curved "Give" arrow (warm gold) -->
+  <path
+    d="M 134 218 A 126 126 0 0 1 352 168"
+    fill="none"
+    stroke="url(#gold-arrow)"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+  <polygon points="374,196 364,132 314,174" fill="url(#gold-arrow)" />
+
+  <!-- Bottom curved "Take" arrow (sky/aqua) -->
+  <path
+    d="M 378 294 A 126 126 0 0 1 160 344"
+    fill="none"
+    stroke="url(#teal-arrow)"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+  <polygon points="138,316 148,380 198,338" fill="url(#teal-arrow)" />
+
+  <!-- Central faceted emerald/quest gem -->
+  <polygon points="256,178 318,236 256,334 194,236" fill="url(#gem-bottom)" stroke="#a7f3d0" stroke-width="4" stroke-linejoin="round" />
+  <polygon points="256,178 318,236 256,246 194,236" fill="url(#gem-top)" />
+  <polygon points="256,178 282,236 256,334 230,236" fill="#34d399" fill-opacity="0.35" />
+  <!-- Sparkle highlight -->
+  <circle cx="236" cy="216" r="7" fill="#ecfdf5" fill-opacity="0.9" />
+</svg>
