@@ -1,7 +1,13 @@
 import React, { useMemo, memo } from 'react';
-import { getCorridorBounds, generateProceduralOrganicRock, calculateFacetLighting, hashSeed } from '../../logic/geometry.js';
+import { getCorridorBounds, generateProceduralOrganicRock, calculateFacetLighting } from '../../logic/geometry.ts';
+import type {
+  CaveWallVertices,
+  CollarBounds,
+  Point2D,
+  ProceduralGeometry
+} from '../../types/index.ts';
 
-export const CAVE_WALL_VERTICES = {
+export const CAVE_WALL_VERTICES: CaveWallVertices = {
   leftWall: [
     {x:0,y:0}, {x:20,y:0}, 
     {x:18,y:4}, {x:20,y:8}, {x:18,y:12}, {x:14,y:16}, {x:16,y:20}, 
@@ -67,7 +73,32 @@ export const CaveBackground = () => (
   </div>
 );
 
-export const RockSVG = memo(({ isDefeated, isAlerting, isBreaking, seed = 0, size = 'large', heroPos, yNode = 50, nodeX = 50, boundsOverride = null, yScale = 2.5 }) => {
+export interface RockSVGProps {
+  isDefeated?: boolean;
+  isAlerting?: boolean;
+  isBreaking?: boolean;
+  seed?: string | number;
+  size?: string;
+  heroPos?: Point2D | null;
+  yNode?: number;
+  nodeX?: number;
+  boundsOverride?: CollarBounds | null;
+  geometry?: ProceduralGeometry | null;
+  yScale?: number;
+}
+
+export const RockSVG = memo(({
+  isDefeated = false,
+  isAlerting = false,
+  isBreaking = false,
+  seed = 0,
+  size = 'large',
+  heroPos = null,
+  yNode = 50,
+  nodeX = 50,
+  boundsOverride = null,
+  yScale = 2.5
+}: RockSVGProps) => {
   const isRightChannel = nodeX >= 50;
   const isVerticalCollar = boundsOverride?.orientation === 'vertical';
   const bounds = useMemo(

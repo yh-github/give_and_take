@@ -255,7 +255,13 @@ export const UnderwaterBackground = () => (
   </div>
 );
 
-export const SeaWitchGateSVG = ({ isTransformed, hasDeepTreasure, emoji }) => {
+export interface SeaWitchGateSVGProps {
+  isTransformed: boolean;
+  hasDeepTreasure: boolean;
+  emoji?: string | null;
+}
+
+export const SeaWitchGateSVG = ({ isTransformed, hasDeepTreasure, emoji }: SeaWitchGateSVGProps) => {
   const badgeContent = !isTransformed
     ? '🤿 ➔ 🧜‍♂️'
     : hasDeepTreasure
@@ -338,15 +344,25 @@ export const SeaWitchGateSVG = ({ isTransformed, hasDeepTreasure, emoji }) => {
   );
 };
 
+export interface GiantClamSVGProps {
+  isDefeated?: boolean;
+  isBuried?: boolean;
+  isDigger?: boolean;
+  isGoal?: boolean;
+  isAlerting?: boolean;
+  rewardEmoji?: string | null;
+  isMurkyFar?: boolean;
+}
+
 export const GiantClamSVG = ({
-  isDefeated,
-  isBuried,
-  isDigger,
-  isGoal,
-  isAlerting,
+  isDefeated = false,
+  isBuried = false,
+  isDigger = false,
+  isGoal = false,
+  isAlerting = false,
   rewardEmoji,
-  isMurkyFar,
-}) => {
+  isMurkyFar = false,
+}: GiantClamSVGProps) => {
   const isOpen = !isBuried;
   // Color palette based on clam role: Royal Gold (Goal) | Violet Barnacle (Memory Digger) | Rose Coral (Standard)
   const topShellFill = isGoal ? '#f59e0b' : isDigger ? '#9333ea' : '#e11d48';

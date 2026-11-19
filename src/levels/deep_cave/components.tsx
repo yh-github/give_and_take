@@ -1,10 +1,59 @@
 import React, { memo, useMemo } from 'react';
-import { CampIcon, RockSVG } from '../underground/components.jsx';
-import { calculateFacetLighting, hashSeed } from '../../logic/geometry.js';
+import { CampIcon, RockSVG, type RockSVGProps } from '../underground/components.tsx';
+import { calculateFacetLighting, hashSeed } from '../../logic/geometry.ts';
+import type {
+  CSSCustomProperties,
+  CollarBounds,
+  CollarOrientation,
+  OrganicBoulderFacet,
+  Point2D,
+  ProceduralGeometry,
+  WallPolyline
+} from '../../types/index.ts';
 
 export { CampIcon, RockSVG };
 
-function polylineToSvgSubpath(points) {
+interface FloorPebble {
+  x: string;
+  y: string;
+  rx: string;
+  ry: string;
+  rot: number;
+}
+
+interface FloorDecorations {
+  strataLines: string[];
+  pebbles: FloorPebble[];
+}
+
+interface EdgePathItem {
+  id: number;
+  d: string;
+  isPillar: boolean;
+}
+
+interface CollarWallContext {
+  cb: CollarBounds & { orientation: CollarOrientation };
+  cx: number;
+  cy: number;
+  spanU: number;
+  spanV: number;
+  flareTL: number;
+  flareTR: number;
+  flareBL: number;
+  flareBR: number;
+  hasWallContext: boolean;
+  contextKey: string;
+}
+
+interface DeepCaveBoulder {
+  id: string;
+  localX: number;
+  vertices: Point2D[];
+  facets: OrganicBoulderFacet[];
+}
+
+function polylineToSvgSubpath(points: readonly Point2D[] | undefined): string {
   if (!points || points.length < 3) return '';
   let d = `M ${points[0].x} ${points[0].y}`;
   for (let i = 1; i < points.length; i++) {
@@ -17,13 +66,17 @@ function polylineToSvgSubpath(points) {
  * Generates deterministic subtle interior floor contour slabs & scattered mineral pebbles
  * along open cavern spaces so floors look naturally terraced instead of flat.
  */
-function buildFloorDecorations(polylines, worldWidth, worldHeight) {
-  const outer = (polylines || []).find(p => !p?.isPillar);
+function buildFloorDecorations(
+  polylines: readonly WallPolyline[] | undefined,
+  worldWidth: number,
+  worldHeight: number
+): FloorDecorations {
+  const outer = (polylines || []).find(p => !Array.isArray(p) ? !p?.isPillar : true);
   const pts = Array.isArray(outer) ? outer : outer?.points;
   if (!pts || pts.length < 6) return { strataLines: [], pebbles: [] };
 
-  const strataLines = [];
-  const pebbles = [];
+  const strataLines: string[] = [];
+  const pebbles: FloorPebble[] = [];
   const stride = Math.max(2, Math.floor(pts.length / 26));
 
   for (let i = 0; i < pts.length; i += stride) {
@@ -62,12 +115,16 @@ function buildFloorDecorations(polylines, worldWidth, worldHeight) {
   return { strataLines, pebbles };
 }
 
+export interface DeepCaveBackgroundProps {
+  geometry?: ProceduralGeometry | null;
+}
+
 /**
  * Dynamic procedural cavern backdrop for `deep_cave` ("The Abyssal Descent").
  * Renders organic extracted `wallPolylines` with layered sedimentary rock rims,
  * cliff drop-off shadows, cavern floor terracing, and camp shaft illumination.
  */
-export const DeepCaveBackground = memo(({ geometry }) => {
+export const DeepCaveBackground = memo(({ geometry }: DeepCaveBackgroundProps) => {
   const worldWidth = geometry?.worldWidth || 100;
   const worldHeight = geometry?.worldHeight || 256;
   const campPos = geometry?.campPos || { x: 50, y: 24 };
@@ -87,15 +144,16 @@ export const DeepCaveBackground = memo(({ geometry }) => {
     return parts.join(' ');
   }, [geometry?.wallPolylines, worldWidth, worldHeight]);
 
-  const edgePaths = useMemo(() => {
+  const edgePaths = useMemo<EdgePathItem[]>(() => {
     const polylines = geometry?.wallPolylines || [];
     return polylines
       .map((poly, idx) => {
         const pts = Array.isArray(poly) ? poly : poly?.points;
         const d = polylineToSvgSubpath(pts);
-        return d ? { id: idx, d, isPillar: Boolean(poly?.isPillar) } : null;
+        const isPillar = !Array.isArray(poly) && Boolean(poly?.isPillar);
+        return d ? { id: idx, d, isPillar } : null;
       })
-      .filter(Boolean);
+      .filter((item): item is EdgePathItem => item !== null);
   }, [geometry?.wallPolylines]);
 
   const floorDecor = useMemo(
@@ -239,15 +297,23 @@ export const DeepCaveBackground = memo(({ geometry }) => {
  * so chasm fissures and boulder barricades dynamically adapt to the corridor's actual
  * proportions and the flare/angle of flanking cave walls.
  */
-function extractCollarWallContext(geometry, boundsOverride, orientation, yNode = 50, nodeX = 50) {
+function extractCollarWallContext(
+  geometry: ProceduralGeometry | null | undefined,
+  boundsOverride: CollarBounds | null | undefined,
+  orientation: CollarOrientation,
+  yNode = 50,
+  nodeX = 50
+): CollarWallContext {
   const isVertical = orientation === 'vertical';
-  const cb = boundsOverride || {
-    orientation,
-    xLeft: isVertical ? nodeX - 3 : nodeX - 10,
-    xRight: isVertical ? nodeX + 3 : nodeX + 10,
-    yTop: isVertical ? yNode - 10.6 : yNode - 3,
-    yBottom: isVertical ? yNode + 10.6 : yNode + 3
-  };
+  const cb: CollarBounds & { orientation: CollarOrientation } = boundsOverride
+    ? { ...boundsOverride, orientation: boundsOverride.orientation || orientation }
+    : {
+        orientation,
+        xLeft: isVertical ? nodeX - 3 : nodeX - 10,
+        xRight: isVertical ? nodeX + 3 : nodeX + 10,
+        yTop: isVertical ? yNode - 10.6 : yNode - 3,
+        yBottom: isVertical ? yNode + 10.6 : yNode + 3
+      };
 
   const cx = (cb.xLeft + cb.xRight) * 0.5;
   const cy = (cb.yTop + cb.yBottom) * 0.5;
@@ -306,7 +372,7 @@ function extractCollarWallContext(geometry, boundsOverride, orientation, yNode =
   };
 }
 
-function pointsToClosedPath(pts) {
+function pointsToClosedPath(pts: readonly Point2D[]): string {
   if (!pts || pts.length === 0) return '';
   let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
   for (let i = 1; i < pts.length; i++) {
@@ -315,20 +381,20 @@ function pointsToClosedPath(pts) {
   return `${d} Z`;
 }
 
-function buildProceduralChasm(seedStr, wallCtx) {
+function buildProceduralChasm(seedStr: string, wallCtx: CollarWallContext | null | undefined) {
   const ctxKey = wallCtx?.contextKey || 'default';
   const h0 = hashSeed(`${seedStr || 'chasm'}_${ctxKey}`);
-  const randAt = (salt) => ((hashSeed(`${seedStr}_${ctxKey}_${salt}`) % 1000) / 1000);
+  const randAt = (salt: string): number => ((hashSeed(`${seedStr}_${ctxKey}_${salt}`) % 1000) / 1000);
 
   const count = 15;
-  const topRim = [];
-  const botRim = [];
-  const tier1Top = [];
-  const tier1Bot = [];
-  const tier2Top = [];
-  const tier2Bot = [];
-  const abyssTop = [];
-  const abyssBot = [];
+  const topRim: Point2D[] = [];
+  const botRim: Point2D[] = [];
+  const tier1Top: Point2D[] = [];
+  const tier1Bot: Point2D[] = [];
+  const tier2Top: Point2D[] = [];
+  const tier2Bot: Point2D[] = [];
+  const abyssTop: Point2D[] = [];
+  const abyssBot: Point2D[] = [];
 
   // Tailor canyon proportions to the real collar geometry & adjacent wall flare
   const { flareTL = 0.25, flareTR = 0.25, flareBL = 0.25, flareBR = 0.25, spanU = 20, spanV = 6 } = wallCtx || {};
@@ -386,7 +452,7 @@ function buildProceduralChasm(seedStr, wallCtx) {
   const rightAbutmentPts = `${(165 + flareTR * 8).toFixed(1)},${Math.max(4, topRim[count - 1].y - 6).toFixed(1)} ${(165 + flareBR * 8).toFixed(1)},${Math.min(84, botRim[count - 1].y + 6).toFixed(1)} ${botRim[count - 1].x.toFixed(1)},${botRim[count - 1].y.toFixed(1)} ${topRim[count - 1].x.toFixed(1)},${topRim[count - 1].y.toFixed(1)}`;
 
   // Vertical cliff-wall striation ribs descending from rim vertices to deeper shelves
-  const cliffRibs = [];
+  const cliffRibs: Array<{ topD: string; botD: string }> = [];
   for (let i = 1; i < count - 1; i += 2) {
     cliffRibs.push({
       topD: `M ${topRim[i].x.toFixed(1)} ${topRim[i].y.toFixed(1)} L ${(topRim[i].x + (randAt(`rt_${i}`) - 0.5) * 3).toFixed(1)} ${tier2Top[i].y.toFixed(1)}`,
@@ -408,7 +474,7 @@ function buildProceduralChasm(seedStr, wallCtx) {
   }).flat();
 
   // Loose angular scree rocks resting along the rims
-  const scree = [];
+  const scree: string[] = [];
   for (let i = 0; i < 8; i++) {
     const side = i % 2 === 0 ? -1 : 1;
     const sampleIdx = 1 + Math.floor(randAt(`sc_idx_${i}`) * (count - 2));
@@ -423,7 +489,7 @@ function buildProceduralChasm(seedStr, wallCtx) {
   }
 
   // Deep geothermal / bioluminescent abyssal fissure snaking along the bottommost trench
-  const fissurePts = [];
+  const fissurePts: string[] = [];
   for (let i = 1; i < count - 1; i++) {
     const mid = (abyssTop[i].y + abyssBot[i].y) * 0.5 + (randAt(`fis_${i}`) - 0.5) * 3.2;
     fissurePts.push(`${abyssTop[i].x.toFixed(1)} ${mid.toFixed(1)}`);
@@ -502,6 +568,21 @@ function buildProceduralChasm(seedStr, wallCtx) {
  * drives iron pitons into opposite cliff lips and anchors a taut knotted climbing rope across.
  * NOTE: Keeps zero `<rect>` elements when unbridged (`!isDefeated`), using `<rect>` pitons & knots once roped.
  */
+export interface ChasmSVGProps {
+  isDefeated?: boolean;
+  isAlerting?: boolean;
+  isBridging?: boolean;
+  isSelected?: boolean;
+  orientation?: CollarOrientation;
+  seed?: string | number;
+  heroPos?: Point2D | null;
+  nodeX?: number;
+  yNode?: number;
+  boundsOverride?: CollarBounds | null;
+  geometry?: ProceduralGeometry | null;
+  yScale?: number;
+}
+
 export const ChasmSVG = memo(({
   isDefeated = false,
   isAlerting = false,
@@ -515,7 +596,7 @@ export const ChasmSVG = memo(({
   boundsOverride = null,
   geometry = null,
   yScale = 1
-}) => {
+}: ChasmSVGProps) => {
   const isVertical = orientation === 'vertical';
   const wallCtx = useMemo(
     () => extractCollarWallContext(geometry, boundsOverride, orientation, yNode, nodeX),
@@ -686,7 +767,7 @@ export const ChasmSVG = memo(({
               stroke="#292524"
               strokeWidth="0.7"
               className="animate-pebble-fall"
-              style={{ '--px': p.px, '--py': p.py, animationDelay: p.delay }}
+              style={{ '--px': p.px, '--py': p.py, animationDelay: p.delay } as CSSCustomProperties}
             />
           ))}
 
@@ -802,7 +883,12 @@ export const ChasmSVG = memo(({
 /**
  * Generates contextual faceted cave-in boulders hugging the sampled corridor geometry.
  */
-function buildDeepCaveRockMesh(bounds, wallCtx, isVerticalCollar, seedStr) {
+function buildDeepCaveRockMesh(
+  bounds: CollarBounds,
+  wallCtx: CollarWallContext | null | undefined,
+  isVerticalCollar: boolean,
+  seedStr: string | number
+): DeepCaveBoulder[] {
   const { flareTL = 0.25, flareTR = 0.25, flareBL = 0.25, flareBR = 0.25 } = wallCtx || {};
   const xLeft = bounds.xLeft;
   const xRight = bounds.xRight;
@@ -812,7 +898,7 @@ function buildDeepCaveRockMesh(bounds, wallCtx, isVerticalCollar, seedStr) {
   const heightW = Math.max(4, yBottom - yTop);
   const ctxSeed = `${seedStr}_${wallCtx?.contextKey || 'r'}`;
 
-  const boulders = [];
+  const boulders: DeepCaveBoulder[] = [];
   const count = 6;
   for (let i = 0; i < count; i++) {
     const t = i / (count - 1);
@@ -834,7 +920,7 @@ function buildDeepCaveRockMesh(bounds, wallCtx, isVerticalCollar, seedStr) {
     const ry = 18 + (hashSeed(`${ctxSeed}_ry_${i}`) % 8);
 
     const numPts = 8;
-    const vertices = [];
+    const vertices: Point2D[] = [];
     for (let p = 0; p < numPts; p++) {
       const angle = (p / numPts) * Math.PI * 2;
       const jitter = 0.82 + ((hashSeed(`${ctxSeed}_pt_${i}_${p}`) % 100) / 100) * 0.36;
@@ -843,12 +929,12 @@ function buildDeepCaveRockMesh(bounds, wallCtx, isVerticalCollar, seedStr) {
       vertices.push({ x: vx, y: vy });
     }
 
-    const peak = {
+    const peak: Point2D = {
       x: uLocal + ((hashSeed(`${ctxSeed}_pkx_${i}`) % 100) / 100 - 0.5) * rx * 0.32,
       y: vLocal + ((hashSeed(`${ctxSeed}_pky_${i}`) % 100) / 100 - 0.5) * ry * 0.32
     };
 
-    const facets = [];
+    const facets: OrganicBoulderFacet[] = [];
     for (let f = 0; f < numPts; f += 2) {
       const p1 = vertices[f];
       const p2 = vertices[(f + 1) % numPts];
@@ -857,7 +943,7 @@ function buildDeepCaveRockMesh(bounds, wallCtx, isVerticalCollar, seedStr) {
       const fcy = (p1.y + p2.y + p3.y + peak.y) * 0.25;
 
       // Map facet centroid accurately back into world coordinates for torch lighting
-      const mapCentroid = isVerticalCollar
+      const mapCentroid: Point2D = isVerticalCollar
         ? {
             x: xRight - (fcy / 70) * widthW,
             y: yTop + (fcx / 150) * heightW
@@ -869,8 +955,8 @@ function buildDeepCaveRockMesh(bounds, wallCtx, isVerticalCollar, seedStr) {
 
       const du = (fcx - uLocal) / Math.max(4, rx);
       const dv = (fcy - vLocal) / Math.max(4, ry);
-      let nx = isVerticalCollar ? -dv * 0.85 : du * 0.75;
-      let ny = isVerticalCollar ? du * 0.75 : dv * 0.85;
+      const nx = isVerticalCollar ? -dv * 0.85 : du * 0.75;
+      const ny = isVerticalCollar ? du * 0.75 : dv * 0.85;
       const nz = Math.sqrt(Math.max(0.18, 1 - nx * nx - ny * ny));
       const len = Math.hypot(nx, ny, nz) || 1;
       facets.push({
@@ -903,7 +989,7 @@ export const DeepCaveRockSVG = memo(({
   boundsOverride = null,
   geometry = null,
   yScale = 1
-}) => {
+}: RockSVGProps) => {
   const isVerticalCollar = boundsOverride?.orientation === 'vertical';
   const orientation = isVerticalCollar ? 'vertical' : 'horizontal';
   const wallCtx = useMemo(

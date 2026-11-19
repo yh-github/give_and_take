@@ -1,7 +1,7 @@
 import React, { type MouseEvent, type RefObject } from 'react';
-import { BoatSVG } from '../levels/underwater/components.jsx';
-import { CaveEntranceProp } from '../levels/river_crossing/components.jsx';
-import CaveVisibility from '../levels/underground/CaveVisibility.jsx';
+import { BoatSVG } from '../levels/underwater/components.tsx';
+import { CaveEntranceProp } from '../levels/river_crossing/components.tsx';
+import CaveVisibility from '../levels/underground/CaveVisibility.tsx';
 import Hero from './Hero.tsx';
 import GameEntity from './GameEntity.tsx';
 import { ClickIndicator, HeroBubbleBursts, FogOverlay } from './EffectsOverlay.tsx';

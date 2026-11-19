@@ -1,5 +1,5 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.ts';
-import { UnderwaterBackground, CampIcon } from './components.jsx';
+import { UnderwaterBackground, CampIcon } from './components.tsx';
 import { generateUnderwaterPuzzle } from './generator.ts';
 import type { LevelDefinition } from '../../types/index.ts';
 

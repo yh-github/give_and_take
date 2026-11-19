@@ -1,5 +1,5 @@
 import { items, entities } from './data.ts';
-import { DeepCaveBackground, CampIcon, DeepCaveRockSVG, ChasmSVG } from './components.jsx';
+import { DeepCaveBackground, CampIcon, DeepCaveRockSVG, ChasmSVG } from './components.tsx';
 import { getProceduralObstacleSegments } from '../../logic/visibility.ts';
 import { generateDeepCavePuzzle } from './generator.ts';
 import { DEEP_CAVE_PRESETS, DEFAULT_DEEP_CAVE_SETTINGS } from './presets.ts';

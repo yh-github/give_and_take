@@ -1,7 +1,25 @@
 import React from 'react';
+import type { LightingSettings, Point2D } from '../../types/index.ts';
 
-/** @param {{ heroPos: { x: number, y: number }, polygon: ReadonlyArray<{ x: number, y: number }> | null, gameTime: number, screens?: number, worldHeight?: number | null, yScale?: number | null, lighting?: Record<string, unknown> }} props */
-const CaveVisibility = ({ heroPos, polygon, gameTime, screens = 2.5, worldHeight = null, yScale = null, lighting = {} }) => {
+export interface CaveVisibilityProps {
+  heroPos: Point2D;
+  polygon: readonly Point2D[] | null;
+  gameTime: number;
+  screens?: number;
+  worldHeight?: number | null;
+  yScale?: number | null;
+  lighting?: Partial<LightingSettings>;
+}
+
+const CaveVisibility = ({
+  heroPos,
+  polygon,
+  gameTime,
+  screens = 2.5,
+  worldHeight = null,
+  yScale = null,
+  lighting = {}
+}: CaveVisibilityProps) => {
   const {
     radius = 50,
     blur = 1.2,

@@ -1,5 +1,5 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.ts';
-import { CaveBackground, CampIcon, RockSVG, CAVE_WALL_VERTICES } from './components.jsx';
+import { CaveBackground, CampIcon, RockSVG, CAVE_WALL_VERTICES } from './components.tsx';
 import { getObstacleSegments } from '../../logic/visibility.ts';
 import type { LevelDefinition, MapNode, PuzzleEntity } from '../../types/index.ts';
 

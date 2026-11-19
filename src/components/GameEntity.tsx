@@ -1,8 +1,8 @@
 import React, { Fragment, type CSSProperties, type MouseEvent } from 'react';
 import { UNDERWATER_INSPECT_RADIUS } from '../constants.ts';
-import { GiantClamSVG, BubbleVentSVG, SeaWitchGateSVG, InkCloudSVG } from '../levels/underwater/components.jsx';
+import { GiantClamSVG, BubbleVentSVG, SeaWitchGateSVG, InkCloudSVG } from '../levels/underwater/components.tsx';
 import { getCorridorBounds } from '../logic/geometry.ts';
-import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
+import { CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
 import type {
   AlertReason,
   CollarBounds,

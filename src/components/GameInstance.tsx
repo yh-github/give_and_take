@@ -31,7 +31,7 @@ import {
 import { findGlobalPath } from '../logic/pathfinding.ts';
 import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.ts';
 import { createShuffleBag } from '../logic/rng.ts';
-import { CAVE_WALL_VERTICES } from '../levels/underground/components.jsx';
+import { CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
 import {
   createSavePayload,
   saveToAutoSave,

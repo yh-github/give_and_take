@@ -1,5 +1,5 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.ts';
-import { RiverBackground, BridgeSVG, CampIcon } from './components.jsx';
+import { RiverBackground, BridgeSVG, CampIcon } from './components.tsx';
 import type { LevelDefinition } from '../../types/index.ts';
 
 const riverCrossing: LevelDefinition = {
