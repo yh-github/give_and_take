@@ -199,13 +199,13 @@ describe('Deep Cave Phase 4 UI, Worker, Persistence & Hydration', () => {
         />
       );
 
+      // Autosave should remain compact (no puzzle blob); wait for autosave effect under parallel test load
+      let autoSaved = null;
       await waitFor(() => {
         expect(screen.getByText('⚙️')).toBeDefined();
+        autoSaved = JSON.parse(localStorage.getItem(AUTOSAVE_STORAGE_KEY));
+        expect(autoSaved).not.toBeNull();
       }, { timeout: 5000 });
-
-      // Autosave should remain compact (no puzzle blob)
-      const autoSaved = JSON.parse(localStorage.getItem(AUTOSAVE_STORAGE_KEY));
-      expect(autoSaved).toBeDefined();
       expect(autoSaved.levelId).toBe('deep_cave');
       expect(autoSaved.puzzle).toBeNull();
       expect(autoSaved.seed).toBe('export_test_easy_1');

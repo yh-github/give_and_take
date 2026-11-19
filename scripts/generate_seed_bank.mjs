@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEEP_CAVE_GENERATOR_VERSION } from '../src/constants.js';
+import { DEEP_CAVE_GENERATOR_VERSION } from '../src/constants.ts';
 import { DEEP_CAVE_PRESETS } from '../src/levels/deep_cave/presets.js';
 import { generateDeepCavePuzzle } from '../src/levels/deep_cave/generator.js';
 

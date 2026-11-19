@@ -10,7 +10,7 @@
 import {
   DEEP_CAVE_SLOT_COLS,
   DEEP_CAVE_SLOT_HEIGHT
-} from '../../constants.js';
+} from '../../constants.ts';
 import { extractCaveContours } from './contouring.js';
 
 export const TILE_COLS_PER_SLOT = 10;

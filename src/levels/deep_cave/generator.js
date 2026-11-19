@@ -17,17 +17,17 @@ import {
   DEEP_CAVE_MIN_ENTITY_DIST,
   DEEP_CAVE_MIN_WALL_MARGIN,
   DEEP_CAVE_SLOT_COLS
-} from '../../constants.js';
-import { createRNG, shuffle } from '../../logic/rng.js';
-import { solvePuzzle } from '../../logic/solver.js';
-import { validateEntitySpacing, sanitizePuzzleEntities } from '../../logic/rules.js';
+} from '../../constants.ts';
+import { createRNG, shuffle } from '../../logic/rng.ts';
+import { solvePuzzle } from '../../logic/solver.ts';
+import { validateEntitySpacing, sanitizePuzzleEntities } from '../../logic/rules.ts';
 import {
   checkCollision,
   getProceduralObstacleSegments,
   getVisibilityPolygon,
   isPointInVisibilityPolygon
-} from '../../logic/visibility.js';
-import { checkBatchReachability, findGlobalPath, isPointInPolygon } from '../../logic/pathfinding.js';
+} from '../../logic/visibility.ts';
+import { checkBatchReachability, findGlobalPath, isPointInPolygon } from '../../logic/pathfinding.ts';
 import { items as UNDERGROUND_ITEMS, entities as UNDERGROUND_ENTITIES } from './data.js';
 import { ENCOUNTERS_BY_ID, DEEP_CAVE_ENCOUNTERS } from './encounters/index.js';
 import { normalizeDeepCaveSettings } from './presets.js';

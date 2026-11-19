@@ -6,7 +6,7 @@
  * mechanicHook/solver parity, and internal reachability/solvability.
  */
 
-import { solvePuzzle } from '../../../logic/solver.js';
+import { solvePuzzle } from '../../../logic/solver.ts';
 import {
   DOOR_EW_ROW_END,
   DOOR_EW_ROW_START,

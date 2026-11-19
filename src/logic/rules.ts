@@ -1,17 +1,87 @@
-import { MAX_UNIQUE_ITEMS } from '../constants.js';
-import { uniqueCount } from './navigation.js';
+import { MAX_UNIQUE_ITEMS, RESERVED_TOOL_ITEMS } from '../constants.ts';
+import { minDistToPolyline, normalizeWallPolyline } from './geometry.ts';
+import { uniqueCount } from './navigation.ts';
+import type {
+  InventoryFitResult,
+  ItemDefinition,
+  Point2D,
+  PuzzleEntity,
+  SpacingValidationOptions,
+  SpacingValidationResult,
+  SpacingViolation,
+  TradeEvaluationResult,
+  TradeEvaluationState
+} from '../types/index.ts';
+
+export { uniqueCount };
+
+/**
+ * Checks whether all items in `reqArray` exist in `availableItems` (with multiplicity)
+ * and returns the consumed and remaining item lists, or `null` if any item is missing.
+ */
+export function consumeRequiredItems(
+  availableItems: readonly string[],
+  reqArray: readonly string[]
+): { consumed: string[]; remaining: string[] } | null {
+  const remaining = [...availableItems];
+  const consumed: string[] = [];
+  for (const req of reqArray) {
+    const idx = remaining.indexOf(req);
+    if (idx > -1) {
+      remaining.splice(idx, 1);
+      consumed.push(req);
+    } else {
+      return null;
+    }
+  }
+  return { consumed, remaining };
+}
+
+/**
+ * Extracts standard tradable item IDs from level items, excluding reserved tools
+ * (`pickaxe`, `key`) and any caller-specified `extraExcluded` IDs.
+ */
+export function getStandardItemIds(
+  levelItems: ReadonlyArray<ItemDefinition | string> = [],
+  extraExcluded: readonly string[] = []
+): string[] {
+  const excluded = new Set<string>([...RESERVED_TOOL_ITEMS, ...extraExcluded]);
+  return (levelItems || [])
+    .map(i => (typeof i === 'string' ? i : i?.id))
+    .filter((id): id is string => Boolean(id) && !excluded.has(id));
+}
+
+/**
+ * Selects a valid requirement item ID that never matches `reward` and is not a reserved tool.
+ */
+export function pickValidReplacementReq(
+  reward: string | null | undefined,
+  allowedReqs: readonly string[] = [],
+  candidateIds: readonly string[] = [],
+  index = 0
+): string {
+  const reserved = new Set<string>(RESERVED_TOOL_ITEMS);
+  const allowed = allowedReqs.filter(r => r !== reward && !reserved.has(r));
+  if (allowed.length > 0) {
+    return allowed[index % allowed.length];
+  }
+  const fallbacks = candidateIds.filter(id => id !== reward && !reserved.has(id));
+  if (fallbacks.length > 0) {
+    return fallbacks[index % fallbacks.length];
+  }
+  return reward === 'bone' ? 'rope' : 'bone';
+}
 
 /**
  * Computes resulting inventory after consuming `consumedItems` and adding `rewardItem`,
  * and checks whether it respects the maximum unique item slot constraint.
- *
- * @param {string[]} inventory
- * @param {string[]} [consumedItems=[]]
- * @param {string|null} [rewardItem=null]
- * @param {number} [maxUnique=MAX_UNIQUE_ITEMS]
- * @returns {{ fits: boolean, nextInventory: string[] }}
  */
-export function canFitInInventory(inventory, consumedItems = [], rewardItem = null, maxUnique = MAX_UNIQUE_ITEMS) {
+export function canFitInInventory(
+  inventory: readonly string[],
+  consumedItems: readonly string[] = [],
+  rewardItem: string | null = null,
+  maxUnique = MAX_UNIQUE_ITEMS
+): InventoryFitResult {
   const nextInventory = [...inventory];
   for (const item of consumedItems) {
     const idx = nextInventory.indexOf(item);
@@ -28,14 +98,13 @@ export function canFitInInventory(inventory, consumedItems = [], rewardItem = nu
 
 /**
  * Evaluates whether the player's inventory and selected items satisfy an entity's trade requirements.
- *
- * @param {string[]} inventory - Current player inventory
- * @param {Object} entity - Target puzzle entity
- * @param {string[]|null} selectedItemTypes - Selected item types in UI (or null for automatic check)
- * @param {Object} [state={}] - Extra level state ({ levelId, isTransformed, hasDeepTreasure })
- * @returns {{ canDefeat: boolean, itemsToConsume: string[], nextInventory: string[], exceedsCapacity: boolean, isFreeUnTransform: boolean }}
  */
-export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null, state = {}) {
+export function evaluateEntityTrade(
+  inventory: readonly string[],
+  entity: Pick<PuzzleEntity, 'id' | 'requires' | 'reqType' | 'reward'>,
+  selectedItemTypes: readonly string[] | null = null,
+  state: TradeEvaluationState = {}
+): TradeEvaluationResult {
   const isFreeUnTransform = Boolean(
     state.levelId === 'underwater' &&
     entity.id === 'sea_witch' &&
@@ -44,7 +113,7 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
   );
 
   if (isFreeUnTransform) {
-    const { fits, nextInventory } = canFitInInventory(inventory, [], entity.reward);
+    const { fits, nextInventory } = canFitInInventory(inventory, [], entity.reward ?? null);
     return {
       canDefeat: fits,
       itemsToConsume: [],
@@ -55,24 +124,8 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
   }
 
   const requires = entity.requires || [];
-  const availableItems = [...inventory];
   let matched = false;
-  let itemsToConsume = [];
-
-  const takeAllRequired = (reqArray) => {
-    const tempAvail = [...availableItems];
-    const consumed = [];
-    for (const req of reqArray) {
-      const idx = tempAvail.indexOf(req);
-      if (idx > -1) {
-        tempAvail.splice(idx, 1);
-        consumed.push(req);
-      } else {
-        return null;
-      }
-    }
-    return consumed;
-  };
+  let itemsToConsume: string[] = [];
 
   if (entity.reqType === 'AND') {
     const selectionMatches =
@@ -81,17 +134,17 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
       Array.from(new Set(requires)).every(t => selectedItemTypes.includes(t));
 
     if (selectionMatches) {
-      const consumed = takeAllRequired(requires);
-      if (consumed) {
+      const result = consumeRequiredItems(inventory, requires);
+      if (result) {
         matched = true;
-        itemsToConsume = consumed;
+        itemsToConsume = result.consumed;
       }
     }
   } else {
     // OR requirement: prefer an item explicitly selected by the user
     for (const req of requires) {
       const isSelected = selectedItemTypes === null || selectedItemTypes.includes(req);
-      if (isSelected && availableItems.includes(req)) {
+      if (isSelected && inventory.includes(req)) {
         matched = true;
         itemsToConsume = [req];
         break;
@@ -109,7 +162,7 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
     };
   }
 
-  const { fits, nextInventory } = canFitInInventory(inventory, itemsToConsume, entity.reward);
+  const { fits, nextInventory } = canFitInInventory(inventory, itemsToConsume, entity.reward ?? null);
   return {
     canDefeat: Boolean(fits),
     itemsToConsume,
@@ -122,11 +175,10 @@ export function evaluateEntityTrade(inventory, entity, selectedItemTypes = null,
 /**
  * Checks whether an entity adheres to universal domain trading rules:
  * An entity must NEVER ask for the item it is guarding / offering as a reward.
- *
- * @param {Object} entity
- * @returns {boolean} True if valid
  */
-export function isValidEntityTrade(entity) {
+export function isValidEntityTrade(
+  entity: Pick<PuzzleEntity, 'reward' | 'requires'> | null | undefined
+): boolean {
   if (!entity) return true;
   if (!entity.reward) return true;
   if (!Array.isArray(entity.requires) || entity.requires.length === 0) return true;
@@ -138,26 +190,23 @@ export function isValidEntityTrade(entity) {
  * Enforces across all current and future levels that no entity asks for the item it guards / rewards.
  * If a violation is found, it replaces the conflicting requirement with a valid alternative
  * from the entity's allowed requirements or available items in the level.
- *
- * @param {Array<Object>} entities - Level entities to sanitize
- * @param {Array<Object|string>} [levelItems=[]] - Available items in the level
- * @returns {Array<Object>} Sanitized entities
  */
-export function sanitizePuzzleEntities(entities, levelItems = []) {
+export function sanitizePuzzleEntities<T extends PuzzleEntity>(
+  entities: T[],
+  levelItems: ReadonlyArray<ItemDefinition | string> = []
+): T[] {
   if (!Array.isArray(entities)) return entities;
 
-  const standardItemIds = (levelItems || [])
-    .map(i => (typeof i === 'string' ? i : i?.id))
-    .filter(id => id && id !== 'pickaxe' && id !== 'key');
+  const standardItemIds = getStandardItemIds(levelItems);
 
   return entities.map(entity => {
     if (!entity) return entity;
 
-    let patchedEntity = entity;
+    let patchedEntity: T = entity;
     if (!entity.isGoal && (!entity.emoji || !entity.name)) {
       const itemKey = typeof entity.isPreset === 'string' ? entity.isPreset : entity.reward;
       const matchedItem = itemKey
-        ? (levelItems || []).find(i => typeof i === 'object' && i?.id === itemKey)
+        ? (levelItems || []).find((i): i is ItemDefinition => typeof i === 'object' && i !== null && i.id === itemKey)
         : null;
       if (matchedItem) {
         patchedEntity = {
@@ -185,17 +234,11 @@ export function sanitizePuzzleEntities(entities, levelItems = []) {
       };
     }
 
-    // Requires became empty: select a valid replacement requirement
-    const allowed = (patchedEntity.allowedReqs || []).filter(
-      r => r !== patchedEntity.reward && r !== 'pickaxe' && r !== 'key'
+    const replacement = pickValidReplacementReq(
+      patchedEntity.reward,
+      patchedEntity.allowedReqs || [],
+      standardItemIds
     );
-    const fallbacks = standardItemIds.filter(
-      id => id !== patchedEntity.reward && id !== 'pickaxe' && id !== 'key'
-    );
-
-    const replacement = allowed.length > 0
-      ? allowed[0]
-      : (fallbacks.length > 0 ? fallbacks[0] : (patchedEntity.reward === 'bone' ? 'rope' : 'bone'));
 
     return {
       ...patchedEntity,
@@ -206,17 +249,16 @@ export function sanitizePuzzleEntities(entities, levelItems = []) {
 
 /**
  * Returns updated list of unlocked zones after defeating `entity`.
- *
- * @param {number[]} unlockedZones
- * @param {Object} entity
- * @returns {number[]}
  */
-export function computeUnlockedZones(unlockedZones, entity) {
-  if (!entity) return unlockedZones;
+export function computeUnlockedZones(
+  unlockedZones: readonly number[],
+  entity: Pick<PuzzleEntity, 'unlocksZones' | 'unlocksZone' | 'isGatekeeper' | 'zone'> | null | undefined
+): number[] {
+  if (!entity) return [...unlockedZones];
   const newZones = Array.isArray(entity.unlocksZones)
     ? entity.unlocksZones
     : (entity.unlocksZone !== undefined ? [entity.unlocksZone] : []);
-  if (!entity.isGatekeeper && newZones.length === 0) return unlockedZones;
+  if (!entity.isGatekeeper && newZones.length === 0) return [...unlockedZones];
   const combined = [...unlockedZones, ...newZones];
   if (entity.zone !== undefined) combined.push(entity.zone);
   return Array.from(new Set(combined));
@@ -225,16 +267,12 @@ export function computeUnlockedZones(unlockedZones, entity) {
 /**
  * Validates that entities in the level maintain sufficient clearance:
  * 1. Minimum distance between distinct entities in the same zone.
- * 2. Minimum clearance from cave walls (if caveWallVertices provided).
- *
- * @param {Array<Object>} entities
- * @param {Object} [options]
- * @param {number} [options.minEntityDistance=8]
- * @param {Object|null} [options.caveWallVertices=null]
- * @param {number} [options.minWallMargin=4.5]
- * @returns {{ isValid: boolean, violations: Array<Object> }}
+ * 2. Minimum clearance from cave walls (if caveWallVertices or wallPolylines provided).
  */
-export function validateEntitySpacing(entities, options = {}) {
+export function validateEntitySpacing(
+  entities: ReadonlyArray<Partial<PuzzleEntity> & Point2D> | null | undefined,
+  options: SpacingValidationOptions = {}
+): SpacingValidationResult {
   const {
     minEntityDistance = 8,
     caveWallVertices = null,
@@ -242,7 +280,7 @@ export function validateEntitySpacing(entities, options = {}) {
     minWallMargin = 4.5,
     checkAllPairs = false
   } = options;
-  const violations = [];
+  const violations: SpacingViolation[] = [];
 
   if (!Array.isArray(entities)) return { isValid: true, violations: [] };
 
@@ -253,7 +291,7 @@ export function validateEntitySpacing(entities, options = {}) {
       const b = entities[j];
       if (!checkAllPairs && a.zone !== b.zone) continue;
       if (a.isGatekeeper || b.isGatekeeper) continue;
-      if (a.isTreasure && b.isTreasure) continue; // Treasure line in goal room
+      if (a.isTreasure && b.isTreasure) continue;
 
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       if (dist < minEntityDistance) {
@@ -261,7 +299,7 @@ export function validateEntitySpacing(entities, options = {}) {
           type: 'ENTITY_DISTANCE',
           entityA: a.id || `${a.x}_${a.y}`,
           entityB: b.id || `${b.x}_${b.y}`,
-          zone: a.zone,
+          zone: a.zone ?? 0,
           distance: dist,
           required: minEntityDistance
         });
@@ -271,30 +309,7 @@ export function validateEntitySpacing(entities, options = {}) {
 
   // 2. Check wall clearance if cave vertices or extracted wallPolylines are provided
   if (caveWallVertices || (Array.isArray(wallPolylines) && wallPolylines.length > 0)) {
-    const distToSegment = (p, p1, p2) => {
-      const dx = p2.x - p1.x, dy = p2.y - p1.y;
-      const len2 = dx * dx + dy * dy;
-      if (len2 === 0) return Math.hypot(p.x - p1.x, p.y - p1.y);
-      let t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / len2;
-      t = Math.max(0, Math.min(1, t));
-      return Math.hypot(p.x - (aX(p1, t, dx)), p.y - (aY(p1, t, dy)));
-    };
-    function aX(p1, t, dx) { return p1.x + t * dx; }
-    function aY(p1, t, dy) { return p1.y + t * dy; }
-
-    const minDistToPoly = (p, poly, closed = false) => {
-      if (!poly || poly.length < 2) return Infinity;
-      let minD = Infinity;
-      for (let i = 0; i < poly.length - 1; i++) {
-        minD = Math.min(minD, distToSegment(p, poly[i], poly[i + 1]));
-      }
-      if (closed && poly.length > 2) {
-        minD = Math.min(minD, distToSegment(p, poly[poly.length - 1], poly[0]));
-      }
-      return minD;
-    };
-
-    const polyEntries = [];
+    const polyEntries: Array<{ pts: readonly Point2D[]; closed: boolean }> = [];
     if (caveWallVertices) {
       if (caveWallVertices.leftWall) polyEntries.push({ pts: caveWallVertices.leftWall, closed: false });
       if (caveWallVertices.rightWall) polyEntries.push({ pts: caveWallVertices.rightWall, closed: false });
@@ -302,21 +317,22 @@ export function validateEntitySpacing(entities, options = {}) {
     }
     if (Array.isArray(wallPolylines)) {
       for (const wp of wallPolylines) {
-        const pts = Array.isArray(wp) ? wp : wp?.points;
-        const closed = Array.isArray(wp) ? true : (wp?.closed !== false);
-        if (pts && pts.length >= 2) polyEntries.push({ pts, closed });
+        const normalized = normalizeWallPolyline(wp);
+        if (normalized) {
+          polyEntries.push({ pts: normalized.points, closed: normalized.closed });
+        }
       }
     }
 
     entities.forEach(ent => {
-      if (ent.isGatekeeper) return; // Gatekeeper rocks/chasms intentionally span wall-to-wall
+      if (ent.isGatekeeper) return;
       for (const entry of polyEntries) {
-        const d = minDistToPoly(ent, entry.pts, entry.closed);
+        const d = minDistToPolyline(ent, entry.pts, entry.closed);
         if (d < minWallMargin) {
           violations.push({
             type: 'WALL_CLEARANCE',
             entityId: ent.id || `${ent.x}_${ent.y}`,
-            zone: ent.zone,
+            zone: ent.zone ?? 0,
             distance: d,
             required: minWallMargin
           });

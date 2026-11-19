@@ -1,6 +1,6 @@
 import { items, entities } from './data.js';
 import { DeepCaveBackground, CampIcon, DeepCaveRockSVG, ChasmSVG } from './components.jsx';
-import { getProceduralObstacleSegments } from '../../logic/visibility.js';
+import { getProceduralObstacleSegments } from '../../logic/visibility.ts';
 import { generateDeepCavePuzzle } from './generator.js';
 import { DEEP_CAVE_PRESETS, DEFAULT_DEEP_CAVE_SETTINGS } from './presets.js';
 
