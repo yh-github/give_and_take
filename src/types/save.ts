@@ -11,6 +11,7 @@ export interface CampItemState {
   id: string;
   x: number;
   y: number;
+  isFloating?: boolean;
 }
 
 export interface LightingSettings {
@@ -76,6 +77,7 @@ export interface SerializedPuzzleSnapshot {
   generatorVersion?: number | null;
   geometry?: ProceduralGeometry;
   boatOfferedItem?: string;
+  boatOfferedItems?: string[];
   safeBoatItems?: string[];
 }
 

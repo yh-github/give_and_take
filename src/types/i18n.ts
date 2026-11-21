@@ -48,6 +48,15 @@ export interface TranslationDictionary {
   inventoryFull: string;
   inventoryFullTip: string;
   inventoryFullTipBoat: string;
+  outOfAirTitle: string;
+  outOfAirChooseKeep: string;
+  outOfAirFishLostHint: string;
+  outOfAirSingleItem: string;
+  outOfAirEmpty: string;
+  outOfAirKeepBadge: string;
+  outOfAirDropFloat: string;
+  outOfAirFishGone: string;
+  outOfAirSurfaceBtn: string;
   settings: string;
   level: string;
   minQuestChain: string;

@@ -24,10 +24,14 @@ export const GENERATOR_MAX_ATTEMPTS = 5000;
 export const NAV_OFFSET = 6.0;
 export const UNDERWATER_INSPECT_RADIUS = 22;
 export const UNDERWATER_NEAR_RADIUS = 10;
+export const UNDERWATER_AIR_COST_NORMAL = 1;
+export const UNDERWATER_AIR_COST_FULL_BAG = 2;
+export const UNDERWATER_FULL_BAG_SPEED_MULTIPLIER = 2.1;
+export const UNDERWATER_FISH_ITEM_IDS = ['fish', 'gold_fish'] as const;
 
 // === Timing (milliseconds) ===
 export const FISH_SPAWN_INTERVAL_MS = 1600;
-export const BOAT_SPAWN_INTERVAL_MS = 10000;
+export const BOAT_SPAWN_INTERVAL_MS = 6500;
 export const INK_FOG_DURATION_MS = 8000;
 export const DIGGER_BURY_DELAY_MS = 3000;
 export const DIGGER_BURY_ANIM_MS = 700;

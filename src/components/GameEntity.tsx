@@ -68,7 +68,7 @@ export function GameEntity({
   yScale = null
 }: GameEntityProps) {
   const isDefeated = defeated.includes(ent.id);
-  if (ent.isPreset && isDefeated) return null;
+  if (ent.isPreset && !ent.isVent && isDefeated) return null;
 
   const isGoal = ent.id === puzzle.goalEntityId;
   const rewardItem = ent.reward ? level.items.find(i => i.id === ent.reward) : null;
@@ -98,7 +98,7 @@ export function GameEntity({
       ? 'pointer-events-none cursor-default'
       : !isInteractable
         ? (isRock || isChasm || ent.isGatekeeper) ? 'pointer-events-none cursor-default' : 'pointer-events-none cursor-default opacity-0 invisible scale-0 transition-opacity duration-1000'
-        : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1' && ent.id !== 'sea_witch') || (isRock && isDefeated) || (isChasm && isDefeated) || (isCurrent && isDefeated)
+        : (isDefeated && !ent.isGatekeeper && ent.id !== 'dolphin_1' && ent.id !== 'sea_witch' && !ent.isVent) || (isRock && isDefeated) || (isChasm && isDefeated) || (isCurrent && isDefeated)
           ? 'cursor-default'
           : (isRock || isChasm) ? 'cursor-pointer' : 'hover:scale-110 cursor-pointer';
 

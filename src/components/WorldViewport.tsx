@@ -87,6 +87,7 @@ export interface WorldViewportProps {
   isDrowning: boolean;
   heroFace: string;
   isAnimatingLoot: boolean;
+  isHeavyUnderwater?: boolean;
   showTrophy: boolean;
   onCellClick: (e: MouseEvent<HTMLDivElement>) => void;
 }
@@ -153,13 +154,14 @@ export function WorldViewport({
   isDrowning,
   heroFace,
   isAnimatingLoot,
+  isHeavyUnderwater = false,
   showTrophy,
   onCellClick,
 }: WorldViewportProps) {
   const Background = level.BackgroundComponent || (() => <div className="absolute inset-0 bg-[#dcb27b]" />);
   const viewportTransitionClass = attachedEntityId
     ? 'transition-none'
-    : 'transition-transform duration-500 ease-out';
+    : 'transition-transform ease-out';
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords && puzzle?.geometry);
   const worldHeight = (useIsotropic && puzzle?.geometry?.worldHeight) ? puzzle.geometry.worldHeight : (level.mechanics.screens || 1) * 100;
@@ -172,7 +174,11 @@ export function WorldViewport({
       ref={innerMapRef}
       onClick={onCellClick}
       className={`absolute inset-x-0 top-0 ${viewportTransitionClass} pointer-events-auto animate-map-appear cursor-pointer`} 
-      style={{ height: totalMapHeight, transform: `translateY(${mapTranslateY})` }}
+      style={{
+        height: totalMapHeight,
+        transform: `translateY(${mapTranslateY})`,
+        ...(!attachedEntityId ? { transitionDuration: isHeavyUnderwater ? '1100ms' : '500ms' } : {})
+      }}
     >
       <Background geometry={puzzle?.geometry} />
 
@@ -270,9 +276,19 @@ export function WorldViewport({
         const itemData = level.items.find(i => i.id === item.id);
         if (!itemData) return null;
         const isAlerting = alertEntityId === item.uid;
+        const isUnderwaterFloating = level.id === 'underwater' && (Boolean(item.isFloating) || item.y > effectiveCampPos.y + 4);
         return (
           <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${toCssY(item.y)}%` }}>
-            <div className="text-3xl drop-shadow-md">{isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}</div>
+            {isUnderwaterFloating ? (
+              <div
+                data-testid={`floating-item-${item.id}`}
+                className="animate-bob bg-sky-950/60 border border-cyan-300/70 rounded-full w-11 h-11 flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.55)] text-2xl"
+              >
+                {isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}
+              </div>
+            ) : (
+              <div className="text-3xl drop-shadow-md">{isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}</div>
+            )}
           </div>
         );
       })}
@@ -362,6 +378,7 @@ export function WorldViewport({
         heroFace={heroFace}
         level={level}
         isAnimatingLoot={isAnimatingLoot}
+        isHeavy={isHeavyUnderwater}
       />
 
       {showTrophy && (

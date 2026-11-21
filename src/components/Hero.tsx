@@ -18,6 +18,7 @@ export interface HeroProps {
   level: LevelDefinition;
   isAnimatingLoot: boolean;
   isInventoryFullAlert?: boolean;
+  isHeavy?: boolean;
 }
 
 export function Hero({
@@ -36,7 +37,8 @@ export function Hero({
   heroFace,
   level,
   isAnimatingLoot,
-  isInventoryFullAlert = false
+  isInventoryFullAlert = false,
+  isHeavy = false
 }: HeroProps) {
   return (
     <div 
@@ -61,17 +63,26 @@ export function Hero({
       )}
 
       <div 
+        style={isHeavy && level.mechanics.heroBobs && !isDrowning && !isTransformed ? { animationDuration: '5.5s' } : undefined}
         className={`text-white w-[10cqw] h-[10cqw] rounded-full flex items-center justify-center shadow-[0_1cqw_2cqw_rgba(0,0,0,0.8)] text-[6cqw] relative ${
           isTransformed 
             ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' 
             : isSubmerged 
-              ? 'bg-teal-700 border-2 border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.9)]' 
+              ? `bg-teal-700 border-2 border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.9)] ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
               : level.mechanics.hasAir 
-                ? 'bg-cyan-600 border-2 border-cyan-200' 
+                ? `bg-cyan-600 border-2 border-cyan-200 ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
                 : 'bg-blue-600 border-2 border-white'
         } ${level.mechanics.heroBobs && !isDrowning ? 'animate-bob' : ''}`}
       >
         {heroFace}
+        {isHeavy && isSubmerged && !isDrowning && !isTransformed && (
+          <span
+            data-testid="hero-heavy-badge"
+            className="absolute -left-2 -bottom-1 text-xs drop-shadow-md select-none"
+          >
+            🎒
+          </span>
+        )}
         {level.id === 'underwater' && !isTransformed && isAnimatingLoot && (
           <div className="absolute inset-0 pointer-events-none z-50">
             {[0, 1, 2].map(i => (

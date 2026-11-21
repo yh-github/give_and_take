@@ -74,12 +74,17 @@ export function generateUnderwaterPuzzle(
       }
     });
 
-    // 2. Select a Roaming Boat trade item + 2 starting inventory items
-    const boatPool = ['comb', 'mirror', 'boot', 'locket'].filter(id => tradableItemIds.includes(id));
-    const boatOfferedItem = shuffle(boatPool, rng)[0] || 'boot';
-    const remainingTradable = shuffle(tradableItemIds.filter(id => id !== boatOfferedItem), rng);
-    const startItems = [remainingTradable[0], remainingTradable[1]];
-    const chainPool = remainingTradable.slice(2);
+    // 2. Zero starting items: players catch fish and trade with roaming surface boats
+    const startItems: string[] = [];
+    const boatPool = ['comb', 'mirror', 'boot', 'locket', 'shell', 'starfish'].filter(id => tradableItemIds.includes(id));
+    const shuffledBoatPool = shuffle(boatPool, rng);
+    const fallbackPool = shuffledBoatPool.length >= 3 ? shuffledBoatPool : shuffle(tradableItemIds, rng);
+    const boatReef = fallbackPool[0] || 'boot';
+    const boatWitch = fallbackPool[1] || 'comb';
+    const boatDeep = fallbackPool[2] || 'mirror';
+    const boatOfferedItems = [boatReef, boatWitch, boatDeep];
+    const boatOfferedItem = boatReef;
+    const chainPool = shuffle(tradableItemIds.filter(id => !boatOfferedItems.includes(id)), rng);
 
     // 3. Dolphin transport elevator in Zone 1
     const dolphinPos = z1Nodes[2] || z1Nodes[0];
@@ -108,7 +113,7 @@ export function generateUnderwaterPuzzle(
         ...tpl,
         id: `${tpl.id}_z1_${idx}`,
         emoji: tpl.emoji,
-        requires: [startItems[0]],
+        requires: [boatReef],
         reqType: 'OR',
         reward: chainPool[0],
         x: node.x,
@@ -127,7 +132,7 @@ export function generateUnderwaterPuzzle(
         ...mTpl,
         id: `mermaid_${idx + 1}`,
         emoji: shuffledMermaidEmojis[idx % shuffledMermaidEmojis.length],
-        requires: [startItems[0]],
+        requires: [boatReef],
         reqType: 'OR',
         reward: chainPool[1],
         x: node.x,
@@ -156,7 +161,7 @@ export function generateUnderwaterPuzzle(
           ...clamTpl,
           id: clamId,
           emoji: '🐚',
-          requires: [boatOfferedItem],
+          requires: [boatDeep],
           reqType: 'OR',
           reward: chainPool[2],
           x: node.x,
@@ -194,7 +199,7 @@ export function generateUnderwaterPuzzle(
     const nextChainItem = () => chainPool[chainCursor++ % chainPool.length];
     const usedChainRewards = new Set<string>();
 
-    let prevReef = startItems[0];
+    let prevReef = boatReef;
     for (let i = 0; i < kReef; i++) {
       const reward = nextChainItem();
       usedChainRewards.add(reward);
@@ -204,7 +209,7 @@ export function generateUnderwaterPuzzle(
       prevReef = reward;
     }
 
-    const witchReqs = [prevReef, startItems[1]];
+    const witchReqs = [prevReef, boatWitch];
     if (witchEnt && witchNode) {
       puzzleEntities.push({
         ...witchEnt,
@@ -218,7 +223,7 @@ export function generateUnderwaterPuzzle(
       });
     }
 
-    let prevDeep = boatOfferedItem;
+    let prevDeep = boatDeep;
     for (let i = 0; i < kDeep; i++) {
       const reward = nextChainItem();
       usedChainRewards.add(reward);
@@ -246,7 +251,7 @@ export function generateUnderwaterPuzzle(
 
     // Configure remaining Reef & Deep traders as red herrings that don't short-circuit the chain
     const safeRewards = tradableItemIds.filter(
-      id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep && id !== boatOfferedItem
+      id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep && !boatOfferedItems.includes(id)
     );
     const remainingTraders = [...shuffledReef.slice(kReef), ...shuffledDeep.slice(kDeep)];
     remainingTraders.forEach((t, idx) => {
@@ -255,7 +260,7 @@ export function generateUnderwaterPuzzle(
         t.reqType = 'OR';
         t.reward = 'gold_fish';
       } else {
-        const reward = safeRewards[idx % safeRewards.length] || startItems[0];
+        const reward = safeRewards[idx % safeRewards.length] || boatReef;
         let req = chainPool[(chainCursor + idx) % chainPool.length] || 'gold_fish';
         if (req === reward) {
           req = reward === 'fish' ? 'shell' : 'fish';
@@ -271,17 +276,20 @@ export function generateUnderwaterPuzzle(
     puzzleEntities.length = 0;
     puzzleEntities.push(...sanitizedEntities);
     puzzleEntities.boatOfferedItem = boatOfferedItem;
+    puzzleEntities.boatOfferedItems = boatOfferedItems;
 
-    const solved = solvePuzzle(startItems, puzzleEntities, 'clam_3', level, { boatOfferedItem });
+    const solved = solvePuzzle(startItems, puzzleEntities, 'clam_3', level, { boatOfferedItems });
     if (solved) {
       const safeBoatItems = boatPool.filter(
-        id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep
+        id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep && !boatOfferedItems.includes(id)
       );
       const sanitizedCandidateEntities: PuzzleEntityArray = sanitizePuzzleEntities(puzzleEntities, level.items);
       sanitizedCandidateEntities.boatOfferedItem = boatOfferedItem;
+      sanitizedCandidateEntities.boatOfferedItems = boatOfferedItems;
       const candidate: PuzzleData = {
         startItems,
         boatOfferedItem,
+        boatOfferedItems,
         safeBoatItems: safeBoatItems.length > 0 ? safeBoatItems : [boatOfferedItem],
         puzzleEntities: sanitizedCandidateEntities,
         goalEntityId: 'clam_3',
@@ -307,6 +315,7 @@ export function generateUnderwaterPuzzle(
   if (bestPuzzle && bestPuzzle.puzzleEntities) {
     const sanitized: PuzzleEntityArray = sanitizePuzzleEntities(bestPuzzle.puzzleEntities, level.items);
     if (bestPuzzle.boatOfferedItem) sanitized.boatOfferedItem = bestPuzzle.boatOfferedItem;
+    if (bestPuzzle.boatOfferedItems) sanitized.boatOfferedItems = bestPuzzle.boatOfferedItems;
     bestPuzzle.puzzleEntities = sanitized;
   }
   return bestPuzzle;

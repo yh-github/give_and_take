@@ -98,6 +98,7 @@ export interface PuzzleEntity extends AbstractPuzzleEntity {
 
 export type PuzzleEntityArray = PuzzleEntity[] & {
   boatOfferedItem?: string | null;
+  boatOfferedItems?: string[];
 };
 
 export interface InventoryFitResult {

@@ -487,6 +487,7 @@ export function generateLevelPuzzle(
     if (customPuzzle && customPuzzle.puzzleEntities) {
       const sanitized: PuzzleEntityArray = sanitizePuzzleEntities(customPuzzle.puzzleEntities, level.items);
       if (customPuzzle.boatOfferedItem) sanitized.boatOfferedItem = customPuzzle.boatOfferedItem;
+      if (customPuzzle.boatOfferedItems) sanitized.boatOfferedItems = customPuzzle.boatOfferedItems;
       customPuzzle.puzzleEntities = sanitized;
     }
     return customPuzzle;

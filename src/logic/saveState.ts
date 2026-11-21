@@ -103,6 +103,7 @@ export function createSavePayload({
           ...(puzzle.generatorVersion !== undefined ? { generatorVersion: puzzle.generatorVersion } : {}),
           ...(puzzle.geometry ? { geometry: puzzle.geometry } : {}),
           ...(puzzle.boatOfferedItem ? { boatOfferedItem: puzzle.boatOfferedItem } : {}),
+          ...(puzzle.boatOfferedItems ? { boatOfferedItems: puzzle.boatOfferedItems } : {}),
           ...(puzzle.safeBoatItems ? { safeBoatItems: puzzle.safeBoatItems } : {})
         }
       : null,

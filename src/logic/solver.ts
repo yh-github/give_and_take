@@ -38,7 +38,7 @@ function computeSimulatedUnlockedZones(
  */
 export function solvePuzzle(
   startItems: readonly string[],
-  puzzleEntities: ReadonlyArray<AbstractPuzzleEntity> & { boatOfferedItem?: string | null },
+  puzzleEntities: ReadonlyArray<AbstractPuzzleEntity> & { boatOfferedItem?: string | null; boatOfferedItems?: string[] },
   goalEntityId: string,
   level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
   options: SolverOptions = {}
@@ -46,7 +46,16 @@ export function solvePuzzle(
   const hasTransformation = Boolean(level?.mechanics?.hasTransformation);
   const witchEntity = hasTransformation ? puzzleEntities.find(e => e.id === 'sea_witch') : null;
   const witchZone = witchEntity ? (witchEntity.zone || 1) : 1;
-  const boatOfferedItem = options?.boatOfferedItem || puzzleEntities?.boatOfferedItem || null;
+  const singleBoatItem = options?.boatOfferedItem || puzzleEntities?.boatOfferedItem || null;
+  const boatOfferedItems: string[] = Array.from(
+    new Set(
+      [
+        ...(options?.boatOfferedItems || []),
+        ...(puzzleEntities?.boatOfferedItems || []),
+        ...(singleBoatItem ? [singleBoatItem] : [])
+      ].filter((id): id is string => Boolean(id))
+    )
+  );
   const maxIters = options?.maxStates ?? SOLVER_MAX_ITERS;
 
   const allRequiredItems = new Set<string>();
@@ -97,15 +106,32 @@ export function solvePuzzle(
       });
     }
 
-    if (boatOfferedItem && allRequiredItems.has(boatOfferedItem) && !curr.def.includes('roaming_boat') && (canHoldMore || curr.inv.includes(boatOfferedItem))) {
-      queue.push({
-        inv: [...curr.inv, boatOfferedItem].sort(),
-        def: [...curr.def, 'roaming_boat'],
-        path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: boatOfferedItem, reqItem: 'fish' }],
-        steps: curr.steps,
-        transformed: curr.transformed,
-        hasTreasure: curr.hasTreasure
-      });
+    for (const bItem of boatOfferedItems) {
+      const boatDefKey = `roaming_boat_${bItem}`;
+      if (!allRequiredItems.has(bItem) || curr.def.includes(boatDefKey) || curr.inv.includes(bItem)) continue;
+
+      if (canHoldMore) {
+        queue.push({
+          inv: [...curr.inv, bItem].sort(),
+          def: [...curr.def, boatDefKey],
+          path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: bItem, reqItem: 'fish' }],
+          steps: curr.steps,
+          transformed: curr.transformed,
+          hasTreasure: curr.hasTreasure
+        });
+      } else if (curr.inv.includes('fish')) {
+        const { fits, nextInventory } = canFitInInventory(curr.inv, ['fish'], bItem);
+        if (fits) {
+          queue.push({
+            inv: nextInventory.sort(),
+            def: [...curr.def, boatDefKey],
+            path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: bItem, reqItem: 'fish' }],
+            steps: curr.steps,
+            transformed: curr.transformed,
+            hasTreasure: curr.hasTreasure
+          });
+        }
+      }
     }
 
     const simUnlockedZones = computeSimulatedUnlockedZones(puzzleEntities, curr.def, hasTransformation);
