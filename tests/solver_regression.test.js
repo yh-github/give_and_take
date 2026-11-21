@@ -168,4 +168,51 @@ describe('Solver Comprehensive Regression Suite', () => {
     expect(boatStep.isEnvironmentAction).toBe(true);
     expect(boatStep.itemId).toBe('locket');
   });
+
+  it('requires Sea Witch returnRequires tribute before untransforming after vault victory', () => {
+    const underwaterLevel = {
+      mechanics: {
+        hasTransformation: true,
+        hasSchoolsOfFish: true
+      }
+    };
+    const entitiesWithoutTributeSource = [
+      { id: 'mermaid_1', requires: ['comb'], reqType: 'OR', reward: 'mermaid_voice', zone: 1 },
+      { id: 'mermaid_2', requires: ['boot'], reqType: 'OR', reward: 'mermaid_voice', zone: 2 },
+      { id: 'mermaid_3', requires: ['mirror'], reqType: 'OR', reward: 'mermaid_voice', zone: 2 },
+      {
+        id: 'sea_witch',
+        requires: ['mermaid_voice', 'mermaid_voice', 'mermaid_voice'],
+        returnRequires: ['abyssal_pearl'],
+        reqType: 'AND',
+        reward: null,
+        zone: 2
+      },
+      { id: 'sunken_vault', requires: ['starfish'], reqType: 'AND', reward: 'crown', zone: 3, isGoal: true }
+    ];
+
+    // Impossible without source for 'abyssal_pearl'
+    expect(
+      solvePuzzle(['starfish'], entitiesWithoutTributeSource, 'sunken_vault', underwaterLevel, {
+        boatOfferedItems: ['comb', 'boot', 'mirror']
+      })
+    ).toBeNull();
+
+    const fullEntities = [
+      ...entitiesWithoutTributeSource,
+      { id: 'preset_kelp_0', isPreset: 'kelp', requires: [], reqType: 'AND', reward: 'sea_kelp', zone: 3 },
+      { id: 'clam_0', requires: ['sea_kelp'], reqType: 'OR', reward: 'abyssal_pearl', zone: 3 }
+    ];
+
+    const sol = solvePuzzle(['starfish'], fullEntities, 'sunken_vault', underwaterLevel, {
+      boatOfferedItems: ['comb', 'boot', 'mirror'],
+      boatTradeMap: { comb: 'fish', boot: 'fish', mirror: 'gold_fish' }
+    });
+    expect(sol).not.toBeNull();
+    const returnStep = sol.path.find(p => p.entityId === 'sea_witch' && p.isReturnTrip);
+    expect(returnStep).toBeDefined();
+    expect(returnStep.usedItems).toEqual(['abyssal_pearl']);
+    const mirrorTrade = sol.path.find(p => p.isBoatTrade && p.itemId === 'mirror');
+    expect(mirrorTrade.reqItem).toBe('gold_fish');
+  });
 });

@@ -1,10 +1,17 @@
 import React, { Fragment, type CSSProperties, type MouseEvent } from 'react';
 import { UNDERWATER_INSPECT_RADIUS } from '../constants.ts';
-import { GiantClamSVG, BubbleVentSVG, SeaWitchGateSVG, InkCloudSVG } from '../levels/underwater/components.tsx';
+import {
+  GiantClamSVG,
+  SeaWitchGrottoSVG,
+  SunkenVaultSVG,
+  InteractiveKelpSVG,
+  InkCloudSVG
+} from '../levels/underwater/components.tsx';
 import { getCorridorBounds } from '../logic/geometry.ts';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
 import type {
   AlertReason,
+  CSSCustomProperties,
   CollarBounds,
   CorridorBounds,
   CustomEntityMovement,
@@ -112,7 +119,18 @@ export function GameEntity({
   }
 
   const isBuried = isDigger && buriedEntities.includes(ent.id);
-  const groupedReqs = (ent.requires || []).reduce<Record<string, number>>((acc, reqId) => { acc[reqId] = (acc[reqId] || 0) + 1; return acc; }, {});
+  const effectiveTooltipReqs =
+    level.id === 'underwater' && ent.id === 'sea_witch' && isTransformed
+      ? (ent.returnRequires || [])
+      : (ent.requires || []);
+  const effectiveTooltipReqType =
+    level.id === 'underwater' && ent.id === 'sea_witch' && isTransformed
+      ? 'AND'
+      : ent.reqType;
+  const groupedReqs = effectiveTooltipReqs.reduce<Record<string, number>>((acc, reqId) => {
+    acc[reqId] = (acc[reqId] || 0) + 1;
+    return acc;
+  }, {});
   const customMove = getCustomEntityMovement ? getCustomEntityMovement(ent) : null;
   const isCustomEntity = Boolean(customMove && customMove.isActiveMotion);
   const wrapperClasses = `absolute transform flex flex-col items-center ${isCustomEntity ? 'transition-none' : 'transition-all duration-300'} ${(ent.roamClass && !ent.roamClass.includes('elevator')) ? ent.roamClass : ''} ${interactableHover}`;
@@ -151,6 +169,15 @@ export function GameEntity({
 
   const isElevator = ent.roamClass?.includes('elevator');
   const isClam = Boolean(ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam'));
+  const isMermaid = Boolean(level.id === 'underwater' && ent.id.startsWith('mermaid'));
+  const isWitch = ent.id === 'sea_witch';
+  const returnRelicEmoji =
+    (ent.returnRequires && ent.returnRequires[0]
+      ? level.items.find(i => i.id === ent.returnRequires![0])?.emoji
+      : null) || '🔮';
+  const vaultReqEmojis = (ent.requires || []).map(
+    id => level.items.find(i => i.id === id)?.emoji || '❓'
+  );
   const isVerticalCollar = rockBounds?.orientation === 'vertical';
   const worldHeight = puzzle?.geometry?.worldHeight;
 
@@ -215,15 +242,29 @@ export function GameEntity({
                   <span>❓</span>
                 </span>
               ) : (
-                Object.entries(groupedReqs).map(([reqId, count], i, arr) => (
-                  <Fragment key={reqId}>
-                    <span className="flex items-center gap-1 emoji-shadow" title={dict.items?.[reqId] || reqId}>
-                      {count > 1 && <span className="text-sm font-black text-amber-600" style={{ textShadow: 'none' }}>{count}x</span>}
-                      {level.items.find(item => item.id === reqId)?.emoji || '❓'}
+                <>
+                  {level.id === 'underwater' && isWitch && isTransformed && !hasDeepTreasure && (
+                    <span className="emoji-shadow mr-1" title={dict.items?.crown || 'Sunken Crown'}>👑 +</span>
+                  )}
+                  {Object.entries(groupedReqs).map(([reqId, count], i, arr) => (
+                    <Fragment key={reqId}>
+                      <span className="flex items-center gap-1 emoji-shadow" title={dict.items?.[reqId] || reqId}>
+                        {count > 1 && <span className="text-sm font-black text-amber-600" style={{ textShadow: 'none' }}>{count}x</span>}
+                        {level.items.find(item => item.id === reqId)?.emoji || '❓'}
+                      </span>
+                      {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{effectiveTooltipReqType === 'AND' ? '&' : dict.or}</span>}
+                    </Fragment>
+                  ))}
+                  {level.id === 'underwater' && isWitch && isTransformed && (
+                    <span className="text-sm font-black text-emerald-700 ml-1" style={{ textShadow: 'none' }}>➔ 🤠</span>
+                  )}
+                  {level.id === 'underwater' && !isGoal && !isWitch && rewardItem && (
+                    <span className="flex items-center gap-1 ml-1 text-sm font-black text-sky-900" style={{ textShadow: 'none' }}>
+                      <span>➔</span>
+                      <span className="emoji-shadow text-lg">{isBuried ? '❓' : rewardItem.emoji}</span>
                     </span>
-                    {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{ent.reqType === 'AND' ? '&' : dict.or}</span>}
-                  </Fragment>
-                ))
+                  )}
+                </>
               )}
               <div className={`absolute ${arrowY} ${arrowAlign} w-3 h-3 bg-white border-stone-800 rotate-45`}></div>
             </div>
@@ -251,7 +292,7 @@ export function GameEntity({
                 : ''
           }`}>
 
-            {!isGoal && !ent.isRepeatable && !ent.isPreset && (
+            {level.id !== 'underwater' && !isGoal && !ent.isRepeatable && !ent.isPreset && (
               isClam ? (
                 (!isDefeated && rewardItem && isBuried && isSelected) ? (
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[7cqw] drop-shadow-md pointer-events-none z-20 animate-bounce">❓</div>
@@ -337,11 +378,25 @@ export function GameEntity({
                     alertReason === 'inventory_full' ? '🎒' : '🚫'
                   ) : level.id === 'underwater' ? (
                     ent.id === 'sea_witch' ? (
-                      <SeaWitchGateSVG
+                      <SeaWitchGrottoSVG
                         isTransformed={isTransformed}
                         hasDeepTreasure={hasDeepTreasure}
+                        returnRelicEmoji={returnRelicEmoji}
                         emoji={ent.emoji}
                       />
+                    ) : ent.id === 'sunken_vault' ? (
+                      <SunkenVaultSVG
+                        reqEmojis={vaultReqEmojis}
+                        isDefeated={isDefeated}
+                        isAlerting={isAlerting}
+                        isMurkyFar={isMurkyFar}
+                      />
+                    ) : ent.isPreset === 'kelp' ? (
+                      <InteractiveKelpSVG variant="harvest" />
+                    ) : ent.isPreset ? (
+                      <div className="w-11 h-11 rounded-full bg-amber-950/75 border-2 border-amber-300/70 flex items-center justify-center text-2xl shadow-[0_0_12px_rgba(251,191,36,0.5)] animate-bob">
+                        {ent.emoji || rewardItem?.emoji}
+                      </div>
                     ) : isElevator ? (
                       <div className="relative flex flex-col items-center">
                         <div className={`w-[18cqw] h-[18cqw] flex items-center justify-center text-[12cqw] font-sans drop-shadow-2xl ${!isCustomEntity && !isAnimating ? 'animate-dolphin-idle' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
@@ -353,9 +408,30 @@ export function GameEntity({
                           </div>
                         )}
                       </div>
-                    ) : ent.id.startsWith('mermaid') ? (
-                      <div className={`flex items-center justify-center text-[11cqw] drop-shadow-xl ${!isAnimating ? 'animate-mermaid-swim' : ''}`}>
-                        {ent.emoji}
+                    ) : isMermaid ? (
+                      <div
+                        data-testid={`mermaid-orbit-${ent.id}`}
+                        className={ent.orbit ? 'animate-mermaid-orbit-x' : ''}
+                        style={{
+                          '--orbit-rx': `${(ent.orbit?.rx ?? 18) * 0.72}cqw`,
+                          '--orbit-dur': `${ent.orbit?.duration ?? 8}s`,
+                          '--orbit-delay': `${ent.orbit?.delay ?? 0}s`,
+                          animationPlayState: (isSelected || isDefeated) ? 'paused' : 'running'
+                        } as CSSCustomProperties}
+                      >
+                        <div
+                          className={ent.orbit ? 'animate-mermaid-orbit-y' : ''}
+                          style={{
+                            '--orbit-ry': `${(ent.orbit?.ry ?? 8) * 0.65}cqw`,
+                            '--orbit-dur': `${ent.orbit?.duration ?? 8}s`,
+                            '--orbit-delay': `${ent.orbit?.delay ?? 0}s`,
+                            animationPlayState: (isSelected || isDefeated) ? 'paused' : 'running'
+                          } as CSSCustomProperties}
+                        >
+                          <div className={`flex items-center justify-center text-[11cqw] drop-shadow-xl ${!isAnimating ? 'animate-mermaid-swim' : ''}`}>
+                            {ent.emoji}
+                          </div>
+                        </div>
                       </div>
                     ) : isClam ? (
                       <GiantClamSVG
@@ -367,8 +443,6 @@ export function GameEntity({
                         rewardEmoji={!isDefeated && !isBuried ? rewardItem?.emoji : null}
                         isMurkyFar={isMurkyFar}
                       />
-                    ) : ent.isVent ? (
-                      <BubbleVentSVG />
                     ) : (
                       ent.emoji
                     )

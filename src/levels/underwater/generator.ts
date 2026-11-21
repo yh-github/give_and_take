@@ -3,24 +3,32 @@ import { createRNG, shuffle } from '../../logic/rng.ts';
 import type { SeedInput } from '../../logic/rng.ts';
 import { sanitizePuzzleEntities } from '../../logic/rules.ts';
 import { solvePuzzle } from '../../logic/solver.ts';
+import { HUMAN_TRINKET_BOAT_TIERS, HUMAN_TRINKET_IDS } from '../../logic/underwater.ts';
 import type {
   EntityTemplate,
   LevelDefinition,
+  PresetType,
   PuzzleData,
   PuzzleEntity,
-  PuzzleEntityArray,
-  RequirementType
+  PuzzleEntityArray
 } from '../../types/index.ts';
 
+const PRESET_ITEM_MAP: Record<string, { id: string; emoji: string; name: string }> = {
+  kelp: { id: 'sea_kelp', emoji: '🌿', name: 'Glowing Kelp' },
+  starfish: { id: 'starfish', emoji: '⭐', name: 'Starfish' },
+  doubloon: { id: 'doubloon', emoji: '🪙', name: 'Gold Doubloon' }
+};
+
 /**
- * Procedural, solver-verified puzzle generator for the Underwater level.
- * Respects `targetSteps` (quest chain difficulty) and `numDiggers` (memory clams
- * that snap shut after 3 seconds), while preserving Underwater's unique mechanics:
- * - Dolphin transport elevator (`dolphin_1`)
- * - Bubble vents (`isVent: true`) for air management
- * - Reef traders (Mermaids, Octopus, Crab) in Zones 1 & 2
- * - Sea Witch transformation gate (`sea_witch`) requiring 2 items
- * - Deep Trench (Zone 3) Clams and Crabs guarding the Glowing Crown (`clam_3`)
+ * Procedural 2-Act Puzzle Generator for Under the Sea (`underwater`):
+ * - Act 1: Player starts with 0 items, catches depth-tiered fish to trade with
+ *   surface boats for human trinkets, trades trinkets to 3 circling Mermaids
+ *   for 3× Mermaid Song (`mermaid_voice`), and pays the Sea Witch (`sea_witch`)
+ *   to transform into a Merman (infinite air).
+ * - Act 2: In the Abyssal Trench (y > 72), player gathers seabed catalysts
+ *   (`sea_kelp`, `starfish`, `doubloon`) and trades with Giant Clams, Hermit Crab,
+ *   and Shipwreck Octopus to forge seals for the Sunken Galleon Vault (`sunken_vault`)
+ *   AND obtain the Sea Witch's deep-sea Return Tribute relic (`returnRequires`).
  */
 export function generateUnderwaterPuzzle(
   level: LevelDefinition,
@@ -31,63 +39,51 @@ export function generateUnderwaterPuzzle(
   const rng = createRNG(seed);
   const startTime = Date.now();
   let bestPuzzle: PuzzleData | null = null;
-  let bestScore = Infinity;
 
-  const tradableItemIds = level.items
-    .map(i => i.id)
-    .filter(id => id !== 'crown' && id !== 'fish' && id !== 'gold_fish');
+  const dolphinTpl = level.entities.find((e) => e.id === 'dolphin');
+  const witchEnt = level.entities.find((e) => e.id === 'sea_witch');
+  const clamTpl = level.entities.find((e) => e.id === 'clam') || { id: 'clam', name: 'Giant Clam', emoji: '🐚' };
+  const crabTpl = level.entities.find((e) => e.id === 'crab') || { id: 'crab', name: 'Hermit Crab', emoji: '🦀' };
+  const octopusTpl = level.entities.find((e) => e.id === 'octopus') || { id: 'octopus', name: 'Octopus', emoji: '🐙' };
+  const vaultTpl = level.entities.find((e) => e.id === 'sunken_vault') || {
+    id: 'sunken_vault',
+    name: 'Sunken Galleon Vault',
+    emoji: '🧰'
+  };
 
-  const z1Nodes = level.mapNodes.filter(n => n.zone === 1 && !n.isGatekeeper && !n.isPreset);
-  const z2Nodes = level.mapNodes.filter(n => n.zone === 2 && !n.isGatekeeper && !n.isPreset && n.id !== 'sea_witch');
-  const z3Nodes = level.mapNodes.filter(n => n.zone === 3 && !n.isGatekeeper && !n.isPreset);
-  const witchNode = level.mapNodes.find(n => n.id === 'sea_witch');
-
-  const dolphinTpl = level.entities.find(e => e.id === 'dolphin');
-  const witchEnt = level.entities.find(e => e.id === 'sea_witch');
-  const clamTpl = level.entities.find(e => e.id === 'clam') || { id: 'clam', name: 'Giant Clam', emoji: '🐚' };
-  const crabTpl = level.entities.find(e => e.id === 'crab') || { id: 'crab', name: 'Crab', emoji: '🦀' };
-  const octopusTpl = level.entities.find(e => e.id === 'octopus');
-  const mermaidTemplates = level.entities.filter(e => e.id.startsWith('mermaid'));
+  const mermaidTemplates = level.entities.filter((e) => e.id.startsWith('mermaid'));
   const mermaidEmojis = ['🧜‍♀️', '🧜🏻‍♀️', '🧜🏼‍♀️', '🧜🏽‍♀️', '🧜🏾‍♀️'];
+
+  const z1Nodes = level.mapNodes.filter((n) => n.zone === 1 && !n.isGatekeeper && !n.isPreset);
+  const z2MermaidNodes = level.mapNodes.filter(
+    (n) => n.zone === 2 && !n.isGatekeeper && !n.isPreset && n.id !== 'sea_witch'
+  );
+  const witchNode = level.mapNodes.find((n) => n.id === 'sea_witch');
+  const z3PresetNodes = level.mapNodes.filter((n) => n.zone === 3 && Boolean(n.isPreset));
+  const z3ClamNodes = level.mapNodes.filter((n) => n.zone === 3 && Boolean(n.isClamNode));
+  const z3CreatureNodes = level.mapNodes.filter(
+    (n) => n.zone === 3 && !n.isPreset && !n.isClamNode && !n.isGoalNode && !n.isGatekeeper
+  );
+  const goalPos = level.mapNodes.find((n) => n.isGoalNode) || { x: 50, y: 95, zone: 3 };
+
+  const difficultySteps = Number(targetSteps) || 5;
+  const isEasy = difficultySteps <= 4;
+  const isHard = difficultySteps >= 7;
+
+  const tier1Trinkets = HUMAN_TRINKET_IDS.filter((id) => HUMAN_TRINKET_BOAT_TIERS[id] === 'fish');
+  const tier2Trinkets = HUMAN_TRINKET_IDS.filter((id) => HUMAN_TRINKET_BOAT_TIERS[id] === 'gold_fish');
+  const tier3Trinkets = HUMAN_TRINKET_IDS.filter((id) => HUMAN_TRINKET_BOAT_TIERS[id] === 'blowfish');
+
+  const seabedRelicPool = ['pearl', 'anchor_key', 'shell', 'trident', 'gem', 'abyssal_pearl'];
 
   for (let attempt = 0; attempt < GENERATOR_MAX_ATTEMPTS; attempt++) {
     if (Date.now() - startTime > SOLVER_TIME_LIMIT_MS && bestPuzzle) break;
 
     const puzzleEntities: PuzzleEntityArray = [];
-
-    // 1. Include preset bubble vents from mapNodes
-    level.mapNodes.forEach(n => {
-      if (n.isPreset === 'bubble_vent') {
-        puzzleEntities.push({
-          id: `preset_vent_${n.x}_${n.y}`,
-          emoji: '🫧',
-          requires: [],
-          reqType: 'AND',
-          reward: null,
-          x: n.x,
-          y: n.y,
-          zone: n.zone,
-          isGatekeeper: false,
-          isPreset: true,
-          isVent: true
-        });
-      }
-    });
-
-    // 2. Zero starting items: players catch fish and trade with roaming surface boats
     const startItems: string[] = [];
-    const boatPool = ['comb', 'mirror', 'boot', 'locket', 'shell', 'starfish'].filter(id => tradableItemIds.includes(id));
-    const shuffledBoatPool = shuffle(boatPool, rng);
-    const fallbackPool = shuffledBoatPool.length >= 3 ? shuffledBoatPool : shuffle(tradableItemIds, rng);
-    const boatReef = fallbackPool[0] || 'boot';
-    const boatWitch = fallbackPool[1] || 'comb';
-    const boatDeep = fallbackPool[2] || 'mirror';
-    const boatOfferedItems = [boatReef, boatWitch, boatDeep];
-    const boatOfferedItem = boatReef;
-    const chainPool = shuffle(tradableItemIds.filter(id => !boatOfferedItems.includes(id)), rng);
 
-    // 3. Dolphin transport elevator in Zone 1
-    const dolphinPos = z1Nodes[2] || z1Nodes[0];
+    // 1. Dolphin shuttle elevator in Zone 1
+    const dolphinPos = z1Nodes.find((n) => !n.orbit) || z1Nodes[0];
     if (dolphinTpl && dolphinPos) {
       puzzleEntities.push({
         ...dolphinTpl,
@@ -103,220 +99,239 @@ export function generateUnderwaterPuzzle(
       });
     }
 
-    // 4. Reef Traders in Zone 1 (2 nodes) & Zone 2 (3 nodes)
-    const reefTraders: PuzzleEntity[] = [];
-    const z1TraderNodes = z1Nodes.slice(0, 2);
-    const z1Templates = shuffle([octopusTpl, crabTpl].filter((t): t is EntityTemplate => Boolean(t)), rng);
-    z1TraderNodes.forEach((node, idx) => {
-      const tpl = z1Templates[idx % z1Templates.length] || crabTpl;
-      reefTraders.push({
-        ...tpl,
-        id: `${tpl.id}_z1_${idx}`,
-        emoji: tpl.emoji,
-        requires: [boatReef],
-        reqType: 'OR',
-        reward: chainPool[0],
-        x: node.x,
-        y: node.y,
-        zone: node.zone,
-        isGatekeeper: false
-      });
+    // 2. Act 1: Human trinkets (only from Surface Boats) -> 3 Circling Mermaids -> 3x mermaid_voice
+    const t1 = shuffle(tier1Trinkets, rng);
+    const t2 = shuffle(tier2Trinkets, rng);
+    const t3 = shuffle(tier3Trinkets, rng);
+
+    const mermaidReqsList: string[][] = isEasy
+      ? [[t1[0]], [t1[1]], [t2[0]]]
+      : isHard
+        ? [[t1[0]], [t2[0]], [t3[0], t1[1]]]
+        : [[t1[0]], [t2[0]], [t3[0]]];
+
+    const shuffledMermaidReqs = shuffle(mermaidReqsList, rng);
+    const boatOfferedItems = Array.from(new Set(shuffledMermaidReqs.flat()));
+    const boatTradeMap: Record<string, string> = {};
+    HUMAN_TRINKET_IDS.forEach((trinketId) => {
+      boatTradeMap[trinketId] = HUMAN_TRINKET_BOAT_TIERS[trinketId];
     });
+    const safeBoatItems = HUMAN_TRINKET_IDS.filter((id) => !boatOfferedItems.includes(id));
+
+    const mermaidPositions = [
+      z1Nodes.find((n) => Boolean(n.orbit)) || { x: 30, y: 31, zone: 1, orbit: { rx: 22, ry: 9, duration: 7.5 } },
+      ...z2MermaidNodes
+    ].slice(0, 3);
 
     const shuffledMermaidEmojis = shuffle(mermaidEmojis, rng);
     const shuffledMermaidTpls = shuffle(mermaidTemplates, rng);
-    const shuffledZ2Nodes = shuffle(z2Nodes, rng);
-    shuffledZ2Nodes.slice(0, 3).forEach((node, idx) => {
+
+    mermaidPositions.forEach((node, idx) => {
       const mTpl = shuffledMermaidTpls[idx % shuffledMermaidTpls.length] || mermaidTemplates[0];
-      reefTraders.push({
+      const reqs = shuffledMermaidReqs[idx] || [boatOfferedItems[0]];
+      puzzleEntities.push({
         ...mTpl,
         id: `mermaid_${idx + 1}`,
         emoji: shuffledMermaidEmojis[idx % shuffledMermaidEmojis.length],
-        requires: [boatReef],
-        reqType: 'OR',
-        reward: chainPool[1],
+        requires: reqs,
+        reqType: reqs.length > 1 ? 'AND' : 'OR',
+        reward: 'mermaid_voice',
         x: node.x,
         y: node.y,
         zone: node.zone,
+        orbit: node.orbit,
         isGatekeeper: false
       });
     });
 
-    // 5. Deep Trench (Zone 3): Goal Clam (`clam_3`) + 5 Seabed Traders (3 Clams + 2 Crabs/Octopus)
-    const goalPos = z3Nodes.find(n => n.isGoalNode) || z3Nodes[4] || z3Nodes[z3Nodes.length - 1];
-    const nonGoalZ3 = z3Nodes.filter(n => n !== goalPos);
-    const clamNodes = shuffle(nonGoalZ3.filter(n => n.isClamNode), rng);
-    const creatureNodes = shuffle(nonGoalZ3.filter(n => !n.isClamNode), rng);
-    const orderedZ3Nodes = [...clamNodes, ...creatureNodes];
+    // 3. Act 2: Seabed Catalysts, Clams/Crab/Octopus, Return Tribute & Sunken Vault
+    const activePresetNodes = isHard ? z3PresetNodes.slice(0, 4) : z3PresetNodes.slice(0, 3);
+    activePresetNodes.forEach((node, idx) => {
+      const presetKey = typeof node.isPreset === 'string' ? node.isPreset : 'kelp';
+      const itemMeta = PRESET_ITEM_MAP[presetKey] || PRESET_ITEM_MAP.kelp;
+      puzzleEntities.push({
+        id: `preset_${presetKey}_${idx}`,
+        name: itemMeta.name,
+        emoji: itemMeta.emoji,
+        requires: [],
+        reqType: 'AND',
+        reward: itemMeta.id,
+        x: node.x,
+        y: node.y,
+        zone: node.zone,
+        isPreset: presetKey as PresetType,
+        isGatekeeper: false
+      });
+    });
 
-    const clampedDiggers = Math.max(0, Math.min(3, numDiggers ?? 1));
-    const deepTraders: PuzzleEntity[] = [];
+    const relics = shuffle(seabedRelicPool, rng);
+    const returnRelic = relics[0];
+    const midRelic = relics[1];
+    const seal1 = relics[2];
+    const seal2 = relics[3];
+    const seal3 = relics[4];
+    const unusedDecoyReward = relics[5];
 
-    for (let i = 0; i < Math.min(5, orderedZ3Nodes.length); i++) {
-      const node = orderedZ3Nodes[i];
-      if (i < 3) {
-        const isMemoryClam = i < clampedDiggers;
-        const clamId = isMemoryClam ? `clam_${i}` : `giant_clam_${i}`;
-        deepTraders.push({
-          ...clamTpl,
-          id: clamId,
-          emoji: '🐚',
-          requires: [boatDeep],
-          reqType: 'OR',
-          reward: chainPool[2],
-          x: node.x,
-          y: node.y,
-          zone: node.zone,
-          isGatekeeper: false
-        });
-      } else {
-        const useOctopus = i === 4 && octopusTpl && rng() > 0.4;
-        const tpl = useOctopus ? octopusTpl : crabTpl;
-        deepTraders.push({
-          ...tpl,
-          id: `${tpl.id}_z3_${i}`,
-          emoji: tpl.emoji,
-          requires: ['fish'],
-          reqType: 'OR',
-          reward: 'gold_fish',
-          x: node.x,
-          y: node.y,
-          zone: node.zone,
-          isGatekeeper: false
-        });
-      }
-    }
-
-    // 6. Wire the procedural quest chain to match `targetSteps`
-    const neededTraders = Math.max(1, Math.min(6, (targetSteps || 5) - 3));
-    const kReef = Math.max(1, Math.min(3, Math.ceil(neededTraders * 0.6)));
-    const kDeep = Math.max(0, Math.min(3, neededTraders - kReef));
-
-    const shuffledReef = shuffle(reefTraders, rng);
-    const shuffledDeep = shuffle(deepTraders, rng);
-
-    let chainCursor = 0;
-    const nextChainItem = () => chainPool[chainCursor++ % chainPool.length];
-    const usedChainRewards = new Set<string>();
-
-    let prevReef = boatReef;
-    for (let i = 0; i < kReef; i++) {
-      const reward = nextChainItem();
-      usedChainRewards.add(reward);
-      shuffledReef[i].requires = [prevReef];
-      shuffledReef[i].reqType = 'OR';
-      shuffledReef[i].reward = reward;
-      prevReef = reward;
-    }
-
-    const witchReqs = [prevReef, boatWitch];
     if (witchEnt && witchNode) {
       puzzleEntities.push({
         ...witchEnt,
         ...witchNode,
         emoji: '😈',
-        requires: witchReqs,
+        requires: ['mermaid_voice', 'mermaid_voice', 'mermaid_voice'],
         reqType: 'AND',
+        returnRequires: [returnRelic],
         reward: null,
         id: 'sea_witch',
         isGatekeeper: false
       });
     }
 
-    let prevDeep = boatDeep;
-    for (let i = 0; i < kDeep; i++) {
-      const reward = nextChainItem();
-      usedChainRewards.add(reward);
-      shuffledDeep[i].requires = [prevDeep];
-      shuffledDeep[i].reqType = 'OR';
-      shuffledDeep[i].reward = reward;
-      prevDeep = reward;
+    const clampedDiggers = Math.max(0, Math.min(3, numDiggers ?? 1));
+    const shuffledClamNodes = shuffle(z3ClamNodes, rng);
+    const deepTraders: PuzzleEntity[] = [];
+
+    for (let i = 0; i < Math.min(3, shuffledClamNodes.length); i++) {
+      const node = shuffledClamNodes[i];
+      const isMemoryClam = i < clampedDiggers;
+      deepTraders.push({
+        ...clamTpl,
+        id: isMemoryClam ? `clam_${i}` : `giant_clam_${i}`,
+        emoji: '🐚',
+        requires: ['sea_kelp'],
+        reqType: 'OR',
+        reward: unusedDecoyReward,
+        x: node.x,
+        y: node.y,
+        zone: node.zone,
+        isGatekeeper: false
+      });
     }
 
-    const goalReqs = (targetSteps >= 8 && kDeep >= 2) ? [prevDeep, 'fish'] : [prevDeep];
-    const goalReqType: RequirementType = goalReqs.length > 1 ? 'AND' : 'OR';
-    const goalClam: PuzzleEntity = {
-      ...clamTpl,
-      id: 'clam_3',
-      emoji: '🐚',
-      requires: goalReqs,
-      reqType: goalReqType,
+    const creatureTemplates: EntityTemplate[] = shuffle([octopusTpl, crabTpl], rng);
+    z3CreatureNodes.slice(0, 2).forEach((node, idx) => {
+      const tpl = creatureTemplates[idx % creatureTemplates.length];
+      deepTraders.push({
+        ...tpl,
+        id: `${tpl.id}_z3_${idx}`,
+        emoji: tpl.emoji,
+        requires: ['doubloon'],
+        reqType: 'OR',
+        reward: unusedDecoyReward,
+        x: node.x,
+        y: node.y,
+        zone: node.zone,
+        isGatekeeper: false
+      });
+    });
+
+    const orderedDeepTraders = shuffle(deepTraders, rng);
+    let vaultReqs: string[];
+
+    if (isEasy) {
+      orderedDeepTraders[0].requires = ['sea_kelp'];
+      orderedDeepTraders[0].reqType = 'OR';
+      orderedDeepTraders[0].reward = seal1;
+
+      orderedDeepTraders[1].requires = ['doubloon'];
+      orderedDeepTraders[1].reqType = 'OR';
+      orderedDeepTraders[1].reward = returnRelic;
+
+      vaultReqs = [seal1, 'starfish'];
+
+      const safeDecoyReqs = [seal2, seal3, midRelic];
+      for (let i = 2; i < orderedDeepTraders.length; i++) {
+        orderedDeepTraders[i].requires = [safeDecoyReqs[(i - 2) % safeDecoyReqs.length]];
+        orderedDeepTraders[i].reqType = 'OR';
+        orderedDeepTraders[i].reward = unusedDecoyReward;
+      }
+    } else if (!isHard) {
+      orderedDeepTraders[0].requires = ['sea_kelp'];
+      orderedDeepTraders[0].reqType = 'OR';
+      orderedDeepTraders[0].reward = midRelic;
+
+      orderedDeepTraders[1].requires = [midRelic];
+      orderedDeepTraders[1].reqType = 'OR';
+      orderedDeepTraders[1].reward = seal1;
+
+      orderedDeepTraders[2].requires = ['starfish'];
+      orderedDeepTraders[2].reqType = 'OR';
+      orderedDeepTraders[2].reward = seal2;
+
+      orderedDeepTraders[3].requires = ['doubloon'];
+      orderedDeepTraders[3].reqType = 'OR';
+      orderedDeepTraders[3].reward = returnRelic;
+
+      vaultReqs = [seal1, seal2];
+
+      orderedDeepTraders[4].requires = [seal3];
+      orderedDeepTraders[4].reqType = 'OR';
+      orderedDeepTraders[4].reward = unusedDecoyReward;
+    } else {
+      orderedDeepTraders[0].requires = ['sea_kelp'];
+      orderedDeepTraders[0].reqType = 'OR';
+      orderedDeepTraders[0].reward = midRelic;
+
+      orderedDeepTraders[1].requires = [midRelic];
+      orderedDeepTraders[1].reqType = 'OR';
+      orderedDeepTraders[1].reward = seal1;
+
+      orderedDeepTraders[2].requires = ['starfish'];
+      orderedDeepTraders[2].reqType = 'OR';
+      orderedDeepTraders[2].reward = seal2;
+
+      orderedDeepTraders[3].requires = ['doubloon'];
+      orderedDeepTraders[3].reqType = 'OR';
+      orderedDeepTraders[3].reward = seal3;
+
+      orderedDeepTraders[4].requires = ['sea_kelp'];
+      orderedDeepTraders[4].reqType = 'OR';
+      orderedDeepTraders[4].reward = returnRelic;
+
+      vaultReqs = [seal1, seal2, seal3];
+    }
+
+    const sunkenVault: PuzzleEntity = {
+      ...vaultTpl,
+      id: 'sunken_vault',
+      name: vaultTpl.name || 'Sunken Galleon Vault',
+      emoji: '🧰',
+      requires: vaultReqs,
+      reqType: 'AND',
       reward: 'crown',
       x: goalPos.x,
       y: goalPos.y,
-      zone: goalPos.zone,
+      zone: 3,
       isGatekeeper: false,
       isGoal: true
     };
 
-    // Configure remaining Reef & Deep traders as red herrings that don't short-circuit the chain
-    const safeRewards = tradableItemIds.filter(
-      id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep && !boatOfferedItems.includes(id)
-    );
-    const remainingTraders = [...shuffledReef.slice(kReef), ...shuffledDeep.slice(kDeep)];
-    remainingTraders.forEach((t, idx) => {
-      if (idx === remainingTraders.length - 1) {
-        t.requires = ['fish'];
-        t.reqType = 'OR';
-        t.reward = 'gold_fish';
-      } else {
-        const reward = safeRewards[idx % safeRewards.length] || boatReef;
-        let req = chainPool[(chainCursor + idx) % chainPool.length] || 'gold_fish';
-        if (req === reward) {
-          req = reward === 'fish' ? 'shell' : 'fish';
-        }
-        t.requires = [req];
-        t.reqType = 'OR';
-        t.reward = reward;
-      }
+    puzzleEntities.push(...deepTraders, sunkenVault);
+
+    const sanitizedEntities: PuzzleEntityArray = sanitizePuzzleEntities(puzzleEntities, level.items);
+    sanitizedEntities.boatOfferedItem = boatOfferedItems[0];
+    sanitizedEntities.boatOfferedItems = boatOfferedItems;
+    sanitizedEntities.boatTradeMap = boatTradeMap;
+
+    const solved = solvePuzzle(startItems, sanitizedEntities, 'sunken_vault', level, {
+      boatOfferedItems,
+      boatTradeMap
     });
 
-    puzzleEntities.push(...reefTraders, ...deepTraders, goalClam);
-    const sanitizedEntities = sanitizePuzzleEntities(puzzleEntities, level.items);
-    puzzleEntities.length = 0;
-    puzzleEntities.push(...sanitizedEntities);
-    puzzleEntities.boatOfferedItem = boatOfferedItem;
-    puzzleEntities.boatOfferedItems = boatOfferedItems;
-
-    const solved = solvePuzzle(startItems, puzzleEntities, 'clam_3', level, { boatOfferedItems });
     if (solved) {
-      const safeBoatItems = boatPool.filter(
-        id => !usedChainRewards.has(id) && id !== prevReef && id !== prevDeep && !boatOfferedItems.includes(id)
-      );
-      const sanitizedCandidateEntities: PuzzleEntityArray = sanitizePuzzleEntities(puzzleEntities, level.items);
-      sanitizedCandidateEntities.boatOfferedItem = boatOfferedItem;
-      sanitizedCandidateEntities.boatOfferedItems = boatOfferedItems;
       const candidate: PuzzleData = {
         startItems,
-        boatOfferedItem,
+        boatOfferedItem: boatOfferedItems[0],
         boatOfferedItems,
-        safeBoatItems: safeBoatItems.length > 0 ? safeBoatItems : [boatOfferedItem],
-        puzzleEntities: sanitizedCandidateEntities,
-        goalEntityId: 'clam_3',
+        boatTradeMap,
+        safeBoatItems: safeBoatItems.length > 0 ? safeBoatItems : [boatOfferedItems[0]],
+        puzzleEntities: sanitizedEntities,
+        goalEntityId: 'sunken_vault',
         solution: solved.path,
         steps: solved.steps
       };
-
-      if (solved.steps >= targetSteps && solved.steps <= targetSteps + 1) {
-        return candidate;
-      }
-
-      const score = solved.steps >= targetSteps
-        ? (solved.steps - targetSteps)
-        : (targetSteps - solved.steps) * 10;
-
-      if (score < bestScore) {
-        bestScore = score;
-        bestPuzzle = candidate;
-      }
+      return candidate;
     }
   }
 
-  if (bestPuzzle && bestPuzzle.puzzleEntities) {
-    const sanitized: PuzzleEntityArray = sanitizePuzzleEntities(bestPuzzle.puzzleEntities, level.items);
-    if (bestPuzzle.boatOfferedItem) sanitized.boatOfferedItem = bestPuzzle.boatOfferedItem;
-    if (bestPuzzle.boatOfferedItems) sanitized.boatOfferedItems = bestPuzzle.boatOfferedItems;
-    bestPuzzle.puzzleEntities = sanitized;
-  }
   return bestPuzzle;
 }

@@ -38,7 +38,11 @@ function computeSimulatedUnlockedZones(
  */
 export function solvePuzzle(
   startItems: readonly string[],
-  puzzleEntities: ReadonlyArray<AbstractPuzzleEntity> & { boatOfferedItem?: string | null; boatOfferedItems?: string[] },
+  puzzleEntities: ReadonlyArray<AbstractPuzzleEntity> & {
+    boatOfferedItem?: string | null;
+    boatOfferedItems?: string[];
+    boatTradeMap?: Record<string, string>;
+  },
   goalEntityId: string,
   level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
   options: SolverOptions = {}
@@ -56,11 +60,16 @@ export function solvePuzzle(
       ].filter((id): id is string => Boolean(id))
     )
   );
+  const boatTradeMap: Record<string, string> = {
+    ...(puzzleEntities?.boatTradeMap || {}),
+    ...(options?.boatTradeMap || {})
+  };
   const maxIters = options?.maxStates ?? SOLVER_MAX_ITERS;
 
   const allRequiredItems = new Set<string>();
   puzzleEntities.forEach(e => {
     (e.requires || []).forEach(req => allRequiredItems.add(req));
+    (e.returnRequires || []).forEach(req => allRequiredItems.add(req));
   });
 
   const queue: SolverResult[] = [
@@ -109,23 +118,24 @@ export function solvePuzzle(
     for (const bItem of boatOfferedItems) {
       const boatDefKey = `roaming_boat_${bItem}`;
       if (!allRequiredItems.has(bItem) || curr.def.includes(boatDefKey) || curr.inv.includes(bItem)) continue;
+      const reqFish = boatTradeMap[bItem] || 'fish';
 
       if (canHoldMore) {
         queue.push({
           inv: [...curr.inv, bItem].sort(),
           def: [...curr.def, boatDefKey],
-          path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: bItem, reqItem: 'fish' }],
+          path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: bItem, reqItem: reqFish }],
           steps: curr.steps,
           transformed: curr.transformed,
           hasTreasure: curr.hasTreasure
         });
-      } else if (curr.inv.includes('fish')) {
-        const { fits, nextInventory } = canFitInInventory(curr.inv, ['fish'], bItem);
+      } else if (curr.inv.includes(reqFish)) {
+        const { fits, nextInventory } = canFitInInventory(curr.inv, [reqFish], bItem);
         if (fits) {
           queue.push({
             inv: nextInventory.sort(),
             def: [...curr.def, boatDefKey],
-            path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: bItem, reqItem: 'fish' }],
+            path: [...curr.path, { isEnvironmentAction: true, isBoatTrade: true, itemId: bItem, reqItem: reqFish }],
             steps: curr.steps,
             transformed: curr.transformed,
             hasTreasure: curr.hasTreasure
@@ -186,34 +196,51 @@ export function solvePuzzle(
       const stepDelta = isIntermediatePickaxeRock ? 0 : 1;
 
       if (entity.reqType === 'AND') {
+        if (entity.id === 'sea_witch' && curr.transformed) {
+          if (curr.hasTreasure) {
+            const retReqs = Array.isArray(entity.returnRequires) && entity.returnRequires.length > 0
+              ? entity.returnRequires
+              : [];
+            const retConsumed = consumeRequiredItems(curr.inv, retReqs);
+            if (retConsumed) {
+              const nextInv = retConsumed.remaining;
+              if (uniqueCount(nextInv) <= MAX_UNIQUE_ITEMS) {
+                queue.push({
+                  inv: nextInv.sort(),
+                  def: [...curr.def, entity.id, 'untransformed_exit'],
+                  path: [...curr.path, { entityId: entity.id, usedItems: retReqs, reqType: 'AND', isReturnTrip: true }],
+                  steps: curr.steps + stepDelta,
+                  transformed: false,
+                  hasTreasure: true
+                });
+              }
+            }
+          }
+          continue;
+        }
+
         const consumedResult = consumeRequiredItems(curr.inv, entity.requires || []);
         const hasAll = consumedResult !== null;
         const tempInv = consumedResult ? consumedResult.remaining : [...curr.inv];
 
-        const isReturnTrip = entity.id === 'sea_witch' && curr.transformed && curr.hasTreasure;
-
-        if (hasAll || isReturnTrip) {
-          const nextInv = isReturnTrip ? [...curr.inv] : tempInv;
+        if (hasAll) {
+          const nextInv = [...tempInv];
           let nextTransformed = curr.transformed;
           let nextHasTreasure = curr.hasTreasure;
           const nextDef = [...curr.def, entity.id];
 
           if (entity.id === 'sea_witch') {
-            if (!curr.transformed) nextTransformed = true;
-            else if (curr.hasTreasure) {
-              nextTransformed = false;
-              nextDef.push('untransformed_exit');
-            } else if (!isReturnTrip) continue;
+            nextTransformed = true;
           }
           if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
-          if (entity.reward && !isReturnTrip) nextInv.push(entity.reward);
+          if (entity.reward) nextInv.push(entity.reward);
 
           if (uniqueCount(nextInv) <= MAX_UNIQUE_ITEMS) {
             const step: SolutionStep = {
               entityId: entity.id,
-              usedItems: isReturnTrip ? [] : entity.requires,
+              usedItems: entity.requires,
               reqType: 'AND',
-              isReturnTrip
+              isReturnTrip: false
             };
             queue.push({
               inv: nextInv.sort(),
@@ -226,6 +253,29 @@ export function solvePuzzle(
           }
         }
       } else {
+        if (entity.id === 'sea_witch' && curr.transformed) {
+          if (curr.hasTreasure) {
+            const retReqs = Array.isArray(entity.returnRequires) && entity.returnRequires.length > 0
+              ? entity.returnRequires
+              : [];
+            const retConsumed = consumeRequiredItems(curr.inv, retReqs);
+            if (retConsumed) {
+              const nextInv = retConsumed.remaining;
+              if (uniqueCount(nextInv) <= MAX_UNIQUE_ITEMS) {
+                queue.push({
+                  inv: nextInv.sort(),
+                  def: [...curr.def, entity.id, 'untransformed_exit'],
+                  path: [...curr.path, { entityId: entity.id, usedItems: retReqs, reqType: 'AND', isReturnTrip: true }],
+                  steps: curr.steps + 1,
+                  transformed: false,
+                  hasTreasure: true
+                });
+              }
+            }
+          }
+          continue;
+        }
+
         const uniqueInv = Array.from(new Set(curr.inv));
         for (let i = 0; i < uniqueInv.length; i++) {
           const itemId = uniqueInv[i];
@@ -237,11 +287,7 @@ export function solvePuzzle(
             const nextDef = [...curr.def, entity.id];
 
             if (entity.id === 'sea_witch') {
-              if (!curr.transformed) nextTransformed = true;
-              else if (curr.hasTreasure) {
-                nextTransformed = false;
-                nextDef.push('untransformed_exit');
-              } else continue;
+              nextTransformed = true;
             }
             if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
             if (entity.reward) newInv.push(entity.reward);
@@ -257,19 +303,6 @@ export function solvePuzzle(
               });
             }
           }
-        }
-
-        // Special case: Sea Witch un-transform is FREE in the solver too
-        if (entity.id === 'sea_witch' && curr.transformed && curr.hasTreasure) {
-          const nextDef = [...curr.def, entity.id, 'untransformed_exit'];
-          queue.push({
-            inv: [...curr.inv].sort(),
-            def: nextDef,
-            path: [...curr.path, { entityId: entity.id, usedItems: [], reqType: 'AND', isReturnTrip: true }],
-            steps: curr.steps + 1,
-            transformed: false,
-            hasTreasure: true
-          });
         }
       }
     }

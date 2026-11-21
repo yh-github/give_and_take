@@ -179,15 +179,26 @@ describe('Deterministic Level Generation & Underwater Fixes', () => {
     }
   });
 
-  it('spawns bubble_vent presets and a valid solution path in Underwater level', () => {
+  it('spawns circling mermaids, return-tribute sea witch, sunken_vault goal, and zero vents in Underwater level', () => {
     const underwater = LEVEL_REGISTRY.underwater;
     const puzzle = generateLevelPuzzle(underwater, 5, 1, 'underwater-seed');
 
     const vents = puzzle.puzzleEntities.filter(e => e.isVent === true);
-    expect(vents.length).toBeGreaterThanOrEqual(2);
+    expect(vents.length).toBe(0);
+    const mermaids = puzzle.puzzleEntities.filter(e => e.id.startsWith('mermaid_'));
+    expect(mermaids.length).toBe(3);
+    mermaids.forEach(m => {
+      expect(m.reward).toBe('mermaid_voice');
+      expect(m.orbit).toBeDefined();
+    });
+    const witch = puzzle.puzzleEntities.find(e => e.id === 'sea_witch');
+    expect(witch.requires).toEqual(['mermaid_voice', 'mermaid_voice', 'mermaid_voice']);
+    expect(witch.returnRequires.length).toBe(1);
+    expect(puzzle.goalEntityId).toBe('sunken_vault');
     expect(puzzle.solution.length).toBeGreaterThan(0);
-    expect(puzzle.solution.some(step => step.entityId === 'sea_witch')).toBe(true);
-    expect(puzzle.solution.some(step => step.entityId === 'clam_3')).toBe(true);
+    expect(puzzle.solution.some(step => step.entityId === 'sea_witch' && !step.isReturnTrip)).toBe(true);
+    expect(puzzle.solution.some(step => step.entityId === 'sea_witch' && step.isReturnTrip)).toBe(true);
+    expect(puzzle.solution.some(step => step.entityId === 'sunken_vault')).toBe(true);
   });
 
   it('strictly enforces across all levels and seeds that no entity ever asks for the item it guards/rewards', () => {

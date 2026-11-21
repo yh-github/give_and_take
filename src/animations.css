@@ -239,6 +239,56 @@
 }
 .animate-mermaid-swim { animation: mermaidSwim 5s ease-in-out infinite; }
 
+@keyframes mermaidOrbitX {
+  0% { transform: translate3d(calc(var(--orbit-rx, 10cqw) * 1), 0, 0); }
+  12.5% { transform: translate3d(calc(var(--orbit-rx, 10cqw) * 0.707), 0, 0); }
+  25% { transform: translate3d(0, 0, 0); }
+  37.5% { transform: translate3d(calc(var(--orbit-rx, 10cqw) * -0.707), 0, 0); }
+  50% { transform: translate3d(calc(var(--orbit-rx, 10cqw) * -1), 0, 0); }
+  62.5% { transform: translate3d(calc(var(--orbit-rx, 10cqw) * -0.707), 0, 0); }
+  75% { transform: translate3d(0, 0, 0); }
+  87.5% { transform: translate3d(calc(var(--orbit-rx, 10cqw) * 0.707), 0, 0); }
+  100% { transform: translate3d(calc(var(--orbit-rx, 10cqw) * 1), 0, 0); }
+}
+@keyframes mermaidOrbitY {
+  0% { transform: translate3d(0, 0, 0); }
+  12.5% { transform: translate3d(0, calc(var(--orbit-ry, 4.5cqw) * 0.707), 0); }
+  25% { transform: translate3d(0, calc(var(--orbit-ry, 4.5cqw) * 1), 0); }
+  37.5% { transform: translate3d(0, calc(var(--orbit-ry, 4.5cqw) * 0.707), 0); }
+  50% { transform: translate3d(0, 0, 0); }
+  62.5% { transform: translate3d(0, calc(var(--orbit-ry, 4.5cqw) * -0.707), 0); }
+  75% { transform: translate3d(0, calc(var(--orbit-ry, 4.5cqw) * -1), 0); }
+  87.5% { transform: translate3d(0, calc(var(--orbit-ry, 4.5cqw) * -0.707), 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+.animate-mermaid-orbit-x {
+  animation: mermaidOrbitX var(--orbit-dur, 8s) linear var(--orbit-delay, 0s) infinite;
+}
+.animate-mermaid-orbit-y {
+  animation: mermaidOrbitY var(--orbit-dur, 8s) linear var(--orbit-delay, 0s) infinite;
+}
+
+@keyframes kelpSway {
+  0%, 100% { transform: rotate(-4deg) skewX(-2deg); }
+  50% { transform: rotate(5deg) skewX(2deg); }
+}
+.animate-kelp-sway {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: kelpSway 5.5s ease-in-out infinite;
+}
+
+@keyframes kelpRustle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-11deg) scale(1.08); }
+  45% { transform: rotate(11deg) scale(1.1); }
+  70% { transform: rotate(-7deg) scale(1.05); }
+}
+.animate-kelp-rustle {
+  transform-origin: bottom center;
+  animation: kelpRustle 0.55s ease-in-out;
+}
+
 /* === Underwater: Sea Witch Magic === */
 @keyframes magicParticle {
   0% { transform: translate(-50%, -50%) scale(0); opacity: 1; filter: brightness(2); }

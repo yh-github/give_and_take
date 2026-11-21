@@ -57,6 +57,10 @@ export interface TranslationDictionary {
   outOfAirDropFloat: string;
   outOfAirFishGone: string;
   outOfAirSurfaceBtn: string;
+  fishingTapNow: string;
+  fishingCaught: string;
+  fishingEscaped: string;
+  abyssTooDeep: string;
   settings: string;
   level: string;
   minQuestChain: string;

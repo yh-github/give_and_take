@@ -10,7 +10,14 @@ import type {
 
 export type RequirementType = 'AND' | 'OR';
 export type GateType = 'rock' | 'chasm' | 'guardian' | (string & {});
-export type PresetType = 'pickaxe' | 'mushroom' | 'bubble_vent' | 'treasure';
+export type PresetType = 'pickaxe' | 'mushroom' | 'bubble_vent' | 'treasure' | 'kelp' | 'starfish' | 'doubloon';
+
+export interface OrbitConfig {
+  rx: number;
+  ry: number;
+  duration: number;
+  delay?: number;
+}
 
 export interface ItemDefinition {
   id: string;
@@ -46,6 +53,7 @@ export interface MapNode {
   gkIdx?: number;
   unlocksZone?: number;
   unlocksZones?: number[];
+  orbit?: OrbitConfig;
   [key: string]: unknown;
 }
 
@@ -88,6 +96,8 @@ export interface AbstractPuzzleEntity {
   unlocksZone?: number;
   unlocksZones?: number[];
   collarBounds?: CollarBounds;
+  orbit?: OrbitConfig;
+  returnRequires?: string[];
   [key: string]: unknown;
 }
 
@@ -99,6 +109,7 @@ export interface PuzzleEntity extends AbstractPuzzleEntity {
 export type PuzzleEntityArray = PuzzleEntity[] & {
   boatOfferedItem?: string | null;
   boatOfferedItems?: string[];
+  boatTradeMap?: Record<string, string>;
 };
 
 export interface InventoryFitResult {

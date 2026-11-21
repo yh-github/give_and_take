@@ -102,25 +102,71 @@ export function canFitInInventory(
  */
 export function evaluateEntityTrade(
   inventory: readonly string[],
-  entity: Pick<PuzzleEntity, 'id' | 'requires' | 'reqType' | 'reward'>,
+  entity: Pick<PuzzleEntity, 'id' | 'requires' | 'reqType' | 'reward' | 'returnRequires'>,
   selectedItemTypes: readonly string[] | null = null,
   state: TradeEvaluationState = {}
 ): TradeEvaluationResult {
-  const isFreeUnTransform = Boolean(
+  const isSeaWitchTransformed = Boolean(
     state.levelId === 'underwater' &&
     entity.id === 'sea_witch' &&
-    state.isTransformed &&
-    state.hasDeepTreasure
+    state.isTransformed
   );
 
-  if (isFreeUnTransform) {
-    const { fits, nextInventory } = canFitInInventory(inventory, [], entity.reward ?? null);
+  if (isSeaWitchTransformed) {
+    if (!state.hasDeepTreasure) {
+      return {
+        canDefeat: false,
+        itemsToConsume: [],
+        nextInventory: [...inventory],
+        exceedsCapacity: false,
+        isFreeUnTransform: false
+      };
+    }
+
+    const retReqs = entity.returnRequires;
+    if (!Array.isArray(retReqs) || retReqs.length === 0) {
+      const { fits, nextInventory } = canFitInInventory(inventory, [], entity.reward ?? null);
+      return {
+        canDefeat: fits,
+        itemsToConsume: [],
+        nextInventory,
+        exceedsCapacity: !fits,
+        isFreeUnTransform: true
+      };
+    }
+
+    const selectionMatches =
+      selectedItemTypes === null ||
+      Array.from(new Set(retReqs)).every(t => selectedItemTypes.includes(t));
+
+    if (!selectionMatches) {
+      return {
+        canDefeat: false,
+        itemsToConsume: [],
+        nextInventory: [...inventory],
+        exceedsCapacity: false,
+        isFreeUnTransform: false
+      };
+    }
+
+    const retConsumed = consumeRequiredItems(inventory, retReqs);
+    if (!retConsumed) {
+      return {
+        canDefeat: false,
+        itemsToConsume: [],
+        nextInventory: [...inventory],
+        exceedsCapacity: false,
+        isFreeUnTransform: false
+      };
+    }
+
+    const { fits, nextInventory } = canFitInInventory(inventory, retConsumed.consumed, entity.reward ?? null);
     return {
-      canDefeat: fits,
-      itemsToConsume: [],
+      canDefeat: Boolean(fits),
+      itemsToConsume: retConsumed.consumed,
       nextInventory,
       exceedsCapacity: !fits,
-      isFreeUnTransform: true
+      isFreeUnTransform: false
     };
   }
 

@@ -78,6 +78,7 @@ export interface SerializedPuzzleSnapshot {
   geometry?: ProceduralGeometry;
   boatOfferedItem?: string;
   boatOfferedItems?: string[];
+  boatTradeMap?: Record<string, string>;
   safeBoatItems?: string[];
 }
 

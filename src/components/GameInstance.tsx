@@ -14,6 +14,7 @@ import {
   UNDERWATER_INSPECT_RADIUS,
   UNDERWATER_AIR_COST_NORMAL,
   UNDERWATER_AIR_COST_FULL_BAG,
+  UNDERWATER_ABYSS_DROWNING_Y,
   CANONICAL_SCREEN_HEIGHT,
   DEEP_CAVE_HERO_RADIUS
 } from '../constants.ts';
@@ -33,10 +34,12 @@ import {
 import { findGlobalPath } from '../logic/pathfinding.ts';
 import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.ts';
 import {
+  getBoatReqFishForTrinket,
   isUnderwaterBackpackFull,
   getUnderwaterMoveDurationMs,
   resolveOutOfAirDrop
 } from '../logic/underwater.ts';
+import type { ReefKelpHabitat } from '../levels/underwater/data.ts';
 import { createShuffleBag } from '../logic/rng.ts';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
 import {
@@ -53,6 +56,7 @@ import AirIndicator from './AirIndicator.tsx';
 import TopBar from './TopBar.tsx';
 import WorldViewport from './WorldViewport.tsx';
 import OutOfAirModal from './OutOfAirModal.tsx';
+import FishingCatchOverlay from './FishingCatchOverlay.tsx';
 import { MagicTransformationOverlay, VictoryCelebration } from './EffectsOverlay.tsx';
 import LevelEditorOverlay from './LevelEditorOverlay.tsx';
 import type {
@@ -198,6 +202,13 @@ export function GameInstance({
   const [inkFogEntities, setInkFogEntities] = useState<Set<string>>(() => new Set(savedState?.inkFogEntities || []));
   const [roamingBoats, setRoamingBoats] = useState<RoamingBoatState[]>([]);
   const [outOfAirModal, setOutOfAirModal] = useState<{ items: string[]; dropPos: Point2D } | null>(null);
+  const [fishingCatch, setFishingCatch] = useState<{
+    fish: SchoolFishState;
+    wasFullBeforeMove: boolean;
+    targetPos: Point2D;
+  } | null>(null);
+  const [rustlingKelpId, setRustlingKelpId] = useState<string | null>(null);
+  const kelpCooldownsRef = useRef<Record<string, number>>({});
   const [gameTime, setGameTime] = useState(0);
   const [attachedEntityId, setAttachedEntityId] = useState<string | null>(null);
   const [isMagicAnimating, setIsMagicAnimating] = useState(false);
@@ -367,6 +378,8 @@ export function GameInstance({
       setAlertEntityId(null);
       setAttachedEntityId(null);
       setOutOfAirModal(null);
+      setFishingCatch(null);
+      setRustlingKelpId(null);
     };
 
     const applyFreshPuzzle = (generated: PuzzleData) => {
@@ -386,6 +399,9 @@ export function GameInstance({
       setAlertEntityId(null);
       setAttachedEntityId(null);
       setOutOfAirModal(null);
+      setFishingCatch(null);
+      setRustlingKelpId(null);
+      kelpCooldownsRef.current = {};
     };
 
     if (savedState && savedState.puzzle) {
@@ -595,14 +611,31 @@ export function GameInstance({
   useEffect(() => {
     if (!level.mechanics.hasSchoolsOfFish) return;
     const timeoutIds: Array<ReturnType<typeof setTimeout>> = [];
-    const spawnFish = (isInitial = false, forceRegular = false) => {
+    const spawnFish = (tierOverride?: 'fish' | 'gold_fish' | 'blowfish', customY?: number, forceRight?: boolean) => {
       if (isDemoRef.current || isVicRef.current) return;
       const id = Date.now() + Math.random();
-      const type = !forceRegular && Math.random() > 0.65 && level.id === 'underwater' ? 'gold_fish' : 'fish';
-      const yPos = isInitial ? (18 + Math.random() * 14) : (18 + Math.random() * 68);
-      const isRight = Math.random() > 0.5;
+      let type: 'fish' | 'gold_fish' | 'blowfish' = tierOverride || 'fish';
+      if (!tierOverride && level.id === 'underwater') {
+        const roll = Math.random();
+        type = roll < 0.48 ? 'fish' : roll < 0.80 ? 'gold_fish' : 'blowfish';
+      }
+      const yPos =
+        customY !== undefined
+          ? customY
+          : type === 'fish'
+            ? 18 + Math.random() * 16
+            : type === 'gold_fish'
+              ? 30 + Math.random() * 22
+              : 44 + Math.random() * 18;
+      const speed =
+        type === 'fish'
+          ? 10 + Math.random() * 5
+          : type === 'gold_fish'
+            ? 8 + Math.random() * 4
+            : 6.5 + Math.random() * 3.5;
+      const isRight = forceRight !== undefined ? forceRight : Math.random() > 0.5;
       setSchoolsOfFish(prev => {
-        const next = [...prev.slice(-10), { id, type, y: yPos, depth: 3, isRight, speed: 9 + Math.random() * 7 }];
+        const next = [...prev.slice(-11), { id, type, y: yPos, depth: 3, isRight, speed }];
         schoolsOfFishRef.current = next;
         return next;
       });
@@ -616,13 +649,13 @@ export function GameInstance({
       timeoutIds.push(tId);
     };
     if (level.id === 'underwater') {
-      spawnFish(true, true);
-      spawnFish(true, true);
-      spawnFish(true, false);
-      spawnFish(true, false);
+      spawnFish('fish');
+      spawnFish('fish');
+      spawnFish('gold_fish');
+      spawnFish('blowfish');
     }
     const intervalId = setInterval(() => {
-      spawnFish(false, false);
+      spawnFish();
     }, FISH_SPAWN_INTERVAL_MS);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.mechanics.hasSchoolsOfFish, level.id]);
@@ -633,11 +666,12 @@ export function GameInstance({
     const requiredBoatItems = (
       Array.isArray(puzzle.boatOfferedItems) && puzzle.boatOfferedItems.length > 0
         ? puzzle.boatOfferedItems
-        : [puzzle.boatOfferedItem || 'boot']
+        : [puzzle.boatOfferedItem || 'comb']
     );
     const safePool = Array.isArray(puzzle.safeBoatItems) && puzzle.safeBoatItems.length > 0
       ? puzzle.safeBoatItems.filter(id => !requiredBoatItems.includes(id))
       : [];
+    const boatTradeMap = puzzle.boatTradeMap || {};
     const requiredBag = createShuffleBag(requiredBoatItems);
     const junkBag = safePool.length > 0 ? createShuffleBag(safePool) : null;
     const cycleLen = requiredBoatItems.length + (junkBag ? 1 : 0);
@@ -651,7 +685,7 @@ export function GameInstance({
       const isPrimary = !junkBag || posInCycle < requiredBoatItems.length;
       boatSpawnCount++;
       const offeredItem = isPrimary ? requiredBag.next() : junkBag!.next();
-      const reqItem = isPrimary ? 'fish' : (Math.random() > 0.65 ? 'gold_fish' : 'fish');
+      const reqItem = boatTradeMap[offeredItem] || getBoatReqFishForTrinket(offeredItem);
       const isRight = boatSpawnCount % 2 === 1;
       setRoamingBoats(prev => [...prev.slice(-3), { id, spawnTime, offeredItem, reqItem, x: isRight ? -20 : 120, isRight }]);
       const tId = setTimeout(() => { setRoamingBoats(prev => prev.filter(b => b.id !== id)); }, 20000);
@@ -670,7 +704,7 @@ export function GameInstance({
       const isDigger = level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal;
       const isVisibleToPlayer = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
       const isZoneAccessible = level.mechanics.hasTransformation
-        ? (ent.zone <= 2 || (isTransformed && currentPos && currentPos.y >= 65))
+        ? (ent.zone <= 2 || (isTransformed && currentPos && currentPos.y >= 70))
         : unlockedZones.includes(ent.zone);
       return isDigger && isVisibleToPlayer && isZoneAccessible && pathHistory.length > 1 && !buriedEntities.includes(ent.id) && !animatingEntities.includes(ent.id) && !defeated.includes(ent.id);
     });
@@ -709,9 +743,11 @@ export function GameInstance({
   }, []);
 
   const handleUndo = () => {
-    if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot || Boolean(outOfAirModal)) return;
+    if (historyStack.length === 0 || isDemonstrating || isAnimatingLoot || Boolean(outOfAirModal) || Boolean(fishingCatch)) return;
     clearManagedTimeouts();
     setOutOfAirModal(null);
+    setFishingCatch(null);
+    setRustlingKelpId(null);
     setAlertEntityId(null);
     setAlertReason(null);
     setIsInventoryFullAlert(false);
@@ -738,6 +774,9 @@ export function GameInstance({
     if (!puzzle) return;
     clearManagedTimeouts();
     setOutOfAirModal(null);
+    setFishingCatch(null);
+    setRustlingKelpId(null);
+    kelpCooldownsRef.current = {};
     inventoryRef.current = puzzle.startItems || [];
     isTransformedRef.current = false;
     setInventory(puzzle.startItems || []);
@@ -1144,6 +1183,101 @@ export function GameInstance({
     }, DROWNING_RETURN_DELAY_MS);
   }, [outOfAirModal, startDolphinReturn, navigateTo, level.campPos, scheduleTimeout]);
 
+  const triggerAbyssalDrowning = useCallback((
+    targetX: number,
+    targetY: number,
+    wasFullBeforeMove: boolean
+  ) => {
+    if (dolphinStateRef.current === 'idle_deep') {
+      startDolphinReturn(false);
+    }
+    setAttachedEntityId(null);
+    saveHistory();
+
+    const clampedDropX = Math.max(18, Math.min(82, targetX));
+    const drownY = Math.max(74, Math.min(80, targetY));
+    const swimDuration = getUnderwaterMoveDurationMs(650, wasFullBeforeMove);
+    setMoveDurationMs(swimDuration);
+    setIsAnimatingLoot(true);
+
+    const lastP = pathHistory[pathHistory.length - 1] || level.campPos;
+    triggerAirLossBubbles(lastP.x, lastP.y, true);
+    setPathHistory(prev => [...prev, { x: clampedDropX, y: drownY, depth: 3, zone: 2 }]);
+
+    scheduleTimeout(() => {
+      airRef.current = 0;
+      setAir(0);
+      setIsAnimatingLoot(false);
+      setAlertEntityId('out_of_air');
+      scheduleTimeout(() => {
+        setOutOfAirModal({
+          items: [...inventoryRef.current],
+          dropPos: { x: clampedDropX, y: 66 }
+        });
+      }, DROWNING_ALERT_DELAY_MS);
+    }, swimDuration);
+  }, [pathHistory, level.campPos, startDolphinReturn, saveHistory, triggerAirLossBubbles, scheduleTimeout]);
+
+  const handleResolveFishingCatch = useCallback((caught: boolean) => {
+    const active = fishingCatch;
+    setFishingCatch(null);
+    if (!active) {
+      setIsAnimatingLoot(false);
+      return;
+    }
+
+    const updatedFish = schoolsOfFishRef.current.filter(f => f.id !== active.fish.id);
+    schoolsOfFishRef.current = updatedFish;
+    setSchoolsOfFish(updatedFish);
+
+    let nextInv = inventoryRef.current;
+    if (caught) {
+      nextInv = [...inventoryRef.current, active.fish.type];
+      inventoryRef.current = nextInv;
+      setInventory(nextInv);
+    }
+
+    setIsAnimatingLoot(false);
+    handlePostActionAir(active.targetPos.y, false, {
+      nextInventory: nextInv,
+      wasFullBeforeMove: active.wasFullBeforeMove,
+      dropPos: active.targetPos
+    });
+  }, [fishingCatch, handlePostActionAir]);
+
+  const handleFlushKelp = useCallback((habitat: ReefKelpHabitat, e: MouseEvent) => {
+    e.stopPropagation();
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) {
+      return;
+    }
+    const now = Date.now();
+    if (now - (kelpCooldownsRef.current[habitat.id] || 0) < 2500) return;
+    kelpCooldownsRef.current[habitat.id] = now;
+
+    setRustlingKelpId(habitat.id);
+    scheduleTimeout(() => {
+      setRustlingKelpId(prev => (prev === habitat.id ? null : prev));
+    }, 600);
+
+    const id = now + Math.random();
+    const speed = habitat.fishType === 'fish' ? 12 : habitat.fishType === 'gold_fish' ? 9.5 : 7.5;
+    const isRight = habitat.x < 50;
+    const yPos = Math.max(18, Math.min(62, habitat.y));
+
+    setSchoolsOfFish(prev => {
+      const next = [...prev.slice(-11), { id, type: habitat.fishType, y: yPos, depth: 3, isRight, speed }];
+      schoolsOfFishRef.current = next;
+      return next;
+    });
+    scheduleTimeout(() => {
+      setSchoolsOfFish(prev => {
+        const next = prev.filter(f => f.id !== id);
+        schoolsOfFishRef.current = next;
+        return next;
+      });
+    }, 12000);
+  }, [isVictorious, isDemonstrating, isAnimatingLoot, isRefillingAir, alertEntityId, outOfAirModal, fishingCatch, scheduleTimeout]);
+
   useEffect(() => {
     if (!isRefillingAir) return;
     const timer = setInterval(() => {
@@ -1184,7 +1318,7 @@ export function GameInstance({
 
   const handleCatchSchoolFish = (e: MouseEvent, fishObj: SchoolFishState) => {
     e.stopPropagation();
-    if (outOfAirModal || alertEntityId === 'out_of_air') return;
+    if (outOfAirModal || fishingCatch || alertEntityId === 'out_of_air') return;
     const { fits } = canFitInInventory(inventoryRef.current, [], fishObj.type);
     if (!fits) {
       triggerInventoryFullAlert('school_fish');
@@ -1206,27 +1340,17 @@ export function GameInstance({
     const targetY = fishObj.y;
     setPathHistory(prev => [...prev, { x: targetX, y: targetY, depth: fishObj.depth, zone: currentZone }]);
     scheduleTimeout(() => {
-      let nextInv = inventoryRef.current;
-      if (schoolsOfFishRef.current.some(f => f.id === fishObj.id)) {
-        nextInv = [...inventoryRef.current, fishObj.type];
-        inventoryRef.current = nextInv;
-        setInventory(nextInv);
-        const updatedFish = schoolsOfFishRef.current.filter(f => f.id !== fishObj.id);
-        schoolsOfFishRef.current = updatedFish;
-        setSchoolsOfFish(updatedFish);
-      }
-      setIsAnimatingLoot(false);
-      handlePostActionAir(fishObj.y, false, {
-        nextInventory: nextInv,
+      setFishingCatch({
+        fish: fishObj,
         wasFullBeforeMove,
-        dropPos: { x: targetX, y: targetY }
+        targetPos: { x: targetX, y: targetY }
       });
     }, swimDuration);
   };
 
   const handleBoatTrade = (e: MouseEvent, boat: RoamingBoatState) => {
     e.stopPropagation();
-    if (outOfAirModal || alertEntityId === 'out_of_air') return;
+    if (outOfAirModal || fishingCatch || alertEntityId === 'out_of_air') return;
     const tradeReq = boat.reqItem || 'fish';
     const { fits } = canFitInInventory(inventoryRef.current, [tradeReq], boat.offeredItem);
 
@@ -1272,7 +1396,7 @@ export function GameInstance({
   };
 
   const handleCampClick = (e: MouseEvent) => {
-    if (outOfAirModal || alertEntityId === 'out_of_air') return;
+    if (outOfAirModal || fishingCatch || alertEntityId === 'out_of_air') return;
     const itemToDrop = selectedItemTypes[0];
     if (!itemToDrop && !level.mechanics.hasAir) return;
 
@@ -1332,7 +1456,7 @@ export function GameInstance({
 
   const handleCampItemClick = (e: MouseEvent, campItem: CampItemState) => {
     e.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal) return;
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
 
     const { fits } = canFitInInventory(inventoryRef.current, [], campItem.id);
     if (!fits) {
@@ -1387,7 +1511,7 @@ export function GameInstance({
 
   const handleCellClick = async (e: MouseEvent, targetX: number, targetY: number) => {
     e.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal) return;
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
 
     if (screens > 1 || useIsotropic) {
       let isValidClick = true;
@@ -1407,6 +1531,11 @@ export function GameInstance({
       if (!isValidClick) return;
 
       const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
+
+      if (level.id === 'underwater' && !isTransformedRef.current && targetY > UNDERWATER_ABYSS_DROWNING_Y) {
+        triggerAbyssalDrowning(targetX, targetY, wasFullBeforeMove);
+        return;
+      }
 
       if (dolphinStateRef.current === 'idle_deep') {
         startDolphinReturn(false);
@@ -1459,7 +1588,7 @@ export function GameInstance({
   };
 
   const toggleInventoryType = (itemId: string) => {
-    if (isDemonstrating || isRefillingAir || outOfAirModal) return;
+    if (isDemonstrating || isRefillingAir || outOfAirModal || fishingCatch) return;
     if (selectedItemTypes.includes(itemId)) setSelectedItemTypes(prev => prev.filter(i => i !== itemId));
     else setSelectedItemTypes(prev => [...prev, itemId]);
   };
@@ -1494,7 +1623,7 @@ export function GameInstance({
 
   const handleInteract = (entity: PuzzleEntity, e: MouseEvent) => {
     e.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal) return;
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
     if (!puzzle) return;
 
     const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
@@ -1513,8 +1642,13 @@ export function GameInstance({
       if (cm) targetY = cm.y;
     }
 
+    if (level.id === 'underwater' && !isTransformedRef.current && (entity.zone > 2 || targetY > UNDERWATER_ABYSS_DROWNING_Y)) {
+      triggerAbyssalDrowning(entity.x, targetY, wasFullBeforeMove);
+      return;
+    }
+
     const witchEnt = level.mechanics.hasTransformation ? puzzle.puzzleEntities.find(ent => ent.id === 'sea_witch') : null;
-    const isBlockedByTransformation = Boolean(witchEnt && !isTransformed && entity.zone > (witchEnt.zone || 2));
+    const isBlockedByTransformation = Boolean(level.id !== 'underwater' && witchEnt && !isTransformed && entity.zone > (witchEnt.zone || 2));
 
     if (isBlockedByTransformation && selectedItemTypes.length === 0) {
       setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
@@ -1955,7 +2089,7 @@ export function GameInstance({
 
   const handleSwimToSurface = (e?: MouseEvent) => {
     e?.stopPropagation();
-    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal) return;
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
     const curY = pathHistory[pathHistory.length - 1].y;
     if (curY <= level.campPos.y + 2) return;
     const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
@@ -2103,6 +2237,8 @@ export function GameInstance({
               heroFace={heroFace}
               isAnimatingLoot={isAnimatingLoot}
               isHeavyUnderwater={isHeavyUnderwater}
+              onFlushKelp={handleFlushKelp}
+              rustlingKelpId={rustlingKelpId}
               showTrophy={showTrophy}
               onCellClick={(e) => {
                 if (!innerMapRef.current) return;
@@ -2129,6 +2265,27 @@ export function GameInstance({
           />
 
           <VictoryCelebration showVictoryMsg={showVictoryMsg} dict={dict} />
+
+          {isDrowning && level.id === 'underwater' && !isTransformed && playerVisualY > UNDERWATER_ABYSS_DROWNING_Y && !outOfAirModal && (
+            <div
+              data-testid="abyss-drowning-banner"
+              dir={lang === 'he' ? 'rtl' : 'ltr'}
+              className="absolute top-16 inset-x-4 z-[245] mx-auto max-w-xs bg-rose-950/95 border-2 border-rose-400 text-rose-100 px-3 py-2 rounded-2xl shadow-2xl text-center text-xs sm:text-sm font-bold font-sans animate-bounce"
+            >
+              ⚠️ {dict.abyssTooDeep}
+            </div>
+          )}
+
+          {fishingCatch && (
+            <FishingCatchOverlay
+              fishType={fishingCatch.fish.type}
+              fishEmoji={level.items.find(i => i.id === fishingCatch.fish.type)?.emoji || '🐟'}
+              fishName={dict.items?.[fishingCatch.fish.type] || fishingCatch.fish.type}
+              dict={dict}
+              lang={lang}
+              onResolve={handleResolveFishingCatch}
+            />
+          )}
 
           {outOfAirModal && (
             <OutOfAirModal
@@ -2167,7 +2324,7 @@ export function GameInstance({
           handleUndo={handleUndo}
           isDemonstrating={isDemonstrating}
           isAnimatingLoot={isAnimatingLoot}
-          isRefillingAir={isRefillingAir || Boolean(outOfAirModal)}
+          isRefillingAir={isRefillingAir || Boolean(outOfAirModal) || Boolean(fishingCatch)}
           historyStack={historyStack}
           level={level}
           dict={dict}

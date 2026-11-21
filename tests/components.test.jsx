@@ -207,57 +207,95 @@ describe('GUI Component & Integration Tests', () => {
     expect(screen.getByText(STRINGS.en.inventoryFullTipBoat)).toBeDefined();
   });
 
-  it('shrouds distant creature rewards with murky water ? and reveals them when hero swims close', () => {
+  it('hides floating reward orbs on mermaids and shrouds distant clam pearls with ? until hero swims close', () => {
     const underwaterLevel = LEVEL_REGISTRY.underwater;
     const mermaidEnt = {
       id: 'mermaid_1',
       emoji: '🧜‍♀️',
       requires: ['comb'],
       reqType: 'OR',
+      reward: 'mermaid_voice',
+      orbit: { rx: 22, ry: 9, duration: 7.5 },
+      x: 30,
+      y: 31,
+      zone: 1,
+      isGatekeeper: false
+    };
+    const clamEnt = {
+      id: 'giant_clam_0',
+      emoji: '🐚',
+      requires: ['sea_kelp'],
+      reqType: 'OR',
       reward: 'pearl',
-      x: 26,
-      y: 50,
-      zone: 2,
+      x: 22,
+      y: 93,
+      zone: 3,
       isGatekeeper: false
     };
     const dummyPuzzle = {
-      goalEntityId: 'clam_3',
-      puzzleEntities: [mermaidEnt]
+      goalEntityId: 'sunken_vault',
+      puzzleEntities: [mermaidEnt, clamEnt]
     };
 
     const { rerender } = render(
-      <GameEntity
-        ent={mermaidEnt}
-        puzzle={dummyPuzzle}
-        level={underwaterLevel}
-        defeated={[]}
-        alertEntityId={null}
-        alertReason={null}
-        selectedEntityId={null}
-        animatingEntities={[]}
-        buriedEntities={new Set()}
-        inkFogEntities={new Set()}
-        unlockedZones={[1, 2, 3]}
-        visibleEntitiesSet={new Set(['mermaid_1'])}
-        wallSegments={[]}
-        displayPlayerPos={{ x: 50, y: 14 }} // Distance > 22 (Hero at boat)
-        breakingRockIds={[]}
-        isTransformed={false}
-        hasDeepTreasure={false}
-        getCustomEntityMovement={() => ({ x: 26, y: 50, visualOffset: '' })}
-        handleInteract={() => {}}
-        dict={STRINGS.en}
-      />
+      <>
+        <GameEntity
+          ent={mermaidEnt}
+          puzzle={dummyPuzzle}
+          level={underwaterLevel}
+          defeated={[]}
+          alertEntityId={null}
+          alertReason={null}
+          selectedEntityId={null}
+          animatingEntities={[]}
+          buriedEntities={[]}
+          inkFogEntities={new Set()}
+          unlockedZones={[1, 2, 3]}
+          visibleEntitiesSet={new Set(['mermaid_1', 'giant_clam_0'])}
+          wallSegments={[]}
+          displayPlayerPos={{ x: 50, y: 14 }}
+          breakingRockIds={[]}
+          isTransformed={false}
+          hasDeepTreasure={false}
+          getCustomEntityMovement={() => ({ x: 30, y: 31, visualOffset: '' })}
+          handleInteract={() => {}}
+          dict={STRINGS.en}
+        />
+        <GameEntity
+          ent={clamEnt}
+          puzzle={dummyPuzzle}
+          level={underwaterLevel}
+          defeated={[]}
+          alertEntityId={null}
+          alertReason={null}
+          selectedEntityId={null}
+          animatingEntities={[]}
+          buriedEntities={[]}
+          inkFogEntities={new Set()}
+          unlockedZones={[1, 2, 3]}
+          visibleEntitiesSet={new Set(['mermaid_1', 'giant_clam_0'])}
+          wallSegments={[]}
+          displayPlayerPos={{ x: 50, y: 65 }} // Far from (22, 93)
+          breakingRockIds={[]}
+          isTransformed={true}
+          hasDeepTreasure={false}
+          getCustomEntityMovement={() => null}
+          handleInteract={() => {}}
+          dict={STRINGS.en}
+        />
+      </>
     );
 
-    // Distant entity shows '❓' instead of pearl '⚪'
+    // Mermaid never renders a floating reward orb ('🎵') outside her sprite; distant clam shows '❓' instead of '⚪'
+    expect(screen.queryByText('🎵')).toBeNull();
+    expect(screen.getByTestId('mermaid-orbit-mermaid_1')).toBeDefined();
     expect(screen.getByText('❓')).toBeDefined();
     expect(screen.queryByText('⚪')).toBeNull();
 
-    // Move hero within UNDERWATER_INSPECT_RADIUS (<= 22)
+    // Move hero close to clam (<= 22)
     rerender(
       <GameEntity
-        ent={mermaidEnt}
+        ent={clamEnt}
         puzzle={dummyPuzzle}
         level={underwaterLevel}
         defeated={[]}
@@ -265,22 +303,22 @@ describe('GUI Component & Integration Tests', () => {
         alertReason={null}
         selectedEntityId={null}
         animatingEntities={[]}
-        buriedEntities={new Set()}
+        buriedEntities={[]}
         inkFogEntities={new Set()}
         unlockedZones={[1, 2, 3]}
-        visibleEntitiesSet={new Set(['mermaid_1'])}
+        visibleEntitiesSet={new Set(['mermaid_1', 'giant_clam_0'])}
         wallSegments={[]}
-        displayPlayerPos={{ x: 30, y: 48 }} // Distance ~4.5 (<= 22)
+        displayPlayerPos={{ x: 25, y: 90 }} // Distance ~4.2 (<= 22)
         breakingRockIds={[]}
-        isTransformed={false}
+        isTransformed={true}
         hasDeepTreasure={false}
-        getCustomEntityMovement={() => ({ x: 26, y: 50, visualOffset: '' })}
+        getCustomEntityMovement={() => null}
         handleInteract={() => {}}
         dict={STRINGS.en}
       />
     );
 
-    // Nearby entity reveals its reward emoji '⚪'
+    // Nearby clam reveals pearl '⚪' inside its shell
     expect(screen.getByText('⚪')).toBeDefined();
   });
 });

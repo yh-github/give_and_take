@@ -1,4 +1,5 @@
 import {
+  FISHING_CATCH_CONFIG,
   MAX_AIR,
   MAX_UNIQUE_ITEMS,
   UNDERWATER_AIR_COST_FULL_BAG,
@@ -14,10 +15,28 @@ import type {
 } from '../types/index.ts';
 import { uniqueCount } from './navigation.ts';
 
+export type UnderwaterFishTier = 'fish' | 'gold_fish' | 'blowfish';
+
+export const HUMAN_TRINKET_BOAT_TIERS: Record<string, UnderwaterFishTier> = {
+  comb: 'fish',
+  boot: 'fish',
+  mirror: 'gold_fish',
+  locket: 'gold_fish',
+  pocket_watch: 'blowfish',
+  music_box: 'blowfish'
+};
+
+export const HUMAN_TRINKET_IDS: readonly string[] = Object.keys(HUMAN_TRINKET_BOAT_TIERS);
+
 export interface OutOfAirDropResolution {
   nextInventory: string[];
   droppedFloatingItems: CampItemState[];
   discardedFishCount: number;
+}
+
+export interface FishingCatchResult {
+  caught: boolean;
+  quality: 'perfect' | 'good' | 'miss';
 }
 
 export interface UnderwaterAirSolvabilityResult {
@@ -28,6 +47,14 @@ export interface UnderwaterAirSolvabilityResult {
 
 export function isFishItem(itemId: string): boolean {
   return (UNDERWATER_FISH_ITEM_IDS as readonly string[]).includes(itemId);
+}
+
+export function isHumanTrinket(itemId: string): boolean {
+  return HUMAN_TRINKET_IDS.includes(itemId);
+}
+
+export function getBoatReqFishForTrinket(itemId: string): UnderwaterFishTier {
+  return HUMAN_TRINKET_BOAT_TIERS[itemId] || 'fish';
 }
 
 export function isUnderwaterBackpackFull(inventory: readonly string[]): boolean {
@@ -44,6 +71,24 @@ export function getUnderwaterMoveDurationMs(baseDurationMs: number, isHeavy: boo
   return isHeavy
     ? Math.round(baseDurationMs * UNDERWATER_FULL_BAG_SPEED_MULTIPLIER)
     : baseDurationMs;
+}
+
+/**
+ * Evaluates a tap during the 1-tap timing-ring fishing mini-game.
+ * Progress `0.5` is the center of the golden target ring.
+ */
+export function evaluateFishingCatch(progress: number, fishType: string): FishingCatchResult {
+  const cfg =
+    FISHING_CATCH_CONFIG[fishType as keyof typeof FISHING_CATCH_CONFIG] ||
+    FISHING_CATCH_CONFIG.fish;
+  const delta = Math.abs(progress - 0.5);
+  if (delta <= cfg.tolerance * 0.45) {
+    return { caught: true, quality: 'perfect' };
+  }
+  if (delta <= cfg.tolerance) {
+    return { caught: true, quality: 'good' };
+  }
+  return { caught: false, quality: 'miss' };
 }
 
 const clamp = (val: number, min: number, max: number): number => Math.max(min, Math.min(max, val));
@@ -109,9 +154,10 @@ export function resolveOutOfAirDrop(
 }
 
 /**
- * Verifies that every Zone 1 & Zone 2 entity (including bubble vents and the
- * Sea Witch) is reachable and returnable to a refill source (surface or reusable
- * bubble vent) even under the worst-case full-backpack air penalty (2 air/move).
+ * Verifies that every Zone 1 & Zone 2 entity (without air vents) is reachable
+ * from the surface even under the 2-air full-bag move budget (<= 4 moves one-way)
+ * and round-trip capable on a normal 8-air tank, and enforces Underwater's
+ * strict item-provenance invariants.
  */
 export function verifyUnderwaterAirSolvability(
   level: Pick<LevelDefinition, 'campPos' | 'mechanics'>,
@@ -120,6 +166,28 @@ export function verifyUnderwaterAirSolvability(
   const maxMovesBetweenRefills = Math.floor(MAX_AIR / UNDERWATER_AIR_COST_FULL_BAG);
   if (!puzzle || !Array.isArray(puzzle.puzzleEntities)) {
     return { solvable: false, maxMovesBetweenRefills, unreachableEntities: [] };
+  }
+
+  // Provenance & layout checks: no vents, no fish rewards, no human trinkets in Zone 3
+  for (const ent of puzzle.puzzleEntities) {
+    if (ent.isVent || ent.isPreset === 'bubble_vent') {
+      return { solvable: false, maxMovesBetweenRefills, unreachableEntities: [ent.id] };
+    }
+    if (ent.reward && (isFishItem(ent.reward) || isHumanTrinket(ent.reward))) {
+      return { solvable: false, maxMovesBetweenRefills, unreachableEntities: [ent.id] };
+    }
+    if ((ent.zone || 1) >= 3) {
+      const badReq = (ent.requires || []).some((r) => isFishItem(r) || isHumanTrinket(r));
+      if (badReq) {
+        return { solvable: false, maxMovesBetweenRefills, unreachableEntities: [ent.id] };
+      }
+    }
+    if (ent.id.startsWith('mermaid')) {
+      const badMermaidReq = (ent.requires || []).some((r) => !isHumanTrinket(r));
+      if (badMermaidReq) {
+        return { solvable: false, maxMovesBetweenRefills, unreachableEntities: [ent.id] };
+      }
+    }
   }
 
   const screens = level.mechanics.screens || 3.5;
@@ -135,7 +203,7 @@ export function verifyUnderwaterAirSolvability(
     id: string;
     x: number;
     y: number;
-    isRefill: boolean;
+    isSurface: boolean;
     zone: number;
     isEntity: boolean;
   }
@@ -145,19 +213,19 @@ export function verifyUnderwaterAirSolvability(
       id: 'surface_camp',
       x: level.campPos?.x ?? 50,
       y: level.campPos?.y ?? 14,
-      isRefill: true,
+      isSurface: true,
       zone: 1,
       isEntity: false
     }
   ];
 
-  // Include open-water vertical swim stepping stones every ~12% Y so multi-move swims work
-  for (let y = 26; y <= 66; y += 12) {
+  // Open-water vertical swim stepping stones across Zones 1 & 2
+  for (let y = 20; y <= 64; y += 6) {
     nodes.push({
       id: `swim_wp_${y}`,
       x: 50,
       y,
-      isRefill: y <= 20,
+      isSurface: y <= 20,
       zone: y < 46 ? 1 : 2,
       isEntity: false
     });
@@ -169,9 +237,9 @@ export function verifyUnderwaterAirSolvability(
       id: ent.id,
       x: ent.x,
       y: ent.y,
-      isRefill: Boolean(ent.isVent) || ent.y <= 20,
+      isSurface: ent.y <= 20,
       zone: ent.zone || 1,
-      isEntity: !ent.isVent
+      isEntity: true
     });
   }
 
@@ -180,16 +248,12 @@ export function verifyUnderwaterAirSolvability(
     return to.y >= minY - 0.5 && to.y <= maxY + 0.5;
   };
 
-  const shortestMoves = (startIdx: number, targetPredicate: (n: NavNode) => boolean): number => {
+  const shortestDistFrom = (startIdx: number): number[] => {
     const dist = new Array<number>(nodes.length).fill(Infinity);
     dist[startIdx] = 0;
     const queue = [startIdx];
     while (queue.length > 0) {
       const u = queue.shift()!;
-      if (u !== startIdx && targetPredicate(nodes[u])) {
-        return dist[u];
-      }
-      if (dist[u] >= maxMovesBetweenRefills) continue;
       for (let v = 0; v < nodes.length; v++) {
         if (u === v || dist[v] !== Infinity) continue;
         if (canSingleMove(nodes[u], nodes[v])) {
@@ -198,68 +262,23 @@ export function verifyUnderwaterAirSolvability(
         }
       }
     }
-    return Infinity;
+    return dist;
   };
 
-  // BFS across refill nodes (surface + vents) within maxMovesBetweenRefills per hop
-  const reachableRefills = new Set<number>([0]);
-  const refillQueue = [0];
-  while (refillQueue.length > 0) {
-    const u = refillQueue.shift()!;
-    const dist = new Array<number>(nodes.length).fill(Infinity);
-    dist[u] = 0;
-    const q = [u];
-    while (q.length > 0) {
-      const curr = q.shift()!;
-      if (curr !== u && nodes[curr].isRefill && !reachableRefills.has(curr)) {
-        reachableRefills.add(curr);
-        refillQueue.push(curr);
-      }
-      if (dist[curr] >= maxMovesBetweenRefills) continue;
-      for (let v = 0; v < nodes.length; v++) {
-        if (curr === v || dist[v] !== Infinity) continue;
-        if (canSingleMove(nodes[curr], nodes[v])) {
-          dist[v] = dist[curr] + 1;
-          q.push(v);
-        }
-      }
-    }
-  }
-
-  // Verify each Zone 1 & Zone 2 entity can be reached from a reachable refill AND returned to a refill within budget
+  const distFromSurface = shortestDistFrom(0);
   const unreachableEntities: string[] = [];
+
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
     if (!node.isEntity) continue;
 
-    let roundTripPossible = false;
-    const minReturnMoves = shortestMoves(i, (n) => n.isRefill);
-    if (minReturnMoves < maxMovesBetweenRefills) {
-      for (const rIdx of reachableRefills) {
-        // Compute moves from rIdx -> i
-        const dist = new Array<number>(nodes.length).fill(Infinity);
-        dist[rIdx] = 0;
-        const q = [rIdx];
-        while (q.length > 0) {
-          const curr = q.shift()!;
-          if (curr === i) break;
-          if (dist[curr] >= maxMovesBetweenRefills) continue;
-          for (let v = 0; v < nodes.length; v++) {
-            if (curr === v || dist[v] !== Infinity) continue;
-            if (canSingleMove(nodes[curr], nodes[v])) {
-              dist[v] = dist[curr] + 1;
-              q.push(v);
-            }
-          }
-        }
-        if (dist[i] + minReturnMoves <= maxMovesBetweenRefills) {
-          roundTripPossible = true;
-          break;
-        }
-      }
-    }
+    const minOut = distFromSurface[i];
+    const distFromNode = shortestDistFrom(i);
+    const minBack = Math.min(...nodes.map((n, idx) => (n.isSurface ? distFromNode[idx] : Infinity)));
 
-    if (!roundTripPossible) {
+    const reachableOnFullBagOneWay = minOut <= maxMovesBetweenRefills;
+    const roundTripOnNormalAir = minOut + minBack <= MAX_AIR;
+    if (!reachableOnFullBagOneWay || !roundTripOnNormalAir) {
       unreachableEntities.push(node.id);
     }
   }

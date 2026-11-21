@@ -104,6 +104,7 @@ export function createSavePayload({
           ...(puzzle.geometry ? { geometry: puzzle.geometry } : {}),
           ...(puzzle.boatOfferedItem ? { boatOfferedItem: puzzle.boatOfferedItem } : {}),
           ...(puzzle.boatOfferedItems ? { boatOfferedItems: puzzle.boatOfferedItems } : {}),
+          ...(puzzle.boatTradeMap ? { boatTradeMap: puzzle.boatTradeMap } : {}),
           ...(puzzle.safeBoatItems ? { safeBoatItems: puzzle.safeBoatItems } : {})
         }
       : null,

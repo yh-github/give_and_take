@@ -27,7 +27,15 @@ export const UNDERWATER_NEAR_RADIUS = 10;
 export const UNDERWATER_AIR_COST_NORMAL = 1;
 export const UNDERWATER_AIR_COST_FULL_BAG = 2;
 export const UNDERWATER_FULL_BAG_SPEED_MULTIPLIER = 2.1;
-export const UNDERWATER_FISH_ITEM_IDS = ['fish', 'gold_fish'] as const;
+export const UNDERWATER_FISH_ITEM_IDS = ['fish', 'gold_fish', 'blowfish'] as const;
+export const UNDERWATER_ABYSS_DROWNING_Y = 72;
+
+// === Fishing Catch Mini-Game ===
+export const FISHING_CATCH_CONFIG = {
+  fish: { durationMs: 1800, tolerance: 0.21 },
+  gold_fish: { durationMs: 1500, tolerance: 0.16 },
+  blowfish: { durationMs: 1250, tolerance: 0.125 }
+} as const;
 
 // === Timing (milliseconds) ===
 export const FISH_SPAWN_INTERVAL_MS = 1600;

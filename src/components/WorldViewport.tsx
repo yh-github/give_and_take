@@ -1,5 +1,6 @@
 import React, { type MouseEvent, type RefObject } from 'react';
-import { BoatSVG } from '../levels/underwater/components.tsx';
+import { BoatSVG, InteractiveKelpSVG } from '../levels/underwater/components.tsx';
+import { reefKelpHabitats, type ReefKelpHabitat } from '../levels/underwater/data.ts';
 import { CaveEntranceProp } from '../levels/river_crossing/components.tsx';
 import CaveVisibility from '../levels/underground/CaveVisibility.tsx';
 import Hero from './Hero.tsx';
@@ -88,6 +89,8 @@ export interface WorldViewportProps {
   heroFace: string;
   isAnimatingLoot: boolean;
   isHeavyUnderwater?: boolean;
+  onFlushKelp?: (habitat: ReefKelpHabitat, e: MouseEvent) => void;
+  rustlingKelpId?: string | null;
   showTrophy: boolean;
   onCellClick: (e: MouseEvent<HTMLDivElement>) => void;
 }
@@ -155,6 +158,8 @@ export function WorldViewport({
   heroFace,
   isAnimatingLoot,
   isHeavyUnderwater = false,
+  onFlushKelp,
+  rustlingKelpId = null,
   showTrophy,
   onCellClick,
 }: WorldViewportProps) {
@@ -218,6 +223,26 @@ export function WorldViewport({
         const sDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(sc.x - displayPlayerPos.x, 2) + Math.pow(sc.y - displayPlayerPos.y, 2)) : 100;
         const sZ = sDist < 28 ? 99 : (sc.z || 25);
         return <div key={`sc-${i}`} className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${sc.s} pointer-events-none`} style={{ left: `${sc.x}%`, top: `${sc.y}%`, zIndex: sZ }}>{sc.e}</div>;
+      })}
+
+      {level.id === 'underwater' && !isLevelEditor && reefKelpHabitats.map((habitat) => {
+        const fishEmoji = level.items.find(i => i.id === habitat.fishType)?.emoji || '🐟';
+        return (
+          <div
+            key={habitat.id}
+            data-testid={`kelp-habitat-${habitat.id}`}
+            onClick={(e) => onFlushKelp && onFlushKelp(habitat, e)}
+            className="absolute transform -translate-x-1/2 -translate-y-1/2 z-[42] cursor-pointer hover:scale-110 transition-transform"
+            style={{ left: `${habitat.x}%`, top: `${habitat.y}%` }}
+            title={fishEmoji}
+          >
+            <InteractiveKelpSVG
+              variant="habitat"
+              fishEmoji={fishEmoji}
+              isRustling={rustlingKelpId === habitat.id}
+            />
+          </div>
+        );
       })}
 
       {level.mechanics.hasFish && envItemState === 'active' && (

@@ -85,6 +85,7 @@ export interface SolverResult {
 export interface SolverOptions {
   boatOfferedItem?: string | null;
   boatOfferedItems?: string[];
+  boatTradeMap?: Record<string, string>;
   maxStates?: number;
 }
 
@@ -101,6 +102,7 @@ export interface PuzzleData {
   geometry?: ProceduralGeometry | null;
   boatOfferedItem?: string | null;
   boatOfferedItems?: string[];
+  boatTradeMap?: Record<string, string>;
   safeBoatItems?: string[];
   diagnostics?: Record<string, unknown>;
 }
