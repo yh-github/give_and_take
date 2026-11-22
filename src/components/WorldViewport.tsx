@@ -1,5 +1,6 @@
 import React, { type MouseEvent, type RefObject } from 'react';
-import { BoatSVG, InteractiveKelpSVG } from '../levels/underwater/components.tsx';
+import { DROWNING_RETURN_DELAY_MS } from '../constants.ts';
+import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG } from '../levels/underwater/components.tsx';
 import { reefKelpHabitats, type ReefKelpHabitat } from '../levels/underwater/data.ts';
 import { CaveEntranceProp } from '../levels/river_crossing/components.tsx';
 import CaveVisibility from '../levels/underground/CaveVisibility.tsx';
@@ -9,6 +10,7 @@ import { ClickIndicator, HeroBubbleBursts, FogOverlay } from './EffectsOverlay.t
 import DebugRays from './DebugRays.tsx';
 import type {
   AlertReason,
+  CSSCustomProperties,
   CampItemState,
   ClickIndicatorState,
   CustomEntityMovement,
@@ -86,6 +88,7 @@ export interface WorldViewportProps {
   playerTransitionDuration?: string;
   isSubmerged: boolean;
   isDrowning: boolean;
+  isDrowningAscending?: boolean;
   heroFace: string;
   isAnimatingLoot: boolean;
   isHeavyUnderwater?: boolean;
@@ -155,6 +158,7 @@ export function WorldViewport({
   playerTransitionDuration,
   isSubmerged,
   isDrowning,
+  isDrowningAscending = false,
   heroFace,
   isAnimatingLoot,
   isHeavyUnderwater = false,
@@ -164,9 +168,12 @@ export function WorldViewport({
   onCellClick,
 }: WorldViewportProps) {
   const Background = level.BackgroundComponent || (() => <div className="absolute inset-0 bg-[#dcb27b]" />);
-  const viewportTransitionClass = attachedEntityId
+  const isCameraLocked = Boolean(attachedEntityId || isDrowningAscending);
+  const viewportTransitionClass = isCameraLocked
     ? 'transition-none'
-    : 'transition-transform ease-out';
+    : isDrowning
+      ? 'transition-transform ease-linear'
+      : 'transition-transform ease-out';
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords && puzzle?.geometry);
   const worldHeight = (useIsotropic && puzzle?.geometry?.worldHeight) ? puzzle.geometry.worldHeight : (level.mechanics.screens || 1) * 100;
@@ -182,7 +189,15 @@ export function WorldViewport({
       style={{
         height: totalMapHeight,
         transform: `translateY(${mapTranslateY})`,
-        ...(!attachedEntityId ? { transitionDuration: isHeavyUnderwater ? '1100ms' : '500ms' } : {})
+        ...(!isCameraLocked
+          ? {
+              transitionDuration: isDrowning
+                ? `${DROWNING_RETURN_DELAY_MS}ms`
+                : isHeavyUnderwater
+                  ? '1100ms'
+                  : '500ms'
+            }
+          : {})
       }}
     >
       <Background geometry={puzzle?.geometry} />
@@ -253,42 +268,89 @@ export function WorldViewport({
       )}
 
       {schoolsOfFish.map(f => {
-        const animName = f.isRight ? 'swimRight' : 'swimLeft';
         const duration = f.speed ? `${f.speed}s` : '10s';
+        const startX = f.startX ?? (f.isRight ? -12 : 112);
+        const endX = f.endX ?? (f.isRight ? 115 : -15);
         return (
           <div
-            key={f.id}
+            key={`${f.id}-${f.spookCount || 0}`}
+            data-testid={`school-fish-${f.type}`}
+            data-spooked={f.isSpooked ? 'true' : 'false'}
             onClick={(e) => handleCatchSchoolFish(e, f)}
-            className="absolute cursor-pointer text-4xl drop-shadow-md transition-transform hover:scale-125"
-            style={{ top: `${f.y}%`, left: '0%', zIndex: 45, animation: `${animName} ${duration} linear forwards` }}
+            className="absolute cursor-pointer drop-shadow-md"
+            style={{
+              top: `${f.y}%`,
+              left: '0%',
+              zIndex: 45,
+              '--fish-start-x': `${startX}cqw`,
+              '--fish-end-x': `${endX}cqw`,
+              animation: `fishGlide ${duration} linear forwards`,
+              transition: 'top 300ms ease-out'
+            } as CSSCustomProperties}
           >
-            <div className={`inline-block ${f.isRight ? 'scale-x-[-1]' : ''}`}>
-              {level.items.find(i => i.id === f.type)?.emoji || '🐟'}
+            <div className="-translate-x-1/2 relative flex items-center hover:scale-125 transition-transform">
+              <div
+                aria-hidden="true"
+                className={`flex items-center gap-1 opacity-60 pointer-events-none ${
+                  f.isRight ? 'order-first mr-1' : 'order-last ml-1'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-200/80 animate-ping" />
+                <span className="w-1 h-1 rounded-full bg-white/70" />
+              </div>
+
+              <span className={`text-4xl inline-block ${f.isRight ? 'scale-x-[-1]' : ''}`}>
+                {level.items.find(i => i.id === f.type)?.emoji || '🐟'}
+              </span>
+
+              {f.isSpooked && (
+                <div className=" -top-5 left-1/2 -translate-x-1/2 absolute flex items-center gap-0.5 text-sm font-black pointer-events-none animate-bounce whitespace-nowrap drop-shadow-md">
+                  <span>❗</span>
+                  <span>💨</span>
+                </div>
+              )}
             </div>
           </div>
         );
       })}
 
-      {roamingBoats.map(b => (
-        <div
-          key={b.id}
-          onClick={(e) => handleBoatTrade(e, b)}
-          className={`absolute cursor-pointer z-[120] hover:scale-110 drop-shadow-xl ${b.isRight ? 'animate-boat-glide-right' : 'animate-boat-glide-left'}`}
-          style={{ top: '13.8%', left: '0%' }}
-        >
-          <BoatSVG />
-          <div className={`absolute -top-9 left-1/2 -translate-x-1/2 bg-white/95 border-2 border-amber-600 rounded-full px-2.5 py-1 flex items-center gap-1 shadow-lg animate-bounce whitespace-nowrap ${b.isRight ? 'scale-x-[-1]' : ''}`}>
-            <span className="text-lg sm:text-xl">{level.items.find(i => i.id === (b.reqItem || 'fish'))?.emoji || '🐟'}</span>
-            <span className="text-xs font-black text-stone-700">➔</span>
-            <span className="text-lg sm:text-xl">{level.items.find(i => i.id === b.offeredItem)?.emoji}</span>
-          </div>
-          {alertEntityId === b.id && (
-            <div className={`absolute inset-0 flex items-center justify-center text-4xl animate-troll-mad ${b.isRight ? 'scale-x-[-1]' : ''}`}>
-              {alertReason === 'inventory_full' ? '🎒' : '🚫'}
+      {roamingBoats.map(b => {
+        const lane: 'far' | 'near' = b.lane || (b.isRight ? 'near' : 'far');
+        const laneTop = lane === 'far' ? '10.8%' : '13.6%';
+        const laneZ = lane === 'far' ? 104 : 122;
+        const laneScaleClass = lane === 'far' ? 'scale-[0.78]' : 'scale-[0.96]';
+        return (
+          <div
+            key={b.id}
+            data-testid={`roaming-boat-${lane}`}
+            onClick={(e) => handleBoatTrade(e, b)}
+            className={`absolute cursor-pointer drop-shadow-xl ${b.isRight ? 'animate-boat-glide-right' : 'animate-boat-glide-left'}`}
+            style={{ top: laneTop, left: '0%', zIndex: laneZ }}
+          >
+            <div className="relative -translate-x-1/2 flex flex-col items-center hover:scale-110 transition-transform">
+              <div className={`relative flex flex-col items-center ${laneScaleClass}`}>
+                <div className={b.isRight ? 'scale-x-[-1]' : ''}>
+                  <BoatSVG />
+                </div>
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 -z-10 pointer-events-none">
+                  <BoatWakeEffect isRight={b.isRight} lane={lane} />
+                </div>
+              </div>
+
+              <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-white/95 border-2 border-amber-600 rounded-full px-2.5 py-1 flex items-center gap-1 shadow-lg animate-bounce whitespace-nowrap z-20">
+                <span className="text-lg sm:text-xl">{level.items.find(i => i.id === (b.reqItem || 'fish'))?.emoji || '🐟'}</span>
+                <span className="text-xs font-black text-stone-700">➔</span>
+                <span className="text-lg sm:text-xl">{level.items.find(i => i.id === b.offeredItem)?.emoji}</span>
+              </div>
+              {alertEntityId === b.id && (
+                <div className="absolute inset-0 flex items-center justify-center text-4xl animate-troll-mad z-30">
+                  {alertReason === 'inventory_full' ? '🎒' : '🚫'}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ))}
+          </div>
+        );
+      })}
 
       {!isLevelEditor && level.id !== 'underwater' && (
         <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-[99]" preserveAspectRatio="none">
@@ -322,7 +384,15 @@ export function WorldViewport({
         <div 
           onClick={handleCampClick} 
           className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${(selectedItemTypes.length > 0 || (!selectedItemTypes.length && level.mechanics.hasAir)) ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] pointer-events-auto' : 'pointer-events-none'}`} 
-          style={{ left: `${effectiveCampPos.x}%`, top: `${toCssY(effectiveCampPos.y)}%`, zIndex: (Math.hypot(effectiveCampPos.x - displayPlayerPos.x, effectiveCampPos.y - displayPlayerPos.y) < 28) ? 110 : 30 }}
+          style={{
+            left: `${effectiveCampPos.x}%`,
+            top: `${toCssY(effectiveCampPos.y)}%`,
+            zIndex: level.id === 'underwater'
+              ? 112
+              : (Math.hypot(effectiveCampPos.x - displayPlayerPos.x, effectiveCampPos.y - displayPlayerPos.y) < 28)
+                ? 110
+                : 30
+          }}
         >
           <div className="relative">
             {level.CampIcon ? <level.CampIcon /> : <div className="text-6xl drop-shadow-lg scale-x-[-1] animate-flicker">🔥</div>}

@@ -30,7 +30,16 @@ export const UNDERWATER_FULL_BAG_SPEED_MULTIPLIER = 2.1;
 export const UNDERWATER_FISH_ITEM_IDS = ['fish', 'gold_fish', 'blowfish'] as const;
 export const UNDERWATER_ABYSS_DROWNING_Y = 72;
 
-// === Fishing Catch Mini-Game ===
+// === Fishing Catch Mini-Game & Spatial Chase ===
+export type FishingMode = 'chase' | 'timing_ring';
+export const UNDERWATER_FISHING_MODE: FishingMode = 'chase';
+
+export const FISH_CHASE_CONFIG = {
+  fish: { catchRadiusX: 11.5, catchRadiusY: 6.5, directGrabDist: 12, fleeSpeedMultiplier: 2.3, fleeDodgeY: 0 },
+  gold_fish: { catchRadiusX: 10, catchRadiusY: 5.8, directGrabDist: 9, fleeSpeedMultiplier: 2.6, fleeDodgeY: 3.2 },
+  blowfish: { catchRadiusX: 9, catchRadiusY: 5.2, directGrabDist: 7, fleeSpeedMultiplier: 3.0, fleeDodgeY: 4.2 }
+} as const;
+
 export const FISHING_CATCH_CONFIG = {
   fish: { durationMs: 1800, tolerance: 0.21 },
   gold_fish: { durationMs: 1500, tolerance: 0.16 },
@@ -46,6 +55,6 @@ export const DIGGER_BURY_ANIM_MS = 700;
 export const ACTION_ANIM_MS = 800;
 export const ALERT_DURATION_MS = 600;
 export const AIR_REFILL_INTERVAL_MS = 120;
-export const DROWNING_ALERT_DELAY_MS = 500;
-export const DROWNING_RETURN_DELAY_MS = 1400;
+export const DROWNING_ALERT_DELAY_MS = 750;
+export const DROWNING_RETURN_DELAY_MS = 3000;
 export const PUZZLE_GENERATION_DELAY_MS = 150;

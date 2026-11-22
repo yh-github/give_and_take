@@ -42,15 +42,24 @@ export function Hero({
 }: HeroProps) {
   return (
     <div 
+      data-testid={isDrowning ? 'drowned-hero' : undefined}
       className={`absolute transform transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} 
       style={{ 
         left: `${playerVisualX}%`, 
         top: `${playerVisualYPct ?? playerVisualY}%`, 
-        zIndex: Math.max(playerZ, 160), 
+        zIndex: Math.max(playerZ, isDrowning ? 190 : 160), 
         transform: `translate(-50%, -50%) rotate(${playerRotation}deg)`,
         ...(playerTransitionDuration ? { transitionDuration: playerTransitionDuration } : {})
       }}
     >
+      {/* Pulsing Hypoxia Ring when Drowning */}
+      {isDrowning && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-[-38%] rounded-full border-2 border-rose-400/80 bg-rose-500/20 animate-ping pointer-events-none"
+        />
+      )}
+
       {/* Cartoon Thought Bubble when Inventory is Full */}
       {isInventoryFullAlert && (
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-[220] pointer-events-none animate-bounce flex flex-col items-center">
@@ -65,16 +74,43 @@ export function Hero({
       <div 
         style={isHeavy && level.mechanics.heroBobs && !isDrowning && !isTransformed ? { animationDuration: '5.5s' } : undefined}
         className={`text-white w-[10cqw] h-[10cqw] rounded-full flex items-center justify-center shadow-[0_1cqw_2cqw_rgba(0,0,0,0.8)] text-[6cqw] relative ${
-          isTransformed 
-            ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' 
-            : isSubmerged 
-              ? `bg-teal-700 border-2 border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.9)] ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
-              : level.mechanics.hasAir 
-                ? `bg-cyan-600 border-2 border-cyan-200 ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
-                : 'bg-blue-600 border-2 border-white'
+          isDrowning
+            ? 'bg-indigo-950 border-2 border-rose-400 shadow-[0_0_24px_rgba(244,63,94,0.95)] animate-drown-limp'
+            : isTransformed 
+              ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' 
+              : isSubmerged 
+                ? `bg-teal-700 border-2 border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.9)] ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
+                : level.mechanics.hasAir 
+                  ? `bg-cyan-600 border-2 border-cyan-200 ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
+                  : 'bg-blue-600 border-2 border-white'
         } ${level.mechanics.heroBobs && !isDrowning ? 'animate-bob' : ''}`}
       >
         {heroFace}
+        {isDrowning && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-none z-50"
+            style={{ transform: `rotate(${-playerRotation}deg)` }}
+          >
+            {[0, 1, 2, 3].map(i => (
+              <div
+                key={`drown-bub-${i}`}
+                className="absolute text-sm sm:text-base animate-hero-air-bubble select-none"
+                style={{
+                  left: '50%',
+                  top: '10%',
+                  '--start-dx': `${(i - 1.5) * 9}px`,
+                  '--end-dx': `${(i - 1.5) * 18}px`,
+                  animationDelay: `${i * 180}ms`,
+                  animationIterationCount: 'infinite',
+                  animationDuration: '1.4s',
+                } as CSSCustomProperties}
+              >
+                🫧
+              </div>
+            ))}
+          </div>
+        )}
         {isHeavy && isSubmerged && !isDrowning && !isTransformed && (
           <span
             data-testid="hero-heavy-badge"

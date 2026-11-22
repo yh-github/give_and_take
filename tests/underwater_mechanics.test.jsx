@@ -8,21 +8,31 @@ import GameInstance from '../src/components/GameInstance.tsx';
 import OutOfAirModal from '../src/components/OutOfAirModal.tsx';
 import AirIndicator from '../src/components/AirIndicator.tsx';
 import FishingCatchOverlay from '../src/components/FishingCatchOverlay.tsx';
-import { SunkenVaultSVG } from '../src/levels/underwater/components.tsx';
+import {
+  BoatSVG,
+  BoatWakeEffect,
+  RaftCampSVG,
+  SunkenVaultSVG
+} from '../src/levels/underwater/components.tsx';
 import { generateUnderwaterPuzzle } from '../src/levels/underwater/generator.ts';
 import {
   HUMAN_TRINKET_IDS,
+  createSpookedFishState,
   evaluateFishingCatch,
+  findInterceptedFish,
+  getSchoolFishPosition,
   getUnderwaterAirCost,
   getUnderwaterMoveDurationMs,
   isFishItem,
   resolveOutOfAirDrop,
+  shouldSpookFishFromPoint,
   verifyUnderwaterAirSolvability
 } from '../src/logic/underwater.ts';
 import { createSavePayload } from '../src/logic/saveState.ts';
 import {
   ACTION_ANIM_MS,
   AIR_REFILL_INTERVAL_MS,
+  BOAT_SPAWN_INTERVAL_MS,
   DROWNING_ALERT_DELAY_MS,
   DROWNING_RETURN_DELAY_MS,
   MAX_AIR,
@@ -154,6 +164,38 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       // Blowfish has tighter window than regular fish
       expect(evaluateFishingCatch(0.68, 'fish').caught).toBe(true);
       expect(evaluateFishingCatch(0.68, 'blowfish').caught).toBe(false);
+    });
+
+    it('tracks live school fish coordinates, spooks distant fish with vertical dodges, and intercepts led ambush clicks', () => {
+      const baseFish = {
+        id: 42,
+        type: 'blowfish',
+        y: 50,
+        isRight: true,
+        speed: 10,
+        spawnTime: 1000,
+        startX: 10,
+        endX: 110,
+        isSpooked: false,
+        spookCount: 0
+      };
+
+      expect(getSchoolFishPosition(baseFish, 6000)).toEqual({ x: 60, y: 50 });
+
+      const spooked = createSpookedFishState(baseFish, 6000);
+      expect(spooked.isSpooked).toBe(true);
+      expect(spooked.spookCount).toBe(1);
+      expect(spooked.startX).toBe(60);
+      expect(spooked.speed).toBeLessThan(4);
+      expect(spooked.y).not.toBe(50);
+
+      // Lead ahead of baseFish at t = 6000 (fish is at x = 60, speed 10 u/s) -> matches within arrival window
+      expect(findInterceptedFish([baseFish], { x: 62, y: 50 }, 6000)?.id).toBe(42);
+      expect(findInterceptedFish([baseFish], { x: 88, y: 50 }, 6000)).toBeNull();
+
+      // Chasing from behind (x = 50 while fish is at x = 60 going right) spooks; leading ahead (x = 68) does not
+      expect(shouldSpookFishFromPoint(baseFish, { x: 50, y: 50 }, 6000)).toBe(true);
+      expect(shouldSpookFishFromPoint(baseFish, { x: 68, y: 50 }, 6000)).toBe(false);
     });
   });
 
@@ -505,8 +547,22 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       await act(async () => {
         fireEvent.click(screen.getByTestId('out-of-air-confirm'));
       });
+
+      // Slow dramatic float ascent stays upside-down & camera-locked mid-ascent with vignette + banner
+      expect(screen.getByTestId('drowned-hero').style.transform).toContain('rotate(180deg)');
+      expect(screen.getByTestId('drowning-vignette')).toBeDefined();
+      expect(screen.getByTestId('drowning-ascent-banner')).toBeDefined();
+
       await act(async () => {
-        vi.advanceTimersByTime(DROWNING_RETURN_DELAY_MS + 50);
+        vi.advanceTimersByTime(1500); // Halfway through 3000ms DROWNING_RETURN_DELAY_MS
+      });
+      // Still ascending mid-water (y > 20), camera has NOT snapped to top (0%) yet
+      expect(screen.getByTestId('drowning-ascent-banner')).toBeDefined();
+      const midHeroTop = parseFloat(screen.getByTestId('drowned-hero').style.top || '0');
+      expect(midHeroTop).toBeGreaterThan(22);
+
+      await act(async () => {
+        vi.advanceTimersByTime(DROWNING_RETURN_DELAY_MS);
       });
 
       const floatingPearl = screen.getByTestId('floating-item-pearl');
@@ -514,8 +570,59 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       expect(wrapperTop).toBeLessThanOrEqual(70);
     });
 
-    it('flushes a fish at 0 air cost when clicking an Interactive Reef Kelp Habitat and catches it via timing ring', async () => {
+    it('renders tent raft camp, waterless boat SVGs with separate BoatWakeEffect on far/near isometric lanes', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
+      const { container } = render(
+        <div>
+          <RaftCampSVG />
+          <div className="hull-only">
+            <BoatSVG />
+          </div>
+          <BoatWakeEffect isRight={true} lane="near" />
+        </div>
+      );
+      expect(screen.getByTestId('player-raft-camp')).toBeDefined();
+      expect(screen.getByTestId('boat-wake-effect')).toBeDefined();
+      // BoatSVG has no baked-in water squiggle path
+      const hullPaths = container.querySelectorAll('.hull-only svg path');
+      hullPaths.forEach(p => {
+        expect(p.getAttribute('d')).not.toContain('T 64 78');
+      });
+
+      const underwater = LEVEL_REGISTRY.underwater;
+      const puzzle = generateUnderwaterPuzzle(underwater, 5, 0, 'isometric-boats-seed');
+      render(
+        <GameInstance
+          level={underwater}
+          targetSteps={5}
+          numDiggers={0}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={createSavePayload({
+            levelId: 'underwater',
+            targetSteps: 5,
+            numDiggers: 0,
+            puzzle,
+            pathHistory: [{ x: 50, y: 14, zone: 1 }]
+          })}
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+
+      expect(screen.getByTestId('isometric-sea-surface')).toBeDefined();
+
+      // Advance past initial boat spawns (400ms -> far/near alternating every BOAT_SPAWN_INTERVAL_MS)
+      await act(async () => {
+        vi.advanceTimersByTime(500 + BOAT_SPAWN_INTERVAL_MS);
+      });
+      expect(screen.getByTestId('roaming-boat-near')).toBeDefined();
+      expect(screen.getByTestId('roaming-boat-far')).toBeDefined();
+    });
+
+    it('spooks distant fish on direct click in chase mode, catches on lead interception, and preserves timing_ring option', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.spyOn(Math, 'random').mockReturnValue(0.99);
       const underwater = LEVEL_REGISTRY.underwater;
       const puzzle = generateUnderwaterPuzzle(underwater, 5, 0, 'kelp-flush-seed');
       const savedState = createSavePayload({
@@ -551,7 +658,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       // Flushing kelp costs 0 air and spawns a blowfish '🐡'
       expect(airPill.querySelectorAll('.opacity-25').length).toBe(0);
       const pufferSprites = screen.getAllByText('🐡');
-      expect(pufferSprites.length).toBeGreaterThanOrEqual(2); // kelp badge + spawned fish
+      expect(pufferSprites.length).toBeGreaterThanOrEqual(2);
 
       const heroContainer = screen.getByText('🤠').closest('[class*="transform"]');
       const innerMap = heroContainer.parentElement;
@@ -567,34 +674,139 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         toJSON: () => {}
       });
 
-      // Click the spawned swimming pufferfish (inside schoolsOfFish wrapper at zIndex 45)
-      const swimmingPuffer = pufferSprites.find(el => !el.closest('[data-testid^="kelp-habitat"]'));
-      expect(swimmingPuffer).toBeDefined();
+      // Direct click on distant flushed blowfish at (11, 52) from hero at (50, 14) -> spooks it & costs air!
+      const swimmingPuffers = pufferSprites.filter(el => !el.closest('[data-testid^="kelp-habitat"]'));
+      const flushedPuffer = swimmingPuffers[swimmingPuffers.length - 1];
+      expect(flushedPuffer).toBeDefined();
 
       await act(async () => {
-        fireEvent.click(swimmingPuffer, { clientX: 80, clientY: 530 });
+        fireEvent.click(flushedPuffer, { clientX: 44, clientY: 520 });
       });
 
-      // Swim duration 650ms -> FishingCatchOverlay opens
+      const spookedWrapper = screen.getAllByTestId('school-fish-blowfish').find(el => el.dataset.spooked === 'true');
+      expect(spookedWrapper).toBeDefined();
+
+      await act(async () => {
+        vi.advanceTimersByTime(900);
+      });
+      // Missed distant grab still costs 1 air
+      expect(airPill.querySelectorAll('.opacity-25').length).toBe(1);
+      expect(screen.queryByTestId('fishing-catch-overlay')).toBeNull();
+      expect(screen.queryByText('1/4')).toBeNull();
+
+      // Now lead a newly flushed kelp fish close to its ambush spot at (25, 26)
+      const shallowKelp = screen.getByTestId('kelp-habitat-kelp_shallow');
+      await act(async () => {
+        fireEvent.click(shallowKelp); // spawns '🐟' at (11, 26), speed 12 -> ~8.67 u/s going right
+      });
+      // Swim hero just ahead at (23, 26) (~1100ms travel + 1.4s -> fish arrives right inside catchRadiusX!)
       await act(async () => {
         vi.advanceTimersByTime(700);
       });
-
-      expect(screen.getByTestId('fishing-catch-overlay')).toBeDefined();
-
-      // Pufferfish durationMs = 1250 -> center at 625ms
       await act(async () => {
-        vi.advanceTimersByTime(625);
+        fireEvent.click(innerMap, { clientX: 96, clientY: 260 }); // (24%, 26%)
       });
       await act(async () => {
-        fireEvent.click(screen.getByTestId('fishing-catch-button'));
-      });
-      await act(async () => {
-        vi.advanceTimersByTime(250);
+        vi.advanceTimersByTime(900);
       });
 
-      expect(screen.queryByTestId('fishing-catch-overlay')).toBeNull();
       expect(screen.getByText('1/4')).toBeDefined();
+
+      // Verify optional fishingMode="timing_ring" still works cleanly when configured
+      cleanup();
+      render(
+        <GameInstance
+          level={underwater}
+          targetSteps={5}
+          numDiggers={0}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={savedState}
+          fishingMode="timing_ring"
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('kelp-habitat-kelp_deep'));
+      });
+      const timingPuffer = screen.getAllByText('🐡').find(el => !el.closest('[data-testid^="kelp-habitat"]'));
+      await act(async () => {
+        fireEvent.click(timingPuffer, { clientX: 80, clientY: 530 });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(700);
+      });
+      expect(screen.getByTestId('fishing-catch-overlay')).toBeDefined();
+    });
+
+    it('requires feeding the Dolphin a fish per ride with no item returned in exchange', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const underwater = LEVEL_REGISTRY.underwater;
+      const puzzle = generateUnderwaterPuzzle(underwater, 5, 0, 'dolphin-fish-feed-seed');
+      const dolphinEnt = puzzle.puzzleEntities.find(e => e.id === 'dolphin_1');
+      expect(dolphinEnt.requires).toEqual(['fish', 'gold_fish', 'blowfish']);
+      expect(dolphinEnt.reward).toBeNull();
+      expect(dolphinEnt.isRepeatable).toBe(true);
+
+      const savedState = createSavePayload({
+        levelId: 'underwater',
+        targetSteps: 5,
+        numDiggers: 0,
+        puzzle,
+        inventory: ['fish'],
+        air: MAX_AIR,
+        pathHistory: [{ x: 50, y: 14, zone: 1 }]
+      });
+
+      render(
+        <GameInstance
+          level={underwater}
+          targetSteps={5}
+          numDiggers={0}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={savedState}
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+
+      const dolphinSprite = screen.getByTestId('dolphin-sprite');
+
+      // Clicking dolphin without selecting fish does NOT start a ride
+      await act(async () => {
+        fireEvent.click(dolphinSprite);
+      });
+      expect(screen.getByText('1/4')).toBeDefined();
+
+      // Select fish and click dolphin -> consumes fish, rides down, returns 0 items
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /🐟/ }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('dolphin-sprite'));
+      });
+
+      expect(screen.queryByText('1/4')).toBeNull();
+      expect(screen.getByText('0/4')).toBeDefined();
+
+      // Complete dolphin dive (1500ms) -> hero arrives at y=58, still 0 items
+      await act(async () => {
+        vi.advanceTimersByTime(1700);
+      });
+      expect(screen.getByText('0/4')).toBeDefined();
+
+      // Clicking dolphin at y=58 without another fish will NOT give a free ride up
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('dolphin-sprite'));
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(1600);
+      });
+      const heroYAfterNoFishTap = parseFloat(screen.getByText('🤿').closest('[class*="transform"]').style.top || '0');
+      expect(heroYAfterNoFishTap).toBeGreaterThan(45);
     });
   });
 });

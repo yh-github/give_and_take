@@ -82,16 +82,17 @@ export function generateUnderwaterPuzzle(
     const puzzleEntities: PuzzleEntityArray = [];
     const startItems: string[] = [];
 
-    // 1. Dolphin shuttle elevator in Zone 1
+    // 1. Dolphin shuttle elevator in Zone 1 (repeatable, requires any fish per ride)
     const dolphinPos = z1Nodes.find((n) => !n.orbit) || z1Nodes[0];
     if (dolphinTpl && dolphinPos) {
       puzzleEntities.push({
         ...dolphinTpl,
         id: 'dolphin_1',
         emoji: '🐬',
-        requires: ['fish', 'gold_fish'],
+        requires: ['fish', 'gold_fish', 'blowfish'],
         reqType: 'OR',
         reward: null,
+        isRepeatable: true,
         x: dolphinPos.x,
         y: dolphinPos.y,
         zone: dolphinPos.zone,

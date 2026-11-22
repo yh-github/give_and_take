@@ -73,6 +73,64 @@ export function HeroBubbleBursts({ bursts }: HeroBubbleBurstsProps) {
   );
 }
 
+export interface DrowningVignetteOverlayProps {
+  isDrowning: boolean;
+  isAscending?: boolean;
+  dict: TranslationDictionary;
+}
+
+export function DrowningVignetteOverlay({
+  isDrowning,
+  isAscending = false,
+  dict
+}: DrowningVignetteOverlayProps) {
+  if (!isDrowning) return null;
+
+  return (
+    <div
+      data-testid="drowning-vignette"
+      className="absolute inset-0 z-[195] pointer-events-none overflow-hidden"
+    >
+      {/* Pulsing Hypoxia Radial Vignette */}
+      <div
+        className="absolute inset-0 animate-drown-vignette"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 50%, rgba(15,23,42,0.08) 32%, rgba(88,28,135,0.42) 66%, rgba(190,18,60,0.72) 100%)',
+          boxShadow: 'inset 0 0 70px rgba(244, 63, 94, 0.55)'
+        }}
+      />
+
+      {/* Rising Atmospheric Distress Bubbles */}
+      {[14, 30, 52, 70, 86].map((leftPct, idx) => (
+        <div
+          key={`vig-bub-${idx}`}
+          className="absolute bottom-4 text-lg sm:text-xl animate-bubble opacity-80 select-none"
+          style={{
+            left: `${leftPct}%`,
+            animationDelay: `${idx * 0.45}s`,
+            animationDuration: `${4.2 + (idx % 3) * 0.8}s`
+          }}
+        >
+          🫧
+        </div>
+      ))}
+
+      {/* Dramatic Ascent Pill while Floating Slowly to the Surface */}
+      {isAscending && (
+        <div
+          data-testid="drowning-ascent-banner"
+          className="absolute top-16 left-1/2 -translate-x-1/2 bg-rose-950/90 border-2 border-rose-400 text-rose-100 rounded-full px-3.5 py-1 shadow-[0_0_20px_rgba(244,63,94,0.8)] flex items-center gap-1.5 text-xs sm:text-sm font-black whitespace-nowrap animate-pulse"
+        >
+          <span>🫧</span>
+          <span className="inline-block rotate-180">😵</span>
+          <span>{dict.outOfAirTitle}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export interface MagicTransformationOverlayProps {
   isMagicAnimating: boolean;
   playerVisualX: number;

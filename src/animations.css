@@ -138,6 +138,10 @@
   0% { transform: translate3d(120cqw, -50%, 0); }
   100% { transform: translate3d(-20cqw, -50%, 0); }
 }
+@keyframes fishGlide {
+  0% { transform: translate3d(var(--fish-start-x, -15cqw), -50%, 0); }
+  100% { transform: translate3d(var(--fish-end-x, 115cqw), -50%, 0); }
+}
 
 /* === Underwater: Bubbles === */
 @keyframes bubble {
@@ -158,19 +162,70 @@
   0% { transform: translate3d(0%, 0, 0); }
   100% { transform: translate3d(-50%, 0, 0); }
 }
-.animate-surface-wave-slow { animation: surfaceWaveSlow 12s linear infinite; }
+.animate-surface-wave-slow {
+  animation: surfaceWaveSlow 12s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation-duration: 40s;
+  }
+}
 
 @keyframes surfaceWaveFast {
   0% { transform: translate3d(-50%, 0, 0); }
   100% { transform: translate3d(0%, 0, 0); }
 }
-.animate-surface-wave-fast { animation: surfaceWaveFast 8s linear infinite; }
+.animate-surface-wave-fast {
+  animation: surfaceWaveFast 8s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation-duration: 30s;
+  }
+}
 
 @keyframes dolphinIdle {
   0%, 100% { transform: translate3d(-12px, 0px, 0) rotate(-4deg); }
   50% { transform: translate3d(12px, -6px, 0) rotate(4deg); }
 }
 .animate-dolphin-idle { animation: dolphinIdle 4s ease-in-out infinite; }
+
+@keyframes dolphinPlayful {
+  0% { transform: translate3d(-18cqw, 2px, 0) scaleX(-1) rotate(-8deg); }
+  16% { transform: translate3d(-2cqw, -14px, 0) scaleX(-1) rotate(175deg); }
+  30% { transform: translate3d(13cqw, -2px, 0) scaleX(-1) rotate(360deg); }
+  45% { transform: translate3d(19cqw, 4px, 0) scaleX(-1) rotate(6deg); }
+  50% { transform: translate3d(19cqw, 4px, 0) scaleX(1) rotate(-8deg); }
+  66% { transform: translate3d(3cqw, -12px, 0) scaleX(1) rotate(-175deg); }
+  80% { transform: translate3d(-13cqw, -1px, 0) scaleX(1) rotate(-360deg); }
+  94% { transform: translate3d(-18cqw, 2px, 0) scaleX(1) rotate(4deg); }
+  100% { transform: translate3d(-18cqw, 2px, 0) scaleX(-1) rotate(-8deg); }
+}
+.animate-dolphin-playful {
+  animation: dolphinPlayful 7.5s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: dolphinIdle 8s ease-in-out infinite;
+  }
+}
+
+@keyframes drownLimp {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(7deg); }
+}
+.animate-drown-limp {
+  animation: drownLimp 2.2s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes drownVignettePulse {
+  0%, 100% { opacity: 0.68; }
+  50% { opacity: 0.95; }
+}
+.animate-drown-vignette {
+  animation: drownVignettePulse 1.8s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0.85;
+  }
+}
 
 @keyframes heroAirBubble {
   0% {
@@ -195,15 +250,27 @@
 
 /* === Underwater: Boats === */
 @keyframes boatGlideRight {
-  0% { transform: translate3d(-20cqw, -50%, 0) scaleX(-1); }
-  100% { transform: translate3d(120cqw, -50%, 0) scaleX(-1); }
+  0% { transform: translate3d(-20cqw, -50%, 0); }
+  100% { transform: translate3d(120cqw, -50%, 0); }
 }
 @keyframes boatGlideLeft {
-  0% { transform: translate3d(120cqw, -50%, 0) scaleX(1); }
-  100% { transform: translate3d(-20cqw, -50%, 0) scaleX(1); }
+  0% { transform: translate3d(120cqw, -50%, 0); }
+  100% { transform: translate3d(-20cqw, -50%, 0); }
 }
 .animate-boat-glide-right { animation: boatGlideRight 20s linear infinite; }
 .animate-boat-glide-left { animation: boatGlideLeft 20s linear infinite; }
+
+@keyframes boatWake {
+  0%, 100% { transform: scaleX(0.88) scaleY(0.94); opacity: 0.55; }
+  50% { transform: scaleX(1.12) scaleY(1.06); opacity: 0.92; }
+}
+.animate-boat-wake {
+  animation: boatWake 1.8s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0.7;
+  }
+}
 
 /* === Entity Idle Animations === */
 @keyframes sway {

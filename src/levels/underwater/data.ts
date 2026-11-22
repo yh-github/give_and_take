@@ -41,7 +41,7 @@ export const entities: EntityTemplate[] = [
   { id: 'mermaid_teal', name: 'Teal Mermaid', emoji: '🧜‍♀️', color: '#2dd4bf', allowedReqs: ['comb', 'boot', 'mirror', 'locket', 'pocket_watch', 'music_box'] },
   { id: 'mermaid_red', name: 'Red Mermaid', emoji: '🧜‍♀️', color: '#fb7185', allowedReqs: ['comb', 'boot', 'mirror', 'locket', 'pocket_watch', 'music_box'] },
   { id: 'mermaid_purple', name: 'Purple Mermaid', emoji: '🧜‍♀️', color: '#a855f7', allowedReqs: ['comb', 'boot', 'mirror', 'locket', 'pocket_watch', 'music_box'] },
-  { id: 'dolphin', name: 'Dolphin', emoji: '🐬', allowedReqs: ['fish', 'gold_fish'], roamClass: 'elevator' },
+  { id: 'dolphin', name: 'Dolphin', emoji: '🐬', allowedReqs: ['fish', 'gold_fish', 'blowfish'], roamClass: 'elevator' },
   { id: 'sea_witch', name: 'Sea Witch', emoji: '😈', allowedReqs: ['mermaid_voice'] },
   { id: 'clam', name: 'Giant Clam', emoji: '🐚', allowedReqs: ['sea_kelp', 'starfish', 'doubloon', 'shell', 'pearl', 'anchor_key'] },
   { id: 'crab', name: 'Hermit Crab', emoji: '🦀', allowedReqs: ['sea_kelp', 'starfish', 'doubloon', 'shell', 'pearl'] },

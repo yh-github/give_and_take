@@ -2,29 +2,63 @@ import React from 'react';
 
 export const UnderwaterBackground = () => (
   <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden bg-[#050814]">
-    {/* === 1. Above Water: Sunny Sky & Horizon (y: 0% - 13.6%) === */}
-    <div className="absolute top-0 left-0 w-full h-[13.6%] bg-gradient-to-b from-sky-400 via-sky-200 to-cyan-100 z-10">
-      <svg className="w-full h-full" viewBox="0 0 200 80" preserveAspectRatio="xMidYMid slice">
+    {/* === 1. Above Water: Sunny Sky & Horizon (y: 0% - 10.4%) === */}
+    <div className="absolute top-0 left-0 w-full h-[10.4%] bg-gradient-to-b from-sky-400 via-sky-200 to-cyan-100 z-10">
+      <svg className="w-full h-full" viewBox="0 0 200 72" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <radialGradient id="skySun" cx="82%" cy="28%" r="25%">
+          <radialGradient id="skySun" cx="82%" cy="30%" r="28%">
             <stop offset="0%" stopColor="#fef08a" stopOpacity="0.95" />
             <stop offset="45%" stopColor="#fde047" stopOpacity="0.4" />
             <stop offset="100%" stopColor="#fde047" stopOpacity="0" />
           </radialGradient>
         </defs>
-        <circle cx="164" cy="22" r="32" fill="url(#skySun)" />
-        <circle cx="164" cy="22" r="9" fill="#fef9c3" />
-        <g fill="#ffffff" opacity="0.82">
-          <path d="M 18 34 Q 22 24 32 26 Q 38 18 48 24 Q 56 24 58 32 Q 62 38 54 40 L 18 40 Q 12 38 18 34 Z" />
-          <path d="M 105 26 Q 110 18 119 20 Q 125 14 134 19 Q 142 20 140 28 L 104 28 Z" opacity="0.7" />
+        <circle cx="164" cy="20" r="30" fill="url(#skySun)" />
+        <circle cx="164" cy="20" r="8.5" fill="#fef9c3" />
+        <g fill="#ffffff" opacity="0.84">
+          <path d="M 18 32 Q 22 22 32 24 Q 38 16 48 22 Q 56 22 58 30 Q 62 36 54 38 L 18 38 Q 12 36 18 32 Z" />
+          <path d="M 105 24 Q 110 16 119 18 Q 125 12 134 17 Q 142 18 140 26 L 104 26 Z" opacity="0.72" />
         </g>
-        <path d="M 8 76 Q 24 65 44 76 Z" fill="#0e7490" opacity="0.35" />
-        <path d="M 152 76 Q 170 67 192 76 Z" fill="#0e7490" opacity="0.3" />
+        {/* Distant horizon silhouettes resting cleanly along the sea horizon */}
+        <path d="M 6 70 Q 24 58 46 70 Z" fill="#0e7490" opacity="0.38" />
+        <path d="M 148 70 Q 170 60 194 70 Z" fill="#0e7490" opacity="0.32" />
       </svg>
     </div>
 
-    {/* === 2. 2D Cross-Section Waterline & Animated Surface Waves (y: 12.2% - 15.0%) === */}
-    <div className="absolute top-[12.2%] left-0 w-full h-[2.8%] z-20 overflow-hidden pointer-events-none">
+    {/* === 2. Slightly Isometric Ocean Surface Plane (y: 9.8% - 15.8%) === */}
+    <div
+      data-testid="isometric-sea-surface"
+      className="absolute top-[9.8%] left-0 w-full h-[6.0%] z-15 overflow-hidden pointer-events-none"
+      style={{
+        background:
+          'linear-gradient(180deg, #38bdf8 0%, #0ea5e9 46%, #0284c7 78%, #06b6d4 100%)'
+      }}
+    >
+      {/* Horizon crisp highlight */}
+      <div className="w-full h-[1.5px] bg-sky-100/75" />
+
+      {/* Perspective depth-lane shimmer bands & foreshortened glints */}
+      <svg className="w-full h-full" viewBox="0 0 200 60" preserveAspectRatio="none">
+        {/* Far boat plane shimmer line (narrower/denser near horizon) */}
+        <line x1="0" y1="15" x2="200" y2="15" stroke="#bae6fd" strokeWidth="0.9" strokeDasharray="10 14" opacity="0.55" />
+        <ellipse cx="32" cy="12" rx="9" ry="1.1" fill="#e0f2fe" opacity="0.45" />
+        <ellipse cx="96" cy="14" rx="11" ry="1.2" fill="#e0f2fe" opacity="0.4" />
+        <ellipse cx="164" cy="11" rx="8" ry="1.0" fill="#e0f2fe" opacity="0.45" />
+
+        {/* Mid plane shimmer (Raft anchor lane) */}
+        <line x1="0" y1="30" x2="200" y2="30" stroke="#7dd3fc" strokeWidth="1.2" strokeDasharray="16 18" opacity="0.45" />
+        <ellipse cx="52" cy="28" rx="14" ry="1.7" fill="#bae6fd" opacity="0.42" />
+        <ellipse cx="136" cy="31" rx="16" ry="1.8" fill="#bae6fd" opacity="0.4" />
+
+        {/* Foreground boat plane shimmer (wider near cutaway lip) */}
+        <line x1="0" y1="45" x2="200" y2="45" stroke="#e0f2fe" strokeWidth="1.6" strokeDasharray="22 20" opacity="0.5" />
+        <ellipse cx="26" cy="44" rx="18" ry="2.2" fill="#e0f2fe" opacity="0.48" />
+        <ellipse cx="108" cy="46" rx="20" ry="2.3" fill="#e0f2fe" opacity="0.45" />
+        <ellipse cx="176" cy="43" rx="15" ry="2.0" fill="#e0f2fe" opacity="0.45" />
+      </svg>
+    </div>
+
+    {/* === 2b. Animated Cutaway Waterline Meniscus (y: 13.8% - 16.0%) === */}
+    <div className="absolute top-[13.8%] left-0 w-full h-[2.2%] z-20 overflow-hidden pointer-events-none">
       <svg
         className="absolute inset-0 w-[200%] h-full animate-surface-wave-slow"
         viewBox="0 0 400 32"
@@ -33,7 +67,7 @@ export const UnderwaterBackground = () => (
         <path
           d="M 0 13 Q 25 4 50 13 T 100 13 T 150 13 T 200 13 T 250 13 T 300 13 T 350 13 T 400 13 L 400 32 L 0 32 Z"
           fill="#0284c7"
-          opacity="0.78"
+          opacity="0.72"
         />
       </svg>
       <svg
@@ -44,7 +78,7 @@ export const UnderwaterBackground = () => (
         <path
           d="M 0 16 Q 25 8 50 16 T 100 16 T 150 16 T 200 16 T 250 16 T 300 16 T 350 16 T 400 16 L 400 32 L 0 32 Z"
           fill="#06b6d4"
-          opacity="0.94"
+          opacity="0.92"
         />
         <path
           d="M 0 16 Q 25 8 50 16 T 100 16 T 150 16 T 200 16 T 250 16 T 300 16 T 350 16 T 400 16"
@@ -56,9 +90,9 @@ export const UnderwaterBackground = () => (
       </svg>
     </div>
 
-    {/* === 3. Multi-Zone Ocean Depth Gradient (y: 13.5% - 100%) === */}
+    {/* === 3. Multi-Zone Ocean Depth Gradient (y: 15.2% - 100%) === */}
     <div
-      className="absolute top-[13.5%] left-0 w-full h-[86.5%] z-0"
+      className="absolute top-[15.2%] left-0 w-full h-[84.8%] z-0"
       style={{
         background:
           'linear-gradient(180deg, #06b6d4 0%, #0284c7 17%, #0369a1 32%, #1d4ed8 47%, #1e3a8a 60%, #0f172a 72%, #070d20 84%, #030612 100%)',
@@ -663,28 +697,133 @@ export const GiantClamSVG = ({
 };
 
 export const BoatSVG = () => (
-  <svg viewBox="0 0 110 100" className="w-20 h-20 sm:w-24 sm:h-24 drop-shadow-xl animate-bob overflow-visible">
-    <rect x="51" y="12" width="4" height="50" fill="#78350f" rx="1.5" />
-    <polygon points="55,12 70,16 55,21" fill="#ef4444" />
-    <path d="M 56 18 Q 88 34 86 56 L 56 56 Z" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.5" />
-    <path d="M 49 22 Q 24 38 26 56 L 49 56 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
+  <svg viewBox="0 0 110 92" className="w-20 h-18 sm:w-24 sm:h-20 drop-shadow-xl animate-bob overflow-visible">
+    <rect x="51" y="10" width="4" height="50" fill="#78350f" rx="1.5" />
+    <polygon points="55,10 70,14 55,19" fill="#ef4444" />
+    <path d="M 56 16 Q 88 32 86 54 L 56 54 Z" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.5" />
+    <path d="M 49 20 Q 24 36 26 54 L 49 54 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
+    {/* Clean Wooden Boat Hull (no baked-in water line) */}
     <path
-      d="M 12 60 L 98 60 L 84 82 Q 55 86 26 82 Z"
+      d="M 12 58 L 98 58 L 84 80 Q 55 86 26 80 Z"
       fill="#92400e"
       stroke="#451a03"
       strokeWidth="2.5"
       strokeLinejoin="round"
     />
-    <path d="M 16 65 L 94 65" stroke="#fcd34d" strokeWidth="2" opacity="0.8" />
-    <path
-      d="M 8 78 Q 22 73 36 78 T 64 78 T 92 78 T 104 78"
-      fill="none"
-      stroke="#e0f2fe"
-      strokeWidth="3"
-      strokeLinecap="round"
-      opacity="0.9"
-    />
+    <path d="M 16 63 L 94 63" stroke="#fcd34d" strokeWidth="2" opacity="0.82" />
+    <path d="M 24 73 Q 55 78 86 73" stroke="#78350f" strokeWidth="1.5" fill="none" opacity="0.65" />
   </svg>
+);
+
+export interface BoatWakeEffectProps {
+  isRight?: boolean;
+  lane?: 'far' | 'near';
+}
+
+export const BoatWakeEffect = ({ isRight = false, lane = 'near' }: BoatWakeEffectProps) => (
+  <svg
+    data-testid="boat-wake-effect"
+    viewBox="0 0 140 34"
+    className={`w-28 sm:w-32 h-8 pointer-events-none overflow-visible ${
+      lane === 'far' ? 'opacity-65' : 'opacity-90'
+    } ${isRight ? 'scale-x-[-1]' : ''}`}
+  >
+    {/* Waterline hull contact ripple */}
+    <ellipse cx="60" cy="17" rx="34" ry="6.5" fill="#0284c7" fillOpacity="0.28" stroke="#e0f2fe" strokeWidth="1.2" strokeOpacity="0.6" />
+    {/* Trailing animated V-wake foam behind stern */}
+    <g className="animate-boat-wake" style={{ transformOrigin: '60px 17px' }}>
+      <path
+        d="M 88 15 Q 112 9 136 5"
+        fill="none"
+        stroke="#e0f2fe"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeDasharray="10 5"
+      />
+      <path
+        d="M 88 19 Q 114 25 138 29"
+        fill="none"
+        stroke="#bae6fd"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeDasharray="8 6"
+      />
+      <path
+        d="M 90 17 L 130 17"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeDasharray="6 6"
+        opacity="0.75"
+      />
+    </g>
+  </svg>
+);
+
+export const RaftCampSVG = () => (
+  <div data-testid="player-raft-camp" className="relative flex flex-col items-center justify-center">
+    {/* Stationary waterline contact ring under raft */}
+    <svg
+      viewBox="0 0 140 34"
+      className="w-28 sm:w-32 h-7 absolute -bottom-1 left-1/2 -translate-x-1/2 -z-10 pointer-events-none overflow-visible opacity-85"
+    >
+      <ellipse
+        cx="70"
+        cy="19"
+        rx="60"
+        ry="10"
+        fill="#0369a1"
+        fillOpacity="0.24"
+        stroke="#e0f2fe"
+        strokeWidth="1.5"
+        strokeDasharray="9 5"
+        className="animate-boat-wake"
+        style={{ transformOrigin: '70px 19px' }}
+      />
+    </svg>
+
+    {/* Gently bobbing Log Raft with Cozy Tent pitched on right deck (Hero stands cleanly on left deck) */}
+    <svg viewBox="0 0 140 96" className="w-28 h-20 sm:w-32 sm:h-24 drop-shadow-xl animate-bob overflow-visible">
+      {/* Waterline underside shadow */}
+      <ellipse cx="70" cy="81" rx="56" ry="8" fill="#0c4a6e" opacity="0.45" />
+
+      {/* Skewed Isometric Log Base */}
+      <g>
+        <rect x="12" y="68" width="114" height="10" rx="5" fill="#78350f" stroke="#451a03" strokeWidth="1.8" />
+        <rect x="16" y="61" width="110" height="10" rx="5" fill="#92400e" stroke="#451a03" strokeWidth="1.8" />
+        <rect x="20" y="54" width="106" height="9.5" rx="4.5" fill="#b45309" stroke="#451a03" strokeWidth="1.8" />
+        {/* Log end rings */}
+        <circle cx="17" cy="73" r="4" fill="#d97706" stroke="#451a03" strokeWidth="1.2" />
+        <circle cx="21" cy="66" r="4" fill="#f59e0b" stroke="#451a03" strokeWidth="1.2" />
+        <circle cx="25" cy="59" r="3.6" fill="#fbbf24" stroke="#451a03" strokeWidth="1.2" />
+        {/* Rope lashings holding logs together */}
+        <rect x="34" y="53" width="4.5" height="26" rx="2" fill="#fcd34d" stroke="#78350f" strokeWidth="1.1" />
+        <rect x="102" y="53" width="4.5" height="26" rx="2" fill="#fcd34d" stroke="#78350f" strokeWidth="1.1" />
+      </g>
+
+      {/* Wooden Oar resting on the front-left deck */}
+      <line x1="22" y1="73" x2="62" y2="69" stroke="#d97706" strokeWidth="2.8" strokeLinecap="round" />
+      <ellipse cx="66" cy="69" rx="7" ry="3" fill="#b45309" stroke="#451a03" strokeWidth="1.2" />
+
+      {/* Cozy A-Frame Tent pitched on the right half of the Raft */}
+      {/* Right side canvas wall */}
+      <polygon points="82,16 122,53 108,58 72,58" fill="#f59e0b" stroke="#78350f" strokeWidth="1.8" strokeLinejoin="round" />
+      {/* Roof awning stripe highlight */}
+      <polygon points="82,16 101,53 88,56 78,22" fill="#fef3c7" opacity="0.82" />
+      {/* Front A-frame gable */}
+      <polygon points="82,16 66,57 98,57" fill="#fef3c7" stroke="#78350f" strokeWidth="2" strokeLinejoin="round" />
+      {/* Terracotta ridge trim */}
+      <line x1="82" y1="16" x2="122" y2="53" stroke="#9a3412" strokeWidth="2.4" strokeLinecap="round" />
+      {/* Dark interior & warm lantern glow */}
+      <polygon points="82,28 73,57 91,57" fill="#451a03" />
+      <circle cx="82" cy="48" r="5" fill="#fde047" opacity="0.92" />
+      <circle cx="82" cy="48" r="9" fill="#fef08a" opacity="0.35" />
+      {/* Small triangular flag on tent peak */}
+      <line x1="82" y1="8" x2="82" y2="17" stroke="#78350f" strokeWidth="2" strokeLinecap="round" />
+      <polygon points="82,8 93,11.5 82,15" fill="#ef4444" />
+    </svg>
+  </div>
 );
 
 export const InkCloudSVG = () => (
@@ -701,7 +840,7 @@ export const InkCloudSVG = () => (
 );
 
 export const CampIcon = () => (
-  <div className="-translate-y-1">
-    <BoatSVG />
+  <div className="-translate-y-4">
+    <RaftCampSVG />
   </div>
 );

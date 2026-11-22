@@ -1,4 +1,5 @@
 import {
+  FISH_CHASE_CONFIG,
   FISHING_CATCH_CONFIG,
   MAX_AIR,
   MAX_UNIQUE_ITEMS,
@@ -11,7 +12,8 @@ import type {
   CampItemState,
   LevelDefinition,
   Point2D,
-  PuzzleData
+  PuzzleData,
+  SchoolFishState
 } from '../types/index.ts';
 import { uniqueCount } from './navigation.ts';
 
@@ -92,6 +94,110 @@ export function evaluateFishingCatch(progress: number, fishType: string): Fishin
 }
 
 const clamp = (val: number, min: number, max: number): number => Math.max(min, Math.min(max, val));
+
+/**
+ * Computes the live `(x, y)` percentage position of a roaming school fish at `nowMs`.
+ */
+export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Point2D {
+  const startX = fish.startX ?? (fish.isRight ? -12 : 112);
+  const endX = fish.endX ?? (fish.isRight ? 115 : -15);
+  const durationMs = Math.max(250, (fish.speed || 10) * 1000);
+  const spawnTime = fish.spawnTime ?? (nowMs - durationMs * 0.5);
+  const progress = clamp((nowMs - spawnTime) / durationMs, 0, 1);
+  return {
+    x: startX + (endX - startX) * progress,
+    y: fish.y
+  };
+}
+
+/**
+ * Transitions a fish into a startled escape sprint from its current coordinates,
+ * boosting horizontal speed and dodging vertically for higher-tier fish.
+ */
+export function createSpookedFishState(fish: SchoolFishState, nowMs: number): SchoolFishState {
+  const curPos = getSchoolFishPosition(fish, nowMs);
+  const cfg =
+    FISH_CHASE_CONFIG[fish.type as keyof typeof FISH_CHASE_CONFIG] ||
+    FISH_CHASE_CONFIG.fish;
+  const prevStartX = fish.startX ?? (fish.isRight ? -12 : 112);
+  const prevEndX = fish.endX ?? (fish.isRight ? 115 : -15);
+  const endX = fish.isRight ? 118 : -18;
+  const origVel = Math.max(4, Math.abs(prevEndX - prevStartX) / Math.max(0.5, fish.speed || 10));
+  const boost = fish.isSpooked ? 1.2 : cfg.fleeSpeedMultiplier;
+  const remainingDist = Math.max(1, Math.abs(endX - curPos.x));
+  const nextSpeed = Math.max(1.2, Number((remainingDist / (origVel * boost)).toFixed(2)));
+
+  const prevCount = fish.spookCount || 0;
+  let dodgeDir = prevCount % 2 === 0 ? -1 : 1;
+  if (curPos.y < 24) dodgeDir = 1;
+  else if (curPos.y > 56) dodgeDir = -1;
+  const nextY = Number(clamp(curPos.y + dodgeDir * cfg.fleeDodgeY, 18, 62).toFixed(2));
+
+  return {
+    ...fish,
+    y: nextY,
+    startX: Number(curPos.x.toFixed(2)),
+    endX,
+    spawnTime: nowMs,
+    speed: nextSpeed,
+    isSpooked: true,
+    spookCount: prevCount + 1,
+    spookedAt: nowMs
+  };
+}
+
+/**
+ * Checks whether any active school fish intercepts `targetPos` around `arrivalTimeMs`.
+ */
+export function findInterceptedFish(
+  fishes: readonly SchoolFishState[],
+  targetPos: Point2D,
+  arrivalTimeMs: number
+): SchoolFishState | null {
+  const sampleOffsets = [-180, 0, 220];
+  let bestFish: SchoolFishState | null = null;
+  let bestScore = Infinity;
+
+  for (const fish of fishes) {
+    const durationMs = Math.max(250, (fish.speed || 10) * 1000);
+    if (fish.spawnTime !== undefined && arrivalTimeMs - fish.spawnTime > durationMs + 220) {
+      continue;
+    }
+    const cfg =
+      FISH_CHASE_CONFIG[fish.type as keyof typeof FISH_CHASE_CONFIG] ||
+      FISH_CHASE_CONFIG.fish;
+
+    for (const offset of sampleOffsets) {
+      const pos = getSchoolFishPosition(fish, arrivalTimeMs + offset);
+      const dx = Math.abs(pos.x - targetPos.x);
+      const dy = Math.abs(pos.y - targetPos.y);
+      if (dx <= cfg.catchRadiusX && dy <= cfg.catchRadiusY) {
+        const score = dx + dy * 1.5;
+        if (score < bestScore) {
+          bestScore = score;
+          bestFish = fish;
+        }
+      }
+    }
+  }
+
+  return bestFish;
+}
+
+/**
+ * Returns true if clicking `clickPos` chases a fish from behind or directly on top
+ * rather than leading ahead in its swim path, causing it to spook and dart away.
+ */
+export function shouldSpookFishFromPoint(
+  fish: SchoolFishState,
+  clickPos: Point2D,
+  nowMs: number
+): boolean {
+  const curPos = getSchoolFishPosition(fish, nowMs);
+  if (Math.abs(clickPos.y - curPos.y) > 8) return false;
+  const forwardDelta = fish.isRight ? (clickPos.x - curPos.x) : (curPos.x - clickPos.x);
+  return forwardDelta >= -16 && forwardDelta <= 4;
+}
 
 /**
  * Resolves which item stays in the hero's backpack and which items are dumped

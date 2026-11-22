@@ -25,6 +25,7 @@ export interface GameInstanceProps {
   savedState?: SavePayload | null;
   saveVersionWarning?: boolean;
   onDismissSaveVersionWarning?: (() => void) | null;
+  fishingMode?: 'chase' | 'timing_ring';
   lang: LanguageCode;
   setLang: Dispatch<SetStateAction<LanguageCode>>;
 }
@@ -40,6 +41,12 @@ export interface SchoolFishState {
   isRight?: boolean;
   speed?: number;
   type: string;
+  spawnTime?: number;
+  startX?: number;
+  endX?: number;
+  isSpooked?: boolean;
+  spookCount?: number;
+  spookedAt?: number;
   [key: string]: unknown;
 }
 
@@ -48,6 +55,7 @@ export interface RoamingBoatState {
   spawnTime?: number;
   x?: number;
   isRight?: boolean;
+  lane?: 'far' | 'near';
   reqItem?: string;
   offeredItem: string;
   [key: string]: unknown;

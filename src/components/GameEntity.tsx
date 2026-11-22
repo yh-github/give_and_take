@@ -258,6 +258,12 @@ export function GameEntity({
                   {level.id === 'underwater' && isWitch && isTransformed && (
                     <span className="text-sm font-black text-emerald-700 ml-1" style={{ textShadow: 'none' }}>➔ 🤠</span>
                   )}
+                  {level.id === 'underwater' && !isGoal && !isWitch && ent.id === 'dolphin_1' && (
+                    <span className="flex items-center gap-1 ml-1 text-sm font-black text-sky-900" style={{ textShadow: 'none' }}>
+                      <span>➔</span>
+                      <span className="text-base">{visualY > 40 ? '⬆️' : '⬇️'}</span>
+                    </span>
+                  )}
                   {level.id === 'underwater' && !isGoal && !isWitch && rewardItem && (
                     <span className="flex items-center gap-1 ml-1 text-sm font-black text-sky-900" style={{ textShadow: 'none' }}>
                       <span>➔</span>
@@ -399,14 +405,26 @@ export function GameEntity({
                       </div>
                     ) : isElevator ? (
                       <div className="relative flex flex-col items-center">
-                        <div className={`w-[18cqw] h-[18cqw] flex items-center justify-center text-[12cqw] font-sans drop-shadow-2xl ${!isCustomEntity && !isAnimating ? 'animate-dolphin-idle' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}>
+                        <div
+                          data-testid="dolphin-sprite"
+                          style={!isCustomEntity && !isAnimating ? { animationPlayState: isSelected ? 'paused' : 'running' } : undefined}
+                          className={`relative w-[18cqw] h-[18cqw] flex items-center justify-center text-[12cqw] font-sans drop-shadow-2xl ${!isCustomEntity && !isAnimating ? 'animate-dolphin-playful' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}
+                        >
                           {ent.emoji}
+                          {!isCustomEntity && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute -top-1 -right-1 text-[4.5cqw] opacity-85 animate-pulse pointer-events-none"
+                            >
+                              💦
+                            </span>
+                          )}
                         </div>
-                        {isDefeated && (
-                          <div className=" -mt-2 bg-sky-950/90 border border-cyan-300 text-cyan-100 rounded-full px-2 py-0.5 text-[2.4cqw] font-black shadow-md pointer-events-none">
-                            {visualY > 40 ? '⬆️' : '⬇️'}
-                          </div>
-                        )}
+                        <div className="-mt-2 bg-sky-950/90 border border-cyan-300 text-cyan-100 rounded-full px-2 py-0.5 text-[2.4cqw] font-black shadow-md pointer-events-none flex items-center gap-1">
+                          <span>🐟</span>
+                          <span>➔</span>
+                          <span>{visualY > 40 ? '⬆️' : '⬇️'}</span>
+                        </div>
                       </div>
                     ) : isMermaid ? (
                       <div
