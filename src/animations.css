@@ -138,10 +138,6 @@
   0% { transform: translate3d(120cqw, -50%, 0); }
   100% { transform: translate3d(-20cqw, -50%, 0); }
 }
-@keyframes fishGlide {
-  0% { transform: translate3d(var(--fish-start-x, -15cqw), -50%, 0); }
-  100% { transform: translate3d(var(--fish-end-x, 115cqw), -50%, 0); }
-}
 
 /* === Underwater: Bubbles === */
 @keyframes bubble {

@@ -11,7 +11,6 @@ import {
   AIR_REFILL_INTERVAL_MS,
   DROWNING_ALERT_DELAY_MS,
   DROWNING_RETURN_DELAY_MS,
-  FISH_CHASE_CONFIG,
   UNDERWATER_FISHING_MODE,
   UNDERWATER_INSPECT_RADIUS,
   UNDERWATER_AIR_COST_NORMAL,
@@ -36,6 +35,7 @@ import {
 import { findGlobalPath } from '../logic/pathfinding.ts';
 import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.ts';
 import {
+  canDirectGrabFish,
   createSpookedFishState,
   findInterceptedFish,
   getBoatReqFishForTrinket,
@@ -674,8 +674,8 @@ export function GameInstance({
         type === 'fish'
           ? 10 + Math.random() * 5
           : type === 'gold_fish'
-            ? 8 + Math.random() * 4
-            : 6.5 + Math.random() * 3.5;
+            ? 9 + Math.random() * 3
+            : 11 + Math.random() * 3;
       const isRight = forceRight !== undefined ? forceRight : Math.random() > 0.5;
       const startX = isRight ? -12 : 112;
       const endX = isRight ? 115 : -15;
@@ -1374,7 +1374,7 @@ export function GameInstance({
     }, 600);
 
     const id = `kelp_fish_${fishUidRef.current++}`;
-    const speed = habitat.fishType === 'fish' ? 12 : habitat.fishType === 'gold_fish' ? 9.5 : 7.5;
+    const speed = habitat.fishType === 'fish' ? 12 : habitat.fishType === 'gold_fish' ? 10 : 12;
     const isRight = habitat.x < 50;
     const startX = habitat.x;
     const endX = isRight ? 115 : -15;
@@ -1483,17 +1483,19 @@ export function GameInstance({
     }
 
     // Spatial Chase Mode ('chase'):
-    // Swimming to grab a distant fish startles it so it darts ahead; lead it or ambush up close!
+    // Clicking a distant fish startles it into a guaranteed miss; swim ahead into its path and grab it up close!
     const clickRefEl = innerMapRef.current || mapRef.current;
     const rect = clickRefEl.getBoundingClientRect();
     const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
     const startPos = pathHistory[pathHistory.length - 1];
     const currentZone = startPos.zone || 1;
+    const now = Date.now();
+    const liveFishPos = getSchoolFishPosition(fishObj, now);
     const rawTargetX = rect.width > 0
       ? ((e.clientX - rect.left) / rect.width) * 100
-      : getSchoolFishPosition(fishObj, Date.now()).x;
+      : liveFishPos.x;
     const targetX = Math.max(10, Math.min(90, Number.isFinite(rawTargetX) ? rawTargetX : 50));
-    const targetY = fishObj.y;
+    const targetY = Math.max(14, Math.min(66, liveFishPos.y));
 
     const dist = Math.hypot(targetX - startPos.x, targetY - startPos.y);
     const baseDuration = Math.min(800, Math.max(250, Math.round(dist * 35)));
@@ -1502,13 +1504,10 @@ export function GameInstance({
       : baseDuration;
     setMoveDurationMs(swimDuration);
 
-    const now = Date.now();
-    const liveFishPos = getSchoolFishPosition(fishObj, now);
-    const chaseCfg = FISH_CHASE_CONFIG[fishObj.type as keyof typeof FISH_CHASE_CONFIG] || FISH_CHASE_CONFIG.fish;
-    const distFromHeroToFish = Math.hypot(liveFishPos.x - startPos.x, liveFishPos.y - startPos.y);
     const targetPos = { x: targetX, y: targetY };
+    const canGrab = canDirectGrabFish(fishObj, startPos, now);
 
-    if (distFromHeroToFish > chaseCfg.directGrabDist) {
+    if (!canGrab) {
       spookFishById(fishObj.id);
     }
 
@@ -1519,7 +1518,11 @@ export function GameInstance({
 
     scheduleTimeout(() => {
       const arrivalNow = Date.now();
-      const caughtFish = findInterceptedFish(schoolsOfFishRef.current, targetPos, arrivalNow);
+      let caughtFish: SchoolFishState | null = null;
+      if (canGrab) {
+        const live = schoolsOfFishRef.current.find(f => f.id === fishObj.id);
+        caughtFish = live ? findInterceptedFish([live], targetPos, arrivalNow) : null;
+      }
       let nextInv = inventoryRef.current;
 
       if (caughtFish) {
@@ -1793,36 +1796,6 @@ export function GameInstance({
 
       if (level.id === 'underwater' && fishingMode === 'chase') {
         const arrivalNow = Date.now();
-        const caughtFish = findInterceptedFish(schoolsOfFishRef.current, lastP, arrivalNow);
-        if (caughtFish) {
-          const catchFit = canFitInInventory(inventoryRef.current, [], caughtFish.type);
-          if (!catchFit.fits) {
-            triggerInventoryFullAlert('school_fish');
-            handlePostActionAir(targetY, false, { wasFullBeforeMove, dropPos: lastP });
-            return;
-          }
-
-          const cKey = String(caughtFish.id);
-          if (fishCleanupTimersRef.current[cKey]) {
-            clearTimeout(fishCleanupTimersRef.current[cKey]);
-            delete fishCleanupTimersRef.current[cKey];
-          }
-          const remainingFish = schoolsOfFishRef.current.filter(f => f.id !== caughtFish.id);
-          schoolsOfFishRef.current = remainingFish;
-          setSchoolsOfFish(remainingFish);
-
-          const nextInv = [...inventoryRef.current, caughtFish.type];
-          inventoryRef.current = nextInv;
-          setInventory(nextInv);
-
-          const fishEmoji = level.items.find(i => i.id === caughtFish.type)?.emoji || '🐟';
-          setFlyingItem({ emoji: fishEmoji, x: lastP.x, y: lastP.y, zIndex: 90 });
-          scheduleTimeout(() => setFlyingItem(null), Math.round(ACTION_ANIM_MS * 0.6));
-
-          handlePostActionAir(targetY, false, { nextInventory: nextInv, wasFullBeforeMove, dropPos: lastP });
-          return;
-        }
-
         const fishToSpook = schoolsOfFishRef.current.filter(f => shouldSpookFishFromPoint(f, lastP, arrivalNow));
         fishToSpook.forEach(f => spookFishById(f.id));
       }

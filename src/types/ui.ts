@@ -47,6 +47,7 @@ export interface SchoolFishState {
   isSpooked?: boolean;
   spookCount?: number;
   spookedAt?: number;
+  dodgeFromY?: number;
   [key: string]: unknown;
 }
 

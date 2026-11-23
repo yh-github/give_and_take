@@ -35,9 +35,50 @@ export type FishingMode = 'chase' | 'timing_ring';
 export const UNDERWATER_FISHING_MODE: FishingMode = 'chase';
 
 export const FISH_CHASE_CONFIG = {
-  fish: { catchRadiusX: 11.5, catchRadiusY: 6.5, directGrabDist: 12, fleeSpeedMultiplier: 2.3, fleeDodgeY: 0 },
-  gold_fish: { catchRadiusX: 10, catchRadiusY: 5.8, directGrabDist: 9, fleeSpeedMultiplier: 2.6, fleeDodgeY: 3.2 },
-  blowfish: { catchRadiusX: 9, catchRadiusY: 5.2, directGrabDist: 7, fleeSpeedMultiplier: 3.0, fleeDodgeY: 4.2 }
+  fish: {
+    pattern: 'cruise',
+    catchRadiusX: 7,
+    catchRadiusY: 5,
+    directGrabDist: 12,
+    fleeSpeedMultiplier: 2.3,
+    fleeDodgeY: 0,
+    spookBehind: 16,
+    spookAhead: 4,
+    spookBandY: 8
+  },
+  gold_fish: {
+    pattern: 'dart',
+    catchRadiusX: 6,
+    catchRadiusY: 4.5,
+    directGrabDist: 10,
+    fleeSpeedMultiplier: 2.6,
+    fleeDodgeY: 3.2,
+    spookBehind: 18,
+    spookAhead: 4,
+    spookBandY: 9
+  },
+  blowfish: {
+    pattern: 'weave',
+    catchRadiusX: 5.5,
+    catchRadiusY: 5,
+    directGrabDist: 8,
+    fleeSpeedMultiplier: 3.0,
+    fleeDodgeY: 4.2,
+    spookBehind: 20,
+    spookAhead: 6,
+    spookBandY: 12
+  }
+} as const;
+
+export const FISH_PATTERN_CONFIG = {
+  cruiseBobAmp: 1,
+  cruiseBobPeriodMs: 2400,
+  dartCycleMs: 2400,
+  dartPauseFrac: 0.5,
+  dartBobAmp: 0.8,
+  weaveAmp: 5,
+  weavePeriodMs: 4000,
+  dodgeEaseMs: 300
 } as const;
 
 export const FISHING_CATCH_CONFIG = {

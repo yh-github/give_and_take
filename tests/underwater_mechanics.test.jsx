@@ -17,6 +17,7 @@ import {
 import { generateUnderwaterPuzzle } from '../src/levels/underwater/generator.ts';
 import {
   HUMAN_TRINKET_IDS,
+  canDirectGrabFish,
   createSpookedFishState,
   evaluateFishingCatch,
   findInterceptedFish,
@@ -180,22 +181,48 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         spookCount: 0
       };
 
-      expect(getSchoolFishPosition(baseFish, 6000)).toEqual({ x: 60, y: 50 });
+      const basePos = getSchoolFishPosition(baseFish, 6000);
+      expect(basePos.x).toBe(60);
+      expect(basePos.y).toBeCloseTo(55, 5);
 
       const spooked = createSpookedFishState(baseFish, 6000);
       expect(spooked.isSpooked).toBe(true);
       expect(spooked.spookCount).toBe(1);
       expect(spooked.startX).toBe(60);
       expect(spooked.speed).toBeLessThan(4);
+      expect(spooked.dodgeFromY).toBeCloseTo(55, 2);
       expect(spooked.y).not.toBe(50);
 
-      // Lead ahead of baseFish at t = 6000 (fish is at x = 60, speed 10 u/s) -> matches within arrival window
+      // Lead ahead of baseFish at t = 6000 (fish is at x = 60, y = 55) -> matches within arrival window
       expect(findInterceptedFish([baseFish], { x: 62, y: 50 }, 6000)?.id).toBe(42);
       expect(findInterceptedFish([baseFish], { x: 88, y: 50 }, 6000)).toBeNull();
 
       // Chasing from behind (x = 50 while fish is at x = 60 going right) spooks; leading ahead (x = 68) does not
       expect(shouldSpookFishFromPoint(baseFish, { x: 50, y: 50 }, 6000)).toBe(true);
       expect(shouldSpookFishFromPoint(baseFish, { x: 68, y: 50 }, 6000)).toBe(false);
+      // Already-spooked fish is not re-spooked endlessly on plain movement
+      expect(shouldSpookFishFromPoint(spooked, { x: 55, y: spooked.y }, 6100)).toBe(false);
+
+      // Goldfish dart pattern pauses during the first 50% of each cycle (constant x)
+      const dartFish = {
+        id: 43,
+        type: 'gold_fish',
+        y: 40,
+        isRight: true,
+        speed: 9.6, // 4 cycles of 2400ms
+        spawnTime: 0,
+        startX: 0,
+        endX: 100,
+        isSpooked: false,
+        spookCount: 0
+      };
+      expect(getSchoolFishPosition(dartFish, 240).x).toBe(0);
+      expect(getSchoolFishPosition(dartFish, 960).x).toBe(0);
+      expect(getSchoolFishPosition(dartFish, 2400).x).toBeCloseTo(25, 5);
+
+      // Close-range direct grab gating
+      expect(canDirectGrabFish(baseFish, { x: 55, y: 52 }, 6000)).toBe(true);
+      expect(canDirectGrabFish(baseFish, { x: 20, y: 52 }, 6000)).toBe(false);
     });
   });
 
@@ -694,20 +721,34 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       expect(screen.queryByTestId('fishing-catch-overlay')).toBeNull();
       expect(screen.queryByText('1/4')).toBeNull();
 
-      // Now lead a newly flushed kelp fish close to its ambush spot at (25, 26)
+      // Now swim ahead of a newly flushed kelp fish, wait for it to approach, and grab it up close
       const shallowKelp = screen.getByTestId('kelp-habitat-kelp_shallow');
       await act(async () => {
         fireEvent.click(shallowKelp); // spawns '🐟' at (11, 26), speed 12 -> ~8.67 u/s going right
       });
-      // Swim hero just ahead at (23, 26) (~1100ms travel + 1.4s -> fish arrives right inside catchRadiusX!)
+      // Swim hero via plain map click safely ahead to (36%, 26%) -> plain move does NOT catch
       await act(async () => {
-        vi.advanceTimersByTime(700);
-      });
-      await act(async () => {
-        fireEvent.click(innerMap, { clientX: 96, clientY: 260 }); // (24%, 26%)
+        fireEvent.click(innerMap, { clientX: 144, clientY: 260 });
       });
       await act(async () => {
         vi.advanceTimersByTime(900);
+      });
+      expect(screen.queryByText('1/4')).toBeNull();
+
+      // Wait another 1600ms (2500ms after flush) -> fish reaches x ≈ 32.7, within directGrabDist (12) of hero at 36
+      await act(async () => {
+        vi.advanceTimersByTime(1600);
+      });
+      const shallowFishSprite = screen
+        .getAllByTestId('school-fish-fish')
+        .find(el => parseFloat(el.style.top) < 28);
+      expect(shallowFishSprite).toBeDefined();
+
+      await act(async () => {
+        fireEvent.click(shallowFishSprite, { clientX: 132, clientY: 260 });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(400);
       });
 
       expect(screen.getByText('1/4')).toBeDefined();
@@ -739,6 +780,70 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         vi.advanceTimersByTime(700);
       });
       expect(screen.getByTestId('fishing-catch-overlay')).toBeDefined();
+    });
+
+    it('does not catch a fish by accident when plain-moving directly onto its live path', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.spyOn(Math, 'random').mockReturnValue(0.99);
+      const underwater = LEVEL_REGISTRY.underwater;
+      const puzzle = generateUnderwaterPuzzle(underwater, 5, 0, 'no-accidental-catch-seed');
+      const savedState = createSavePayload({
+        levelId: 'underwater',
+        targetSteps: 5,
+        numDiggers: 0,
+        puzzle,
+        inventory: [],
+        air: MAX_AIR,
+        pathHistory: [{ x: 50, y: 14, zone: 1 }]
+      });
+
+      render(
+        <GameInstance
+          level={underwater}
+          targetSteps={5}
+          numDiggers={0}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={savedState}
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+
+      const heroContainer = screen.getByText('🤠').closest('[class*="transform"]');
+      const innerMap = heroContainer.parentElement;
+      vi.spyOn(innerMap, 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 1000,
+        right: 400,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+        toJSON: () => {}
+      });
+
+      // Flush shallow kelp fish at (11, 26) moving right at ~8.67 u/s
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('kelp-habitat-kelp_shallow'));
+      });
+
+      // Plain-move directly onto (18%, 26%) where the fish arrives at ~800ms
+      await act(async () => {
+        fireEvent.click(innerMap, { clientX: 72, clientY: 260 });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(900);
+      });
+
+      // Hero never catches a fish via plain movement, and landing right on top of it spooks it
+      expect(screen.queryByText('1/4')).toBeNull();
+      const shallowFishSprite = screen
+        .getAllByTestId('school-fish-fish')
+        .find(el => parseFloat(el.style.top) < 28);
+      expect(shallowFishSprite).toBeDefined();
+      expect(shallowFishSprite.dataset.spooked).toBe('true');
     });
 
     it('requires feeding the Dolphin a fish per ride with no item returned in exchange', async () => {

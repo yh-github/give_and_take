@@ -1,5 +1,6 @@
 import {
   FISH_CHASE_CONFIG,
+  FISH_PATTERN_CONFIG,
   FISHING_CATCH_CONFIG,
   MAX_AIR,
   MAX_UNIQUE_ITEMS,
@@ -95,18 +96,68 @@ export function evaluateFishingCatch(progress: number, fishType: string): Fishin
 
 const clamp = (val: number, min: number, max: number): number => Math.max(min, Math.min(max, val));
 
+const getFishChaseConfig = (fishType: string) =>
+  FISH_CHASE_CONFIG[fishType as keyof typeof FISH_CHASE_CONFIG] || FISH_CHASE_CONFIG.fish;
+
 /**
- * Computes the live `(x, y)` percentage position of a roaming school fish at `nowMs`.
+ * Computes the live `(x, y)` percentage position of a roaming school fish at `nowMs`,
+ * applying per-species swim patterns (`cruise`, `dart`, `weave`) or linear spook sprint.
  */
 export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Point2D {
   const startX = fish.startX ?? (fish.isRight ? -12 : 112);
   const endX = fish.endX ?? (fish.isRight ? 115 : -15);
   const durationMs = Math.max(250, (fish.speed || 10) * 1000);
   const spawnTime = fish.spawnTime ?? (nowMs - durationMs * 0.5);
-  const progress = clamp((nowMs - spawnTime) / durationMs, 0, 1);
+  const elapsed = Math.max(0, nowMs - spawnTime);
+  const p = clamp((nowMs - spawnTime) / durationMs, 0, 1);
+  const cfg = getFishChaseConfig(fish.type);
+
+  if (fish.isSpooked) {
+    const spookStart = fish.spookedAt ?? spawnTime;
+    const easeT = clamp((nowMs - spookStart) / FISH_PATTERN_CONFIG.dodgeEaseMs, 0, 1);
+    const eased = 1 - Math.pow(1 - easeT, 2);
+    const fromY = fish.dodgeFromY ?? fish.y;
+    return {
+      x: startX + (endX - startX) * p,
+      y: clamp(fromY + (fish.y - fromY) * eased, 14, 66)
+    };
+  }
+
+  let xProgress = p;
+  let yOffset = 0;
+
+  if (cfg.pattern === 'dart') {
+    const cycles = Math.max(2, Math.round(durationMs / FISH_PATTERN_CONFIG.dartCycleMs));
+    if (p >= 1) {
+      xProgress = 1;
+    } else {
+      const cyclePos = p * cycles;
+      const cycleIdx = Math.floor(cyclePos);
+      const u = cyclePos - cycleIdx;
+      const pauseFrac = FISH_PATTERN_CONFIG.dartPauseFrac;
+      let moveU = 0;
+      if (u >= pauseFrac) {
+        const s = (u - pauseFrac) / (1 - pauseFrac);
+        moveU = s * s * (3 - 2 * s);
+      }
+      xProgress = (cycleIdx + moveU) / cycles;
+    }
+    yOffset =
+      FISH_PATTERN_CONFIG.dartBobAmp *
+      Math.sin((2 * Math.PI * elapsed) / FISH_PATTERN_CONFIG.dartCycleMs);
+  } else if (cfg.pattern === 'weave') {
+    yOffset =
+      FISH_PATTERN_CONFIG.weaveAmp *
+      Math.sin((2 * Math.PI * elapsed) / FISH_PATTERN_CONFIG.weavePeriodMs);
+  } else {
+    yOffset =
+      FISH_PATTERN_CONFIG.cruiseBobAmp *
+      Math.sin((2 * Math.PI * elapsed) / FISH_PATTERN_CONFIG.cruiseBobPeriodMs);
+  }
+
   return {
-    x: startX + (endX - startX) * progress,
-    y: fish.y
+    x: startX + (endX - startX) * xProgress,
+    y: clamp(fish.y + yOffset, 14, 66)
   };
 }
 
@@ -116,9 +167,7 @@ export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Poi
  */
 export function createSpookedFishState(fish: SchoolFishState, nowMs: number): SchoolFishState {
   const curPos = getSchoolFishPosition(fish, nowMs);
-  const cfg =
-    FISH_CHASE_CONFIG[fish.type as keyof typeof FISH_CHASE_CONFIG] ||
-    FISH_CHASE_CONFIG.fish;
+  const cfg = getFishChaseConfig(fish.type);
   const prevStartX = fish.startX ?? (fish.isRight ? -12 : 112);
   const prevEndX = fish.endX ?? (fish.isRight ? 115 : -15);
   const endX = fish.isRight ? 118 : -18;
@@ -136,6 +185,7 @@ export function createSpookedFishState(fish: SchoolFishState, nowMs: number): Sc
   return {
     ...fish,
     y: nextY,
+    dodgeFromY: Number(curPos.y.toFixed(2)),
     startX: Number(curPos.x.toFixed(2)),
     endX,
     spawnTime: nowMs,
@@ -144,6 +194,19 @@ export function createSpookedFishState(fish: SchoolFishState, nowMs: number): Sc
     spookCount: prevCount + 1,
     spookedAt: nowMs
   };
+}
+
+/**
+ * Returns true if the hero is already close enough to attempt a direct grab on `fish`.
+ */
+export function canDirectGrabFish(
+  fish: SchoolFishState,
+  heroPos: Point2D,
+  nowMs: number
+): boolean {
+  const cfg = getFishChaseConfig(fish.type);
+  const curPos = getSchoolFishPosition(fish, nowMs);
+  return Math.hypot(curPos.x - heroPos.x, curPos.y - heroPos.y) <= cfg.directGrabDist;
 }
 
 /**
@@ -163,9 +226,7 @@ export function findInterceptedFish(
     if (fish.spawnTime !== undefined && arrivalTimeMs - fish.spawnTime > durationMs + 220) {
       continue;
     }
-    const cfg =
-      FISH_CHASE_CONFIG[fish.type as keyof typeof FISH_CHASE_CONFIG] ||
-      FISH_CHASE_CONFIG.fish;
+    const cfg = getFishChaseConfig(fish.type);
 
     for (const offset of sampleOffsets) {
       const pos = getSchoolFishPosition(fish, arrivalTimeMs + offset);
@@ -185,18 +246,20 @@ export function findInterceptedFish(
 }
 
 /**
- * Returns true if clicking `clickPos` chases a fish from behind or directly on top
- * rather than leading ahead in its swim path, causing it to spook and dart away.
+ * Returns true if clicking `clickPos` chases an unspooked fish from behind or directly on top
+ * rather than leading safely ahead in its swim path, causing it to spook and dart away.
  */
 export function shouldSpookFishFromPoint(
   fish: SchoolFishState,
   clickPos: Point2D,
   nowMs: number
 ): boolean {
+  if (fish.isSpooked) return false;
+  const cfg = getFishChaseConfig(fish.type);
   const curPos = getSchoolFishPosition(fish, nowMs);
-  if (Math.abs(clickPos.y - curPos.y) > 8) return false;
+  if (Math.abs(clickPos.y - curPos.y) > cfg.spookBandY) return false;
   const forwardDelta = fish.isRight ? (clickPos.x - curPos.x) : (curPos.x - clickPos.x);
-  return forwardDelta >= -16 && forwardDelta <= 4;
+  return forwardDelta >= -cfg.spookBehind && forwardDelta <= cfg.spookAhead;
 }
 
 /**

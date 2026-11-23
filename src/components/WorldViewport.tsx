@@ -1,5 +1,6 @@
-import React, { type MouseEvent, type RefObject } from 'react';
+import React, { useEffect, useRef, type MouseEvent, type RefObject } from 'react';
 import { DROWNING_RETURN_DELAY_MS } from '../constants.ts';
+import { getSchoolFishPosition } from '../logic/underwater.ts';
 import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG } from '../levels/underwater/components.tsx';
 import { reefKelpHabitats, type ReefKelpHabitat } from '../levels/underwater/data.ts';
 import { CaveEntranceProp } from '../levels/river_crossing/components.tsx';
@@ -10,7 +11,6 @@ import { ClickIndicator, HeroBubbleBursts, FogOverlay } from './EffectsOverlay.t
 import DebugRays from './DebugRays.tsx';
 import type {
   AlertReason,
-  CSSCustomProperties,
   CampItemState,
   ClickIndicatorState,
   CustomEntityMovement,
@@ -96,6 +96,79 @@ export interface WorldViewportProps {
   rustlingKelpId?: string | null;
   showTrophy: boolean;
   onCellClick: (e: MouseEvent<HTMLDivElement>) => void;
+}
+
+interface SchoolFishSpriteProps {
+  fish: SchoolFishState;
+  emoji: string;
+  onClick: (e: MouseEvent, fish: SchoolFishState) => void;
+}
+
+function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
+  const spriteRef = useRef<HTMLDivElement | null>(null);
+  const initPos = getSchoolFishPosition(fish, Date.now());
+
+  useEffect(() => {
+    if (typeof requestAnimationFrame !== 'function') return;
+    let rafId = 0;
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      const el = spriteRef.current;
+      if (el) {
+        const pos = getSchoolFishPosition(fish, Date.now());
+        el.style.top = `${pos.y}%`;
+        el.style.transform = `translate3d(${pos.x}cqw, -50%, 0)`;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }, [fish]);
+
+  return (
+    <div
+      ref={spriteRef}
+      data-testid={`school-fish-${fish.type}`}
+      data-spooked={fish.isSpooked ? 'true' : 'false'}
+      onClick={(e) => onClick(e, fish)}
+      className="absolute cursor-pointer drop-shadow-md"
+      style={{
+        top: `${initPos.y}%`,
+        left: '0%',
+        zIndex: 45,
+        transform: `translate3d(${initPos.x}cqw, -50%, 0)`
+      }}
+    >
+      <div className="-translate-x-1/2 relative flex items-center hover:scale-125 transition-transform">
+        <div
+          aria-hidden="true"
+          className={`flex items-center gap-1 opacity-60 pointer-events-none ${
+            fish.isRight ? 'order-first mr-1' : 'order-last ml-1'
+          }`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-200/80 animate-ping" />
+          <span className="w-1 h-1 rounded-full bg-white/70" />
+        </div>
+
+        <span className={`text-4xl inline-block ${fish.isRight ? 'scale-x-[-1]' : ''}`}>
+          {emoji}
+        </span>
+
+        {fish.isSpooked && (
+          <div className=" -top-5 left-1/2 -translate-x-1/2 absolute flex items-center gap-0.5 text-sm font-black pointer-events-none animate-bounce whitespace-nowrap drop-shadow-md">
+            <span>❗</span>
+            <span>💨</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function WorldViewport({
@@ -267,52 +340,14 @@ export function WorldViewport({
         <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}><span className="text-3xl">🐟</span></div>
       )}
 
-      {schoolsOfFish.map(f => {
-        const duration = f.speed ? `${f.speed}s` : '10s';
-        const startX = f.startX ?? (f.isRight ? -12 : 112);
-        const endX = f.endX ?? (f.isRight ? 115 : -15);
-        return (
-          <div
-            key={`${f.id}-${f.spookCount || 0}`}
-            data-testid={`school-fish-${f.type}`}
-            data-spooked={f.isSpooked ? 'true' : 'false'}
-            onClick={(e) => handleCatchSchoolFish(e, f)}
-            className="absolute cursor-pointer drop-shadow-md"
-            style={{
-              top: `${f.y}%`,
-              left: '0%',
-              zIndex: 45,
-              '--fish-start-x': `${startX}cqw`,
-              '--fish-end-x': `${endX}cqw`,
-              animation: `fishGlide ${duration} linear forwards`,
-              transition: 'top 300ms ease-out'
-            } as CSSCustomProperties}
-          >
-            <div className="-translate-x-1/2 relative flex items-center hover:scale-125 transition-transform">
-              <div
-                aria-hidden="true"
-                className={`flex items-center gap-1 opacity-60 pointer-events-none ${
-                  f.isRight ? 'order-first mr-1' : 'order-last ml-1'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-200/80 animate-ping" />
-                <span className="w-1 h-1 rounded-full bg-white/70" />
-              </div>
-
-              <span className={`text-4xl inline-block ${f.isRight ? 'scale-x-[-1]' : ''}`}>
-                {level.items.find(i => i.id === f.type)?.emoji || '🐟'}
-              </span>
-
-              {f.isSpooked && (
-                <div className=" -top-5 left-1/2 -translate-x-1/2 absolute flex items-center gap-0.5 text-sm font-black pointer-events-none animate-bounce whitespace-nowrap drop-shadow-md">
-                  <span>❗</span>
-                  <span>💨</span>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {schoolsOfFish.map(f => (
+        <SchoolFishSprite
+          key={`${f.id}-${f.spookCount || 0}`}
+          fish={f}
+          emoji={level.items.find(i => i.id === f.type)?.emoji || '🐟'}
+          onClick={handleCatchSchoolFish}
+        />
+      ))}
 
       {roamingBoats.map(b => {
         const lane: 'far' | 'near' = b.lane || (b.isRight ? 'near' : 'far');
