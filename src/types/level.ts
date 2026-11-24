@@ -56,6 +56,7 @@ export type DeepCavePresetId = 'easy' | 'normal' | 'hard' | 'expert' | 'custom';
 export interface DeepCaveSettings {
   targetSteps: number;
   rows: number;
+  cols: number;
   branchingFactor: number;
   spurCount: number;
   decoyCount: number;

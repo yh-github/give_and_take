@@ -10,18 +10,20 @@ import type {
 
 export interface ClickIndicatorProps {
   indicator: ClickIndicatorState | null;
+  toCssX?: ((x: number) => number) | null;
   toCssY?: ((y: number) => number) | null;
 }
 
-export function ClickIndicator({ indicator, toCssY = null }: ClickIndicatorProps) {
+export function ClickIndicator({ indicator, toCssX = null, toCssY = null }: ClickIndicatorProps) {
   if (!indicator) return null;
+  const leftPct = toCssX ? toCssX(indicator.x) : indicator.x;
   const topPct = toCssY ? toCssY(indicator.y) : indicator.y;
 
   return (
     <div
       key={indicator.id}
       className="absolute pointer-events-none z-[180] -translate-x-1/2 -translate-y-1/2"
-      style={{ left: `${indicator.x}%`, top: `${topPct}%` }}
+      style={{ left: `${leftPct}%`, top: `${topPct}%` }}
     >
       {indicator.isValid ? (
         <div className="relative flex items-center justify-center">

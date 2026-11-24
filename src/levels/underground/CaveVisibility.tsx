@@ -6,6 +6,7 @@ export interface CaveVisibilityProps {
   polygon: readonly Point2D[] | null;
   gameTime: number;
   screens?: number;
+  worldWidth?: number | null;
   worldHeight?: number | null;
   yScale?: number | null;
   lighting?: Partial<LightingSettings>;
@@ -16,6 +17,7 @@ const CaveVisibility = ({
   polygon,
   gameTime,
   screens = 2.5,
+  worldWidth = null,
   worldHeight = null,
   yScale = null,
   lighting = {}
@@ -30,6 +32,7 @@ const CaveVisibility = ({
     flickerIntensity = 1.0
   } = lighting;
 
+  const effectiveWidth = worldWidth ?? 100;
   const effectiveHeight = worldHeight ?? (screens * 100);
   const effectiveYScale = yScale ?? screens;
 
@@ -45,7 +48,7 @@ const CaveVisibility = ({
   return (
     <svg 
       className="absolute inset-0 w-full h-full pointer-events-none z-[150] will-change-transform" 
-      viewBox={`0 0 100 ${effectiveHeight}`} 
+      viewBox={`0 0 ${effectiveWidth} ${effectiveHeight}`} 
       preserveAspectRatio="none"
     >
       <defs>
@@ -62,7 +65,7 @@ const CaveVisibility = ({
 
         <mask id="caveMask">
           {/* Base: show darkness everywhere */}
-          <rect x="0" y="0" width="100" height={effectiveHeight} fill="white" />
+          <rect x="0" y="0" width={effectiveWidth} height={effectiveHeight} fill="white" />
           
           {/* Cut a hole where the hero's torch lights up — raycasted polygon */}
           {pointsString && (
@@ -78,7 +81,7 @@ const CaveVisibility = ({
       {/* Darkness layer — visible everywhere EXCEPT the torch hole */}
       <rect 
         x="0" y="0" 
-        width="100" height={effectiveHeight} 
+        width={effectiveWidth} height={effectiveHeight} 
         fill={darknessColor} 
         mask="url(#caveMask)"
         opacity={darknessOpacity}

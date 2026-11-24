@@ -242,6 +242,7 @@ export interface ZoneMeta {
 
 export interface SpaceBlueprint {
   rows: number;
+  cols?: number;
   slots: SlotRecord[][];
   campCol: number;
   vaultCol: number;

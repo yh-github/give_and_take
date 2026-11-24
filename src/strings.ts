@@ -41,6 +41,7 @@ const en = {
   knobs: {
     targetSteps: 'Target Steps:',
     rows: 'Cave Depth (Rows):',
+    cols: 'Cave Width (Columns):',
     branchingFactor: 'Branching Channels:',
     spurCount: 'Dead-End Caches:',
     decoyCount: 'Decoy Traders:',
@@ -108,6 +109,7 @@ const he: typeof en = {
   knobs: {
     targetSteps: 'צעדי פתרון רצויים:',
     rows: 'עומק המערה (שורות):',
+    cols: 'רוחב המערה (עמודות):',
     branchingFactor: 'מספר הסתעפויות:',
     spurCount: 'חדרי צד ללא מוצא:',
     decoyCount: 'סוחרי הטעיה:',

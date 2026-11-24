@@ -9,6 +9,7 @@ export type PresetNameKey = 'easy' | 'normal' | 'hard' | 'expert' | 'custom';
 export type DeepCaveKnobKey =
   | 'targetSteps'
   | 'rows'
+  | 'cols'
   | 'branchingFactor'
   | 'spurCount'
   | 'decoyCount'

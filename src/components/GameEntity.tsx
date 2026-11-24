@@ -49,6 +49,7 @@ export interface GameEntityProps {
   getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
   handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
   dict: TranslationDictionary;
+  toCssX?: (x: number) => number;
   toCssY?: (y: number) => number;
   yScale?: number | null;
 }
@@ -75,6 +76,7 @@ export function GameEntity({
   getCustomEntityMovement,
   handleInteract,
   dict,
+  toCssX = (x) => x,
   toCssY = (y) => y,
   yScale = null
 }: GameEntityProps) {
@@ -166,8 +168,9 @@ export function GameEntity({
     heroDist > UNDERWATER_INSPECT_RADIUS
   );
 
+  const worldWidth = puzzle?.geometry?.worldWidth || 100;
   const isNearLeft = !ent.roamClass && visualX <= 22;
-  const isNearRight = !ent.roamClass && visualX >= 78;
+  const isNearRight = !ent.roamClass && visualX >= worldWidth - 22;
   const isNearTop = toCssY(visualY) <= 14;
   const tooltipAlign = isNearLeft ? "left-0" : isNearRight ? "right-0" : "left-1/2 -translate-x-1/2";
   const tooltipY = isNearTop ? "top-full mt-2" : "bottom-full mb-2";
@@ -187,23 +190,24 @@ export function GameEntity({
   const isVerticalCollar = rockBounds?.orientation === 'vertical';
   const worldHeight = puzzle?.geometry?.worldHeight;
 
+  const rockWidthPct = rockBounds ? (toCssX(rockBounds.xRight) - toCssX(rockBounds.xLeft)) : 0;
   const entityStyle: CSSProperties = (isGatekeeperRock && rockBounds) ? (
     isVerticalCollar && worldHeight && rockBounds.yTop != null && rockBounds.yBottom != null ? {
-      left: `${rockBounds.xLeft}%`,
+      left: `${toCssX(rockBounds.xLeft)}%`,
       top: `${toCssY(rockBounds.yTop)}%`,
-      width: `${Math.max(4, rockBounds.xRight - rockBounds.xLeft)}%`,
+      width: `${Math.max(toCssX(4), rockWidthPct)}%`,
       height: `${((rockBounds.yBottom - rockBounds.yTop) / worldHeight) * 100}%`,
       zIndex: entZ,
       transform: `rotate(${visualRotation}deg)`
     } : {
-      left: `${rockBounds.xLeft}%`,
+      left: `${toCssX(rockBounds.xLeft)}%`,
       top: `${toCssY(visualY)}%`,
-      width: `${rockBounds.xRight - rockBounds.xLeft}%`,
+      width: `${rockWidthPct}%`,
       zIndex: entZ,
       transform: `translate(0%, -50%) rotate(${visualRotation}deg)`
     }
   ) : {
-    left: `${visualX}%`,
+    left: `${toCssX(visualX)}%`,
     top: `${toCssY(visualY)}%`,
     zIndex: entZ,
     transform: `translate(-50%, -50%) rotate(${visualRotation}deg)`
@@ -211,9 +215,9 @@ export function GameEntity({
 
   const GatekeeperProp = level.GatekeeperPropComponent;
 
-  // Orient floating reward item outward toward the screen center or away from walls so rewards never collide
-  const rewardOffsetSelected = visualX > 50 ? '-translate-x-11' : 'translate-x-11';
-  const rewardOffsetIdle = visualX > 50 ? '-translate-x-9' : 'translate-x-9';
+  // Orient floating reward item outward toward the cave interior or away from walls so rewards never collide
+  const rewardOffsetSelected = visualX > worldWidth / 2 ? '-translate-x-11' : 'translate-x-11';
+  const rewardOffsetIdle = visualX > worldWidth / 2 ? '-translate-x-9' : 'translate-x-9';
 
   return (
     <div data-testid={`entity-${ent.id}`} onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
@@ -482,6 +486,7 @@ export function GameEntity({
                         isDefeated={isDefeated}
                         isTransformed={isTransformed}
                         isAlerting={isAlerting}
+                        reqEmojis={vaultReqEmojis}
                       />
                     ) : ent.isPreset === 'kelp' ? (
                       <InteractiveKelpSVG variant="harvest" />

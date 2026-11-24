@@ -4,6 +4,7 @@ import type { CSSCustomProperties, LevelDefinition } from '../types/index.ts';
 export interface HeroProps {
   playerVisualX: number;
   playerVisualY: number;
+  playerVisualXPct?: number | null;
   playerVisualYPct?: number | null;
   playerRotation: number;
   playerScale: string;
@@ -24,6 +25,7 @@ export interface HeroProps {
 export function Hero({
   playerVisualX,
   playerVisualY,
+  playerVisualXPct = null,
   playerVisualYPct = null,
   playerRotation,
   playerScale,
@@ -45,8 +47,8 @@ export function Hero({
       data-testid={isDrowning ? 'drowned-hero' : undefined}
       className={`absolute transform transition-all ${playerTransition} pointer-events-none flex items-center justify-center ${playerScale} ${playerFilter}`} 
       style={{ 
-        left: `${playerVisualX}%`, 
-        top: `${playerVisualYPct ?? playerVisualY}%`, 
+        left: `${playerVisualXPct ?? playerVisualX}%`, 
+        top: `${playerVisualYPct ?? playerVisualY}%`,  
         zIndex: Math.max(playerZ, isDrowning ? 190 : 160), 
         transform: `translate(-50%, -50%) rotate(${playerRotation}deg)`,
         ...(playerTransitionDuration ? { transitionDuration: playerTransitionDuration } : {})

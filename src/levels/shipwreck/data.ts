@@ -29,11 +29,11 @@ export const items: ItemDefinition[] = [
 
 // === Ship Wreck: Entity Templates ===
 export const entities: EntityTemplate[] = [
-  { id: 'sea_witch', name: 'Sea Witch', emoji: '😈', allowedReqs: ['pearl', 'anchor_key', 'compass', 'chalice', 'trident', 'gem', 'abyssal_pearl'] },
+  { id: 'sea_witch', name: 'Sea Witch', emoji: '😈', allowedReqs: ['pearl', 'chalice', 'trident', 'gem', 'abyssal_pearl', 'compass'] },
   { id: 'clam', name: 'Giant Clam', emoji: '🐚', allowedReqs: ['sea_kelp', 'starfish', 'doubloon', 'spyglass', 'shell', 'pearl'] },
   { id: 'crab', name: 'Hermit Crab', emoji: '🦀', allowedReqs: ['sea_kelp', 'starfish', 'doubloon', 'spyglass', 'shell', 'pearl'] },
   { id: 'octopus', name: 'Octopus', emoji: '🐙', allowedReqs: ['sea_kelp', 'starfish', 'doubloon', 'spyglass', 'shell', 'pearl', 'trident'] },
-  { id: 'captains_chest', name: "Captain's Treasure", emoji: '🧰', allowedReqs: [] }
+  { id: 'captains_chest', name: "Captain's Treasure", emoji: '🧰', allowedReqs: ['anchor_key', 'compass', 'spyglass'] }
 ];
 
 // === Ship Wreck: Map Layout (2D Crashed Galleon, 100 x 100) ===
@@ -43,10 +43,14 @@ export const entities: EntityTemplate[] = [
 // Zone 4: Flooded Forepeak Beneath the Waterline
 // Zone 5: Windowless Bow Air Pocket (requires Human)
 export const mapNodes: MapNode[] = [
-  // Zone 1: Seabed Exterior
+  // Zone 1: Seabed Exterior & Surrounding Reef
   { x: 11, y: 69, zone: 1, id: 'sea_witch' },
   { x: 20, y: 54, zone: 1, isPreset: 'kelp' },
   { x: 46, y: 90, zone: 1, isPreset: 'starfish' },
+  { x: 33, y: 90, zone: 1, isClamNode: true },
+  { x: 35, y: 36, zone: 1, isClamNode: true },
+  { x: 72, y: 82, zone: 1, isClamNode: true },
+  { x: 56, y: 22, zone: 1 },
 
   // Zone 2: Shattered Stern & Cargo Bilge
   { x: 37, y: 69, zone: 2, isClamNode: true },

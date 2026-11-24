@@ -79,6 +79,7 @@ interface LiveToken {
   /** Earliest segment index where this token was produced */
   bornSegIdx: number;
   fromEncounter?: EncounterPlacement;
+  avoidZoneId?: number;
 }
 
 /**
@@ -242,7 +243,7 @@ export function synthesizeMissionGraph(
     }
   }
 
-  const grottoSteps = grottos.length;
+  const grottoSteps = 0;
   const finalSpineEdge = spineEdges[spineEdges.length - 1];
   if (!finalSpineEdge) return null;
   finalSpineEdge.isFinal = true;
@@ -308,7 +309,7 @@ export function synthesizeMissionGraph(
     segs.reduce((sum, s, i) => {
       if (s.zones.length === 0) return sum;
       const outPenalty = segHasEncOut(s) ? 1 : 0;
-      const tokenMax = Math.min(6, Math.max(0, chainItemPoolCount - 2 - outPenalty));
+      const tokenMax = Math.min(8, Math.max(0, chainItemPoolCount - 2 - outPenalty));
       const rawPhys = s.zones.reduce((zSum, z) => zSum + (zonePhysicalSlack.get(z.id) || 0), 0);
       const reserve = i === 0
         ? (segs.length > 1 && settings.targetSteps >= 9 && rawPhys >= 5 ? 2 : 1)
@@ -335,8 +336,14 @@ export function synthesizeMissionGraph(
       if (s.zones.length > 0) return false;
       return !segHasEncOut(s) || s.segIdx === 0;
     });
+    const straddlesGrottoBadly =
+      probeSegs.length >= 2 &&
+      grottos.some(ep => {
+        const finalSeg = probeSegs[probeSegs.length - 1];
+        return ep.fromZone != null && finalSeg.allZoneIds.has(ep.fromZone) && finalSeg.zones.length <= 1;
+      });
 
-    if (!anyInvalidEmpty && nextNonEmpty > curNonEmpty) {
+    if (!anyInvalidEmpty && !straddlesGrottoBadly && nextNonEmpty > curNonEmpty) {
       activeBarriers = nextBarriers;
     } else {
       doorEdge.gate.gateType = 'rock';
@@ -413,7 +420,7 @@ export function synthesizeMissionGraph(
   const entitySpecs: MissionEntitySpec[] = [];
   let entitySeq = 1;
   const toolInputs: Array<{ itemId: string; fromZone: number; toZone: number; segIdx: number; isEncounter: boolean; encounter?: EncounterPlacement }> = [];
-  const segOutputsBySegIdx: Array<Array<{ item: string; zoneId: number; encounter?: EncounterPlacement }>> = Array.from(
+  const segOutputsBySegIdx: Array<Array<{ item: string; zoneId: number; encounter?: EncounterPlacement; avoidZoneId?: number }>> = Array.from(
     { length: segments.length },
     () => []
   );
@@ -470,7 +477,7 @@ export function synthesizeMissionGraph(
       kind: 'encounter_item',
       encounter: ep,
       anchorType: 'E',
-      anchorIndex: 1,
+      anchorIndex: 0,
       id: `mushroom_enc_${entitySeq++}`,
       name: mushMeta.name,
       emoji: mushMeta.emoji,
@@ -480,24 +487,46 @@ export function synthesizeMissionGraph(
       reward: 'mushroom',
       zone: toZone
     });
-    const unusedForGrotto = CHAIN_ITEMS.filter(id => !globallyUsedEver.has(id));
-    const outReward = unusedForGrotto.length > 0 ? pickOne(unusedForGrotto, rng) : pickOne(CHAIN_ITEMS, rng);
-    globallyUsedEver.add(outReward);
-    const tpl = pickOne(TRADER_TEMPLATES, rng);
+    // Route Mushroom consumption away from the Grotto's vestibule: push to a deeper segment whenever possible
+    const mushroomTargetSegIdx = sIdx + 1 < segments.length ? sIdx + 1 : sIdx;
+    segOutputsBySegIdx[mushroomTargetSegIdx].push({
+      item: 'mushroom',
+      zoneId: toZone,
+      encounter: ep,
+      avoidZoneId: fromZone
+    });
+
+    // Secondary find inside the sealed fungal cavern so behind the rocks feels like an actual cache,
+    // either supplying an unrelated progression item or a glittering decoy trap.
+    const segHasOtherZones = (segments[sIdx]?.zones.length ?? 0) >= 2;
+    let grottoCacheItem: string;
+    if (segHasOtherZones && segOutputsBySegIdx[sIdx].length < 2) {
+      const unusedForGrotto = CHAIN_ITEMS.filter(id => !globallyUsedEver.has(id));
+      grottoCacheItem = unusedForGrotto.length > 0 ? pickOne(unusedForGrotto, rng) : pickOne(CHAIN_ITEMS, rng);
+      globallyUsedEver.add(grottoCacheItem);
+      segOutputsBySegIdx[sIdx].push({
+        item: grottoCacheItem,
+        zoneId: toZone,
+        encounter: ep
+      });
+    } else {
+      grottoCacheItem = decoySinkItem;
+    }
+    const grottoCacheMeta = getItemMeta(grottoCacheItem, 'Cave Cache');
     entitySpecs.push({
-      kind: 'encounter_trader',
+      kind: 'encounter_cache',
       encounter: ep,
       anchorType: 'E',
-      anchorIndex: 0,
-      id: `${tpl.id}_enc_${entitySeq++}`,
-      name: tpl.name,
-      emoji: tpl.emoji,
-      requires: ['mushroom'],
+      anchorIndex: 1,
+      id: `grotto_cache_enc_${entitySeq++}`,
+      name: grottoCacheMeta.name,
+      emoji: grottoCacheMeta.emoji,
+      isPreset: grottoCacheItem,
+      requires: [],
       reqType: 'AND',
-      reward: outReward,
-      zone: fromZone
+      reward: grottoCacheItem,
+      zone: toZone
     });
-    segOutputsBySegIdx[sIdx].push({ item: outReward, zoneId: fromZone, encounter: ep });
   }
 
   for (const { ep, segIdx } of pendingChasmCaches) {
@@ -591,7 +620,7 @@ export function synthesizeMissionGraph(
     for (let sIdx = 0; sIdx < segments.length && remSteps > 0; sIdx++) {
       if (segments[sIdx].zones.length === 0) continue;
       const hasOut = segOutputsBySegIdx[sIdx].length > 0 ? 1 : 0;
-      const tokenMax = Math.min(6, Math.max(0, CHAIN_ITEMS.length - 2 - hasOut));
+      const tokenMax = Math.min(8, Math.max(0, CHAIN_ITEMS.length - 2 - hasOut));
       const strictMax = Math.min(tokenMax, segPhysCaps[sIdx]);
       if (segStepCounts[sIdx] < strictMax) {
         segStepCounts[sIdx]++;
@@ -684,7 +713,9 @@ export function synthesizeMissionGraph(
         if (sameToolUpToSeg > 1) return false;
         if (segStepCounts[t.segIdx] < 2) return false;
         if (t.isEncounter) {
-          return segOutputsBySegIdx[t.segIdx]?.some(o => o.encounter === t.encounter) ?? false;
+          return segOutputsBySegIdx.some(
+            (segOuts, idx) => idx >= t.segIdx && segOuts.some(o => o.encounter === t.encounter)
+          );
         }
         const toZ = zoneMeta.get(t.toZone);
         const barZ = segments[t.segIdx]?.barrier?.fromZone;
@@ -835,7 +866,8 @@ export function synthesizeMissionGraph(
         zoneId: eo.zoneId,
         row: zoneMeta.get(eo.zoneId)?.minRow ?? 0,
         bornSegIdx: sIdx,
-        fromEncounter: eo.encounter
+        fromEncounter: eo.encounter,
+        avoidZoneId: eo.avoidZoneId
       });
     }
 
@@ -987,10 +1019,16 @@ export function synthesizeMissionGraph(
     // Execute remaining `stepsInSeg` barter trades across `localThreads`
     // Weaving in within-segment AND cross-segment backtracking!
     let threadCursor = 0;
+    const freeInBarrierZoneNow = getFreePresetsInZone(barrierZoneId);
     for (let k = 0; k < stepsInSeg; k++) {
       if (localThreads.length === 0) break;
 
-      const primary = localThreads[threadCursor % localThreads.length];
+      const urgentIdx = localThreads.findIndex(
+        lt => lt.avoidZoneId != null || freeInBarrierZoneNow.has(lt.item)
+      );
+      const primary = urgentIdx !== -1
+        ? localThreads[urgentIdx]
+        : localThreads[threadCursor % localThreads.length];
       let secondary: LiveToken | null = null;
       // Preserve >= 2 threads in the final segment so the Vault Troll demands >= 2 items
       const minThreadsToKeep = isFinalSeg && settings.targetSteps >= 7 ? 2 : 1;
@@ -1017,6 +1055,9 @@ export function synthesizeMissionGraph(
       const consumes = secondary && secondary.item !== primary.item
         ? [primary.item, secondary.item]
         : [primary.item];
+      const avoidZones = new Set<number>();
+      if (primary.avoidZoneId != null) avoidZones.add(primary.avoidZoneId);
+      if (secondary?.avoidZoneId != null) avoidZones.add(secondary.avoidZoneId);
 
       // Pick trade zone: intentionally schedule backtracks when maxBacktracks allows!
       const canBacktrack = backtracksUsed < settings.maxBacktracks && settings.maxBacktrackRows > 0;
@@ -1035,6 +1076,7 @@ export function synthesizeMissionGraph(
             const rowDiff = sourceRow - z.minRow;
             const free = getFreePresetsInZone(z.id);
             return (
+              !avoidZones.has(z.id) &&
               rowDiff >= 1 &&
               rowDiff <= settings.maxBacktrackRows &&
               (zoneRemainingCapacity.get(z.id) || 0) > 0 &&
@@ -1053,6 +1095,7 @@ export function synthesizeMissionGraph(
             const rowDiff = sourceRow - z.minRow;
             const free = getFreePresetsInZone(z.id);
             return (
+              !avoidZones.has(z.id) &&
               rowDiff >= 1 &&
               rowDiff <= settings.maxBacktrackRows &&
               (zonePhysicalSlack.get(z.id) || 0) > 0 &&
@@ -1071,14 +1114,16 @@ export function synthesizeMissionGraph(
           const free = getFreePresetsInZone(z.id);
           return !consumes.some(c => free.has(c));
         });
-        const safePool = safeSegZones.length > 0
-          ? safeSegZones
-          : earlierSegZones.filter(z => {
-              const zSeg = zoneToSegIdx.get(z.id) ?? 0;
-              const earlierUsed = itemsUsedInSegByIdx[zSeg];
-              const free = getFreePresetsInZone(z.id);
-              return (zonePhysicalSlack.get(z.id) || 0) > 0 && !consumes.some(c => free.has(c) || earlierUsed.has(c));
-            });
+        const nonAvoidSegZones = safeSegZones.filter(z => !avoidZones.has(z.id));
+        const validEarlierFallback = earlierSegZones.filter(z => {
+          const zSeg = zoneToSegIdx.get(z.id) ?? 0;
+          const earlierUsed = itemsUsedInSegByIdx[zSeg];
+          const free = getFreePresetsInZone(z.id);
+          return !avoidZones.has(z.id) && (zonePhysicalSlack.get(z.id) || 0) > 0 && !consumes.some(c => free.has(c) || earlierUsed.has(c));
+        });
+        const safePool = nonAvoidSegZones.length > 0
+          ? nonAvoidSegZones
+          : (validEarlierFallback.length > 0 ? validEarlierFallback : safeSegZones);
         if (safePool.length === 0) return { ok: false, reason: 'SAME_ZONE_FREE_REQUIRED_ITEM' };
 
         const slackSafePool = safePool.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
@@ -1138,10 +1183,14 @@ export function synthesizeMissionGraph(
     }
     if (barrierReqs.length === 0) return null;
 
-    // Anti-silliness guard for barrier (cannot share zone with free preset of its own required item)
+    // Anti-silliness guard for barrier (cannot share zone with free preset of its own required item,
+    // nor ask for an untraded encounter resource right outside that encounter's entrance zone)
     const freeAtBarrier = getFreePresetsInZone(barrierZoneId);
     if (barrierReqs.some(r => freeAtBarrier.has(r))) {
       return { ok: false, reason: 'SAME_ZONE_FREE_REQUIRED_ITEM' };
+    }
+    if (localThreads.some(lt => lt.avoidZoneId === barrierZoneId && lt.avoidZoneId !== null)) {
+      return { ok: false, reason: 'GROTTO_CONSUMER_SAME_ZONE' };
     }
 
     const barrier = seg.barrier;

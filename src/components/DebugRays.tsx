@@ -7,6 +7,7 @@ export interface DebugRaysProps {
   polyPoints: readonly Point2D[] | null;
   displayPlayerPos: Point2D | null;
   debugSegments: readonly ObstacleSegment[] | null;
+  worldWidth?: number | null;
   worldHeight?: number | null;
   yScale?: number | null;
 }
@@ -17,12 +18,14 @@ export function DebugRays({
   polyPoints,
   displayPlayerPos,
   debugSegments,
+  worldWidth = null,
   worldHeight = null,
   yScale = null
 }: DebugRaysProps) {
   if (!debugMode || !level.mechanics.hasDarkness) return null;
 
   const screens = level.mechanics.screens || 1;
+  const effectiveWidth = worldWidth ?? 100;
   const effectiveHeight = worldHeight ?? (100 * screens);
   const effectiveYScale = yScale ?? (level.mechanics.useIsotropicCoords ? 1 : screens);
 
@@ -30,7 +33,7 @@ export function DebugRays({
     <div className="absolute inset-0 pointer-events-none z-[160]">
       <svg 
         className="w-full h-full" 
-        viewBox={`0 0 100 ${effectiveHeight}`} 
+        viewBox={`0 0 ${effectiveWidth} ${effectiveHeight}`} 
         preserveAspectRatio="none"
       >
         {/* Draw the polygon */}

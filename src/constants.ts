@@ -13,7 +13,7 @@ export const DEEP_CAVE_HERO_RADIUS = 3.0;
 export const DEEP_CAVE_CORRIDOR_MIN_WIDTH = 20.0;
 export const DEEP_CAVE_MIN_ENTITY_DIST = 14.0;
 export const DEEP_CAVE_MIN_WALL_MARGIN = 6.5;
-export const DEEP_CAVE_GENERATOR_VERSION = 4;
+export const DEEP_CAVE_GENERATOR_VERSION = 5;
 
 // === Solver Tuning ===
 export const SOLVER_MAX_ITERS = 25000;

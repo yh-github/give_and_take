@@ -79,6 +79,13 @@ export function GeneratingScreen({ dict, isDeepCave = false }: GeneratingScreenP
   );
 }
 
+const SHIPWRECK_PRESETS: Record<'easy' | 'normal' | 'hard' | 'expert', { steps: number; diggers: number }> = {
+  easy: { steps: 4, diggers: 0 },
+  normal: { steps: 6, diggers: 1 },
+  hard: { steps: 7, diggers: 2 },
+  expert: { steps: 8, diggers: 3 }
+};
+
 export interface GameMenuProps {
   isOpen: boolean;
   onClose: () => void;
@@ -141,6 +148,12 @@ export function GameMenu({
     menuSettings.deepCaveSettings || DEFAULT_DEEP_CAVE_SETTINGS
   );
   const activePresetId = detectDeepCavePresetId(resolvedDeepCaveSettings);
+  const activeShipwreckPresetId = (
+    (Object.keys(SHIPWRECK_PRESETS) as Array<keyof typeof SHIPWRECK_PRESETS>).find(
+      (id) => SHIPWRECK_PRESETS[id].steps === menuSettings.steps && SHIPWRECK_PRESETS[id].diggers === menuSettings.diggers
+    ) ||
+    (menuSettings.steps <= 4 ? 'easy' : menuSettings.steps <= 6 ? 'normal' : menuSettings.steps === 7 ? 'hard' : 'expert')
+  );
 
   const handleSelectLevel = (newLevelId: string) => {
     if (newLevelId === 'deep_cave') {
@@ -153,6 +166,14 @@ export function GameMenu({
         steps: nextDeep.targetSteps,
         diggers: nextDeep.numDiggers,
         deepCaveSettings: nextDeep
+      });
+    } else if (newLevelId === 'shipwreck') {
+      const preset = SHIPWRECK_PRESETS[activeShipwreckPresetId];
+      setMenuSettings({
+        ...menuSettings,
+        levelId: newLevelId,
+        steps: preset.steps,
+        diggers: preset.diggers
       });
     } else {
       const clampedSteps = Math.max(3, Math.min(8, Number(menuSettings.steps) || 5));
@@ -387,6 +408,42 @@ export function GameMenu({
                         })}
                       </div>
                     )}
+                  </div>
+                </div>
+              ) : menuSettings.levelId === 'shipwreck' ? (
+                <div className="space-y-3 pt-1">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between font-bold text-base">
+                      <span>{dict.difficultyPreset || 'Difficulty Preset:'}</span>
+                      <span className="text-xs font-mono text-amber-300">
+                        {menuSettings.steps} {lang === 'he' ? 'שלבים' : 'steps'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(Object.keys(SHIPWRECK_PRESETS) as Array<keyof typeof SHIPWRECK_PRESETS>).map((presetId) => {
+                        const isSelected = activeShipwreckPresetId === presetId;
+                        const label = dict.presets?.[presetId] || presetId;
+                        return (
+                          <button
+                            key={presetId}
+                            type="button"
+                            data-testid={`shipwreck-preset-${presetId}`}
+                            onClick={() => setMenuSettings({
+                              ...menuSettings,
+                              steps: SHIPWRECK_PRESETS[presetId].steps,
+                              diggers: SHIPWRECK_PRESETS[presetId].diggers
+                            })}
+                            className={`py-2 px-2 rounded-lg font-bold text-sm border-2 transition-all ${
+                              isSelected
+                                ? 'bg-amber-600 border-amber-400 text-white shadow-md'
+                                : 'bg-stone-900 border-stone-600 text-stone-300 hover:border-stone-400'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               ) : (

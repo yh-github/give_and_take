@@ -496,45 +496,95 @@ export interface CaptainsTreasureSVGProps {
   isDefeated?: boolean;
   isTransformed?: boolean;
   isAlerting?: boolean;
+  reqEmojis?: string[];
 }
 
 export const CaptainsTreasureSVG = ({
   isDefeated = false,
   isTransformed = true,
-  isAlerting = false
+  isAlerting = false,
+  reqEmojis = []
 }: CaptainsTreasureSVGProps) => (
   <div
     data-testid="captains-treasure"
     className={`relative flex flex-col items-center justify-center ${isAlerting ? 'animate-troll-mad' : ''}`}
   >
     <svg
-      viewBox="0 0 120 110"
-      className="w-16 h-16 sm:w-20 sm:h-20 overflow-visible drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)]"
+      viewBox="0 0 140 124"
+      className="w-20 h-18 sm:w-24 sm:h-22 overflow-visible drop-shadow-[0_10px_18px_rgba(0,0,0,0.85)]"
     >
       <defs>
-        <radialGradient id="captChestAura" cx="50%" cy="55%" r="52%">
-          <stop offset="0%" stopColor="#fde047" stopOpacity={isTransformed ? '0.5' : '0.9'} />
+        <radialGradient id="captChestAura" cx="50%" cy="54%" r="54%">
+          <stop offset="0%" stopColor="#fef08a" stopOpacity={isTransformed ? '0.55' : '0.95'} />
+          <stop offset="55%" stopColor="#f59e0b" stopOpacity={isTransformed ? '0.22' : '0.45'} />
           <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
         </radialGradient>
+        <linearGradient id="captGoldTrim" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="50%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#b45309" />
+        </linearGradient>
       </defs>
-      <circle cx="60" cy="56" r="52" fill="url(#captChestAura)" />
-      <ellipse cx="60" cy="94" rx="44" ry="8" fill="#451a03" opacity="0.6" />
 
-      <path d="M 18 52 L 26 24 Q 60 12 94 24 L 102 52 Z" fill="#78350f" stroke="#fde047" strokeWidth="2.6" />
-      <rect x="20" y="52" width="80" height="40" rx="6" fill="#451a03" stroke="#fbbf24" strokeWidth="2.8" />
-      <rect x="32" y="52" width="9" height="40" fill="#d97706" opacity="0.9" />
-      <rect x="79" y="52" width="9" height="40" fill="#d97706" opacity="0.9" />
-      <circle cx="60" cy="54" r="7" fill="#0f172a" stroke="#fde047" strokeWidth="2" />
+      {/* Radiant treasure aura */}
+      <circle cx="70" cy="60" r="62" fill="url(#captChestAura)" />
+      <ellipse cx="70" cy="106" rx="54" ry="10" fill="#451a03" opacity="0.65" />
 
-      {!isDefeated && (
-        <text x="60" y="47" textAnchor="middle" fontSize="28" className="drop-shadow-lg">
-          👑
-        </text>
-      )}
+      {/* Spilling gold coin mounds around the base */}
+      <g>
+        <ellipse cx="26" cy="99" rx="14" ry="6" fill="#ca8a04" stroke="#fef08a" strokeWidth="1" />
+        <ellipse cx="114" cy="99" rx="14" ry="6" fill="#ca8a04" stroke="#fef08a" strokeWidth="1" />
+        <circle cx="22" cy="96" r="3.5" fill="#fde047" stroke="#92400e" strokeWidth="0.8" />
+        <circle cx="30" cy="98" r="3.5" fill="#facc15" stroke="#92400e" strokeWidth="0.8" />
+        <circle cx="110" cy="98" r="3.5" fill="#fde047" stroke="#92400e" strokeWidth="0.8" />
+        <circle cx="118" cy="95" r="3.5" fill="#facc15" stroke="#92400e" strokeWidth="0.8" />
+        <circle cx="48" cy="105" r="3.2" fill="#fde047" stroke="#92400e" strokeWidth="0.8" />
+        <circle cx="92" cy="105" r="3.2" fill="#fde047" stroke="#92400e" strokeWidth="0.8" />
+      </g>
+
+      {/* Propped-open ornate lid revealing overflowing hoard */}
+      <path d="M 20 50 L 14 20 Q 70 4 126 20 L 120 50 Z" fill="#5c2808" stroke="url(#captGoldTrim)" strokeWidth="3" />
+      <path d="M 36 48 L 32 16 M 104 48 L 108 16" stroke="url(#captGoldTrim)" strokeWidth="5.5" strokeLinecap="round" />
+
+      {/* Overflowing treasure hoard inside the open rim */}
+      <g>
+        <ellipse cx="70" cy="52" rx="46" ry="11" fill="#eab308" stroke="#fef08a" strokeWidth="1.2" />
+        {/* Pearl strand */}
+        <circle cx="36" cy="53" r="3" fill="#f8fafc" />
+        <circle cx="42" cy="55" r="3" fill="#f8fafc" />
+        <circle cx="48" cy="56" r="3" fill="#e2e8f0" />
+        {/* Gold coins & jewels */}
+        <circle cx="56" cy="49" r="4" fill="#fde047" />
+        <circle cx="84" cy="49" r="4" fill="#fde047" />
+        <circle cx="96" cy="53" r="3.8" fill="#facc15" />
+        <text x="41" y="47" textAnchor="middle" fontSize="18">💎</text>
+        <text x="99" y="47" textAnchor="middle" fontSize="18">🏆</text>
+        <text x="70" y="43" textAnchor="middle" fontSize="28" className="drop-shadow-lg">👑</text>
+        <text x="54" y="54" textAnchor="middle" fontSize="14">🪙</text>
+        <text x="86" y="54" textAnchor="middle" fontSize="14">🪙</text>
+      </g>
+
+      {/* Heavy iron-and-gold chest base */}
+      <rect x="20" y="54" width="100" height="46" rx="7" fill="#451a03" stroke="url(#captGoldTrim)" strokeWidth="3.2" />
+      <line x1="22" y1="70" x2="118" y2="70" stroke="#78350f" strokeWidth="2.5" />
+      <line x1="22" y1="84" x2="118" y2="84" stroke="#78350f" strokeWidth="2.5" />
+      <rect x="34" y="54" width="10" height="46" fill="url(#captGoldTrim)" opacity="0.92" />
+      <rect x="96" y="54" width="10" height="46" fill="url(#captGoldTrim)" opacity="0.92" />
+
+      {/* Ornate lock plate */}
+      <rect x="59" y="51" width="22" height="22" rx="5" fill="#1e293b" stroke="#fde047" strokeWidth="2.4" />
+      <circle cx="70" cy="60" r="3.6" fill="#fde047" />
+      <polygon points="68,62 72,62 73,69 67,69" fill="#fde047" />
+
+      {/* Sparkle glints */}
+      <text x="14" y="34" fontSize="12" opacity="0.9">✨</text>
+      <text x="116" y="32" fontSize="12" opacity="0.9">✨</text>
     </svg>
-    {!isDefeated && isTransformed && (
-      <div className="-mt-1 bg-sky-950/90 border border-cyan-300/80 text-cyan-100 rounded-full px-2 py-0.5 text-[2.3cqw] font-black shadow-md whitespace-nowrap">
-        🤠 Only
+
+    {!isDefeated && (isTransformed || reqEmojis.length > 0) && (
+      <div className="-mt-1 flex items-center gap-1 bg-amber-950/95 border border-amber-300/85 text-amber-100 rounded-full px-2 py-0.5 text-[2.2cqw] font-black shadow-md whitespace-nowrap">
+        {isTransformed && <span>🤠</span>}
+        {reqEmojis.length > 0 && <span>{reqEmojis.join('+')}</span>}
       </div>
     )}
   </div>

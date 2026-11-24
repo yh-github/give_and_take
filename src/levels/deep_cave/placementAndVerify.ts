@@ -44,7 +44,8 @@ export function placeEntitiesInSlots(
   rng: RNG
 ): PlacedEntitiesResult | null {
   const { slots, campCol, vaultCol } = blueprint;
-  const dims = getWorldDimensions(blueprint.rows);
+  const cols = blueprint.cols ?? slots[0]?.length ?? DEEP_CAVE_SLOT_COLS;
+  const dims = getWorldDimensions(blueprint.rows, cols);
   const wallSegments = getProceduralObstacleSegments([], geometry, []);
 
   const campCenter = getSlotCenter(campCol, 0, dims);
@@ -170,7 +171,7 @@ export function placeEntitiesInSlots(
   // Pass 3: Place traders, presets, and decoys inside slots belonging to their zone
   const zoneSlots = new Map<number, Array<{ col: number; row: number }>>();
   for (let r = 0; r < blueprint.rows; r++) {
-    for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+    for (let c = 0; c < cols; c++) {
       const s = slots[r][c];
       if (!s.active || s.encounterId || s.role === 'vault' || s.zone == null) continue;
       let list = zoneSlots.get(s.zone);
@@ -190,7 +191,18 @@ export function placeEntitiesInSlots(
     const shuffledSlots = targetSlots.length > 0 ? shuffle(targetSlots, rng) : [];
     if (shuffledSlots.length === 0) return null;
 
-    // Spread entities evenly across slots; avoid piling presets together or putting diggers/presets in camp when alternatives exist
+    // Locate any already-placed direct suppliers (giving spec.requires) or direct consumers (wanting spec.reward)
+    const coupledPositions: Point2D[] = [];
+    for (const ent of placed) {
+      const sharesReq = Boolean(ent.reward && spec.requires?.includes(ent.reward));
+      const sharesConsume = Boolean(spec.reward && ent.requires?.includes(spec.reward));
+      if (sharesReq || sharesConsume) {
+        coupledPositions.push({ x: ent.x, y: ent.y });
+      }
+    }
+
+    // Spread entities evenly across slots; avoid piling presets together, keep diggers/presets out of camp,
+    // and maximize separation from direct suppliers/consumers when multiple slots exist in a zone.
     const searchSlots = [...shuffledSlots].sort((a, b) => {
       const ka = `${a.col},${a.row}`;
       const kb = `${b.col},${b.row}`;
@@ -204,14 +216,23 @@ export function placeEntitiesInSlots(
         const bCamp = b.col === campCol && b.row === 0 ? 1 : 0;
         if (aCamp !== bCamp) return aCamp - bCamp;
       }
-      return (slotOccupancy.get(ka) || 0) - (slotOccupancy.get(kb) || 0);
+      const occDiff = (slotOccupancy.get(ka) || 0) - (slotOccupancy.get(kb) || 0);
+      if (occDiff !== 0) return occDiff;
+      if (coupledPositions.length > 0) {
+        const ca = getSlotCenter(a.col, a.row, dims);
+        const cb = getSlotCenter(b.col, b.row, dims);
+        const minDistA = Math.min(...coupledPositions.map(p => Math.hypot(ca.x - p.x, ca.y - p.y)));
+        const minDistB = Math.min(...coupledPositions.map(p => Math.hypot(cb.x - p.x, cb.y - p.y)));
+        if (Math.abs(minDistB - minDistA) > 4) return minDistB - minDistA;
+      }
+      return 0;
     });
 
     let pos: Point2D | null = null;
     let chosenSlotKey: string | null = null;
     for (const sl of searchSlots) {
       const center = getSlotCenter(sl.col, sl.row, dims);
-      const slotW = dims.worldWidth / DEEP_CAVE_SLOT_COLS;
+      const slotW = dims.worldWidth / cols;
       const slotH = dims.worldHeight / blueprint.rows;
 
       const offsets: Array<[number, number]> = [

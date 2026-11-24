@@ -102,18 +102,31 @@ export function buildSpaceBlueprint(
   rng: RNG
 ): SpaceBlueprint | null {
   const rows = settings.rows;
-  const slots: SlotRecord[][] = createEmptySlotGrid(rows);
+  const cols = settings.cols ?? DEEP_CAVE_SLOT_COLS;
+  const slots: SlotRecord[][] = createEmptySlotGrid(rows, cols);
 
-  const campCol = 1;
+  const campCol = cols === 3 ? 1 : Math.floor(cols / 2);
   slots[0][campCol].active = true;
   slots[0][campCol].role = 'camp';
   let curCol = campCol;
 
   const intermediateRows: number[] = [];
   for (let r = 1; r <= rows - 2; r++) intermediateRows.push(r);
-  const encRowPool = shuffle(intermediateRows, rng).slice(0, selectedEncounters.length);
+  const encRowPool = shuffle(intermediateRows, rng);
+  // Keep mushroom_grotto off the bottommost row above Vault when shallower intermediate rows exist
+  const orderedEncs = [...selectedEncounters].sort((a, b) =>
+    Number(b.id === 'mushroom_grotto') - Number(a.id === 'mushroom_grotto')
+  );
   const rowToEncounter = new Map<number, EncounterModule>();
-  encRowPool.forEach((r, idx) => rowToEncounter.set(r, selectedEncounters[idx]));
+  const usedEncRows = new Set<number>();
+  for (const enc of orderedEncs) {
+    const preferredRow = enc.id === 'mushroom_grotto' && rows >= 4
+      ? (encRowPool.find(r => !usedEncRows.has(r) && r <= rows - 3) ?? encRowPool.find(r => !usedEncRows.has(r)))
+      : encRowPool.find(r => !usedEncRows.has(r));
+    if (preferredRow === undefined) break;
+    usedEncRows.add(preferredRow);
+    rowToEncounter.set(preferredRow, enc);
+  }
 
   const spinePath: SpineNode[] = [{ col: curCol, row: 0 }];
   const encounterPlacements: EncounterPlacement[] = [];
@@ -127,7 +140,7 @@ export function buildSpaceBlueprint(
 
       const prevRowHasEncOnCur = Boolean(slots[r - 1][curCol].encounterId);
       const validOrigins: number[] = [];
-      for (let oCol = 0; oCol <= DEEP_CAVE_SLOT_COLS - fpCols; oCol++) {
+      for (let oCol = 0; oCol <= cols - fpCols; oCol++) {
         const candidateEnter = oCol + entryOffset;
         if (prevRowHasEncOnCur && candidateEnter !== curCol) continue;
         let blocked = false;
@@ -147,17 +160,17 @@ export function buildSpaceBlueprint(
         if (!nextEnc) return true;
         const nOff = nextEnc.sockets.north[0]?.colOffset ?? 0;
         const nOrig = exitC - nOff;
-        return nOrig >= 0 && nOrig <= DEEP_CAVE_SLOT_COLS - nextEnc.footprint.cols;
+        return nOrig >= 0 && nOrig <= cols - nextEnc.footprint.cols;
       };
       const nextSafeOrigins = validOrigins.filter(o => fitsNextRow(o + exitOffset));
       const candidateOrigins = nextSafeOrigins.length > 0 ? nextSafeOrigins : validOrigins;
 
       const wantOffsetRow0 = r === 1 && settings.targetSteps >= 7;
       const offsetMatch = wantOffsetRow0
-        ? candidateOrigins.find(o => o + entryOffset !== curCol && !(r < rows - 2 && o + exitOffset === 2))
+        ? candidateOrigins.find(o => o + entryOffset !== curCol && !(r < rows - 2 && o + exitOffset === cols - 1))
         : undefined;
       const exactMatch = candidateOrigins.find(
-        o => o + entryOffset === curCol && !(r < rows - 2 && o + exitOffset === 2)
+        o => o + entryOffset === curCol && !(r < rows - 2 && o + exitOffset === cols - 1)
       );
       const chosenOrigin = offsetMatch !== undefined
         ? offsetMatch
@@ -198,13 +211,16 @@ export function buildSpaceBlueprint(
     } else {
       connectSlots(slots, curCol, r - 1, curCol, r);
       spinePath.push({ col: curCol, row: r });
-      let targetCol = Math.floor(rng() * DEEP_CAVE_SLOT_COLS);
+      let targetCol = Math.floor(rng() * cols);
       if (settings.targetSteps >= 12 && r > 0) {
-        if (curCol === 0) targetCol = 2;
-        else if (curCol === 2) targetCol = 0;
-        else if (targetCol === curCol) targetCol = rng() < 0.5 ? 0 : 2;
+        if (curCol === 0) targetCol = cols - 1;
+        else if (curCol === cols - 1) targetCol = 0;
+        else {
+          const edgeCols = [0, cols - 1].filter(c => Math.abs(c - curCol) >= 1);
+          targetCol = edgeCols.length > 0 ? pickOne(edgeCols, rng) : targetCol;
+        }
       } else if (targetCol === curCol && settings.targetSteps >= 7) {
-        const altCols = [0, 1, 2].filter(c => c !== curCol);
+        const altCols = Array.from({ length: cols }, (_, c) => c).filter(c => c !== curCol);
         targetCol = pickOne(altCols, rng);
       }
       while (curCol !== targetCol) {
@@ -222,7 +238,9 @@ export function buildSpaceBlueprint(
   spinePath.push({ col: actualVaultCol, row: rows - 1, isVault: true });
 
   if (settings.targetSteps >= 5) {
-    const freeRow0Cols = [0, 2].filter(c => !slots[0][c].active && !slots[0][c].encounterId);
+    const freeRow0Cols = [campCol - 1, campCol + 1].filter(
+      c => c >= 0 && c < cols && !slots[0][c].active && !slots[0][c].encounterId
+    );
     if (freeRow0Cols.length > 0) {
       const wantWings = settings.targetSteps >= 8 ? Math.min(2, freeRow0Cols.length) : 1;
       for (const wingCol of shuffle(freeRow0Cols, rng).slice(0, wantWings)) {
@@ -237,14 +255,14 @@ export function buildSpaceBlueprint(
     let added = 0;
     const candidates: Array<{ from: [number, number]; to: [number, number] }> = [];
     for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+      for (let c = 0; c < cols; c++) {
         const s = slots[r][c];
         if (!s.active || s.encounterId || s.role === 'vault') continue;
         const dirs: Array<[number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
         for (const [dc, dr] of dirs) {
           const nc = c + dc;
           const nr = r + dr;
-          if (nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows - 1) continue;
+          if (nc < 0 || nc >= cols || nr < 0 || nr >= rows - 1) continue;
           const target = slots[nr][nc];
           if (target.encounterId) continue;
           if (!target.active) {
@@ -277,7 +295,7 @@ export function buildSpaceBlueprint(
 
   let freeNonEncSlots = 0;
   for (let r = 0; r < rows - 1; r++) {
-    for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+    for (let c = 0; c < cols; c++) {
       if (slots[r][c].active && !slots[r][c].encounterId) freeNonEncSlots++;
     }
   }
@@ -347,7 +365,7 @@ export function buildSpaceBlueprint(
   }
 
   for (let r = 0; r < rows - 1; r++) {
-    for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+    for (let c = 0; c < cols; c++) {
       const top = slots[r][c];
       const bot = slots[r + 1][c];
       if (!top.active || !bot.active || !top.sockets.S) continue;
@@ -385,7 +403,7 @@ export function buildSpaceBlueprint(
   const chainPoolSize = tradeItemPoolCount - (settings.decoyCount > 0 ? 1 : 0);
 
   const evaluateGuardianSet = (guardianKeys: Set<string>): GuardianEvalResult => {
-    const visited = Array.from({ length: rows }, () => Array<boolean>(DEEP_CAVE_SLOT_COLS).fill(false));
+    const visited = Array.from({ length: rows }, () => Array<boolean>(cols).fill(false));
     const queue = [{ c: campCol, r: 0 }];
     visited[0][campCol] = true;
     const segSummaries: Array<{ campCnt: number; regCnt: number; hasEncOut: boolean; isEmpty: boolean }> = [];
@@ -429,7 +447,7 @@ export function buildSpaceBlueprint(
           [cur.c, cur.r - 1, s.sockets.N]
         ];
         for (const [nc, nr, open] of dirs) {
-          if (!open || nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows) continue;
+          if (!open || nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
           if (!slots[nr][nc].active || visited[nr][nc]) continue;
           if (s.encounterId === 'guardian_lair' && nr === cur.r + 1) continue;
           const ek = makeEdgeKey(cur.c, cur.r, nc, nr);
@@ -585,11 +603,11 @@ export function buildSpaceBlueprint(
 
   if (targetLoops > 0) {
     const compGrid: number[][] = Array.from({ length: rows }, () =>
-      Array<number>(DEEP_CAVE_SLOT_COLS).fill(-1)
+      Array<number>(cols).fill(-1)
     );
     let nextComp = 0;
     for (let sr = 0; sr < rows - 1; sr++) {
-      for (let sc = 0; sc < DEEP_CAVE_SLOT_COLS; sc++) {
+      for (let sc = 0; sc < cols; sc++) {
         const startSlot = slots[sr][sc];
         if (!startSlot.active || startSlot.encounterId || startSlot.role === 'vault' || compGrid[sr][sc] !== -1) {
           continue;
@@ -607,7 +625,7 @@ export function buildSpaceBlueprint(
             [cc, cr - 1, curSlot.sockets.N]
           ];
           for (const [nc, nr, open] of dirs) {
-            if (!open || nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows - 1) continue;
+            if (!open || nc < 0 || nc >= cols || nr < 0 || nr >= rows - 1) continue;
             const ns = slots[nr][nc];
             if (!ns.active || ns.encounterId || ns.role === 'vault' || compGrid[nr][nc] !== -1) continue;
             if (gatedEdges.has(makeEdgeKey(cc, cr, nc, nr))) continue;
@@ -621,10 +639,10 @@ export function buildSpaceBlueprint(
     // 1. Direct cycle edges between adjacent active slots in the same ungated component
     const directLoopCandidates: Array<{ c1: number; r1: number; c2: number; r2: number; vert: boolean }> = [];
     for (let r = 0; r < rows - 1; r++) {
-      for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+      for (let c = 0; c < cols; c++) {
         const s = slots[r][c];
         if (!s.active || s.encounterId || s.role === 'vault' || compGrid[r][c] === -1) continue;
-        if (c + 1 < DEEP_CAVE_SLOT_COLS && !s.sockets.E && compGrid[r][c + 1] === compGrid[r][c]) {
+        if (c + 1 < cols && !s.sockets.E && compGrid[r][c + 1] === compGrid[r][c]) {
           directLoopCandidates.push({ c1: c, r1: r, c2: c + 1, r2: r, vert: false });
         }
         if (r + 1 < rows - 1 && !s.sockets.S && compGrid[r + 1][c] === compGrid[r][c]) {
@@ -651,7 +669,7 @@ export function buildSpaceBlueprint(
         compId: number;
       }> = [];
       for (let r = 0; r < rows - 1; r++) {
-        for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+        for (let c = 0; c < cols; c++) {
           if (slots[r][c].active || slots[r][c].encounterId) continue;
           const pairs: Array<[[number, number], [number, number]]> = [
             [[c + 1, r], [c, r + 1]],
@@ -661,8 +679,8 @@ export function buildSpaceBlueprint(
           ];
           for (const [[c1, r1], [c2, r2]] of pairs) {
             if (
-              c1 < 0 || c1 >= DEEP_CAVE_SLOT_COLS || r1 < 0 || r1 >= rows - 1 ||
-              c2 < 0 || c2 >= DEEP_CAVE_SLOT_COLS || r2 < 0 || r2 >= rows - 1
+              c1 < 0 || c1 >= cols || r1 < 0 || r1 >= rows - 1 ||
+              c2 < 0 || c2 >= cols || r2 < 0 || r2 >= rows - 1
             ) continue;
             const comp1 = compGrid[r1][c1];
             const comp2 = compGrid[r2][c2];
@@ -690,10 +708,10 @@ export function buildSpaceBlueprint(
     if (loopCount < targetLoops) {
       const ringCandidates: Array<{ a: [number, number]; b: [number, number]; na: [number, number]; nb: [number, number]; compId: number }> = [];
       for (let r = 0; r < rows - 1; r++) {
-        for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+        for (let c = 0; c < cols; c++) {
           const s = slots[r][c];
           if (!s.active || s.encounterId || s.role === 'vault' || compGrid[r][c] === -1) continue;
-          if (c + 1 < DEEP_CAVE_SLOT_COLS && s.sockets.E && compGrid[r][c + 1] === compGrid[r][c] && !gatedEdges.has(makeEdgeKey(c, r, c + 1, r))) {
+          if (c + 1 < cols && s.sockets.E && compGrid[r][c + 1] === compGrid[r][c] && !gatedEdges.has(makeEdgeKey(c, r, c + 1, r))) {
             for (const dr of [1, -1]) {
               const nr = r + dr;
               if (nr < 0 || nr >= rows - 1) continue;
@@ -705,7 +723,7 @@ export function buildSpaceBlueprint(
           if (r + 1 < rows - 1 && s.sockets.S && compGrid[r + 1][c] === compGrid[r][c] && !gatedEdges.has(makeEdgeKey(c, r, c, r + 1))) {
             for (const dc of [1, -1]) {
               const nc = c + dc;
-              if (nc < 0 || nc >= DEEP_CAVE_SLOT_COLS) continue;
+              if (nc < 0 || nc >= cols) continue;
               if (!slots[r][nc].active && !slots[r][nc].encounterId && !slots[r + 1][nc].active && !slots[r + 1][nc].encounterId) {
                 ringCandidates.push({ a: [c, r], b: [c, r + 1], na: [nc, r], nb: [nc, r + 1], compId: compGrid[r][c] });
               }
@@ -731,11 +749,11 @@ export function buildSpaceBlueprint(
     // (promoting a gated spur into a navigable loop when an adjacent active neighbor exists)
     if (loopCount === 0 && targetLoops > 0) {
       const segGrid: number[][] = Array.from({ length: rows }, () =>
-        Array<number>(DEEP_CAVE_SLOT_COLS).fill(-1)
+        Array<number>(cols).fill(-1)
       );
       let nextSeg = 0;
       for (let sr = 0; sr < rows - 1; sr++) {
-        for (let sc = 0; sc < DEEP_CAVE_SLOT_COLS; sc++) {
+        for (let sc = 0; sc < cols; sc++) {
           const st = slots[sr][sc];
           if (!st.active || st.encounterId || st.role === 'vault' || segGrid[sr][sc] !== -1) continue;
           const sId = nextSeg++;
@@ -751,7 +769,7 @@ export function buildSpaceBlueprint(
               [cc, cr - 1, cs.sockets.N]
             ];
             for (const [nc, nr, open] of dirs) {
-              if (!open || nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows - 1) continue;
+              if (!open || nc < 0 || nc >= cols || nr < 0 || nr >= rows - 1) continue;
               const ns = slots[nr][nc];
               if (!ns.active || ns.encounterId || ns.role === 'vault' || segGrid[nr][nc] !== -1) continue;
               const ge = gatedEdges.get(makeEdgeKey(cc, cr, nc, nr));
@@ -765,10 +783,10 @@ export function buildSpaceBlueprint(
 
       const segLoopCands: Array<{ c1: number; r1: number; c2: number; r2: number }> = [];
       for (let r = 0; r < rows - 1; r++) {
-        for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+        for (let c = 0; c < cols; c++) {
           const s = slots[r][c];
           if (!s.active || s.encounterId || s.role === 'vault' || segGrid[r][c] === -1) continue;
-          if (c + 1 < DEEP_CAVE_SLOT_COLS && !s.sockets.E && segGrid[r][c + 1] === segGrid[r][c]) {
+          if (c + 1 < cols && !s.sockets.E && segGrid[r][c + 1] === segGrid[r][c]) {
             segLoopCands.push({ c1: c, r1: r, c2: c + 1, r2: r });
           }
           if (r + 1 < rows - 1 && !s.sockets.S && segGrid[r + 1][c] === segGrid[r][c]) {
@@ -785,7 +803,7 @@ export function buildSpaceBlueprint(
   }
 
   const slotZone: Array<Array<number | null>> = Array.from({ length: rows }, () =>
-    Array<number | null>(DEEP_CAVE_SLOT_COLS).fill(null)
+    Array<number | null>(cols).fill(null)
   );
   const zoneMeta = new Map<number, ZoneMeta>();
   let nextZoneId = 1;
@@ -849,7 +867,7 @@ export function buildSpaceBlueprint(
         [cur.col, cur.row - 1, s.sockets.N]
       ];
       for (const [nc, nr, open] of neighbors) {
-        if (!open || nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows) continue;
+        if (!open || nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
         if (!slots[nr][nc].active) continue;
         if (s.encounterId === 'guardian_lair' && nr === cur.row + 1) continue;
         const ek = makeEdgeKey(cur.col, cur.row, nc, nr);
@@ -943,6 +961,7 @@ export function buildSpaceBlueprint(
 
   return {
     rows,
+    cols,
     slots,
     campCol,
     vaultCol: actualVaultCol,

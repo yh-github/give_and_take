@@ -17,6 +17,7 @@ export interface DeepCaveKnobDef {
 export type DeepCaveKnobKey =
   | 'targetSteps'
   | 'rows'
+  | 'cols'
   | 'branchingFactor'
   | 'spurCount'
   | 'decoyCount'
@@ -32,6 +33,7 @@ export const DEEP_CAVE_PRESETS: Record<Exclude<DeepCavePresetId, 'custom'>, Deep
     id: 'easy',
     targetSteps: 5,
     rows: 3,
+    cols: 3,
     branchingFactor: 1,
     spurCount: 1,
     decoyCount: 0,
@@ -46,6 +48,7 @@ export const DEEP_CAVE_PRESETS: Record<Exclude<DeepCavePresetId, 'custom'>, Deep
     id: 'normal',
     targetSteps: 8,
     rows: 4,
+    cols: 3,
     branchingFactor: 2,
     spurCount: 2,
     decoyCount: 1,
@@ -60,6 +63,7 @@ export const DEEP_CAVE_PRESETS: Record<Exclude<DeepCavePresetId, 'custom'>, Deep
     id: 'hard',
     targetSteps: 12,
     rows: 5,
+    cols: 4,
     branchingFactor: 3,
     spurCount: 3,
     decoyCount: 2,
@@ -74,6 +78,7 @@ export const DEEP_CAVE_PRESETS: Record<Exclude<DeepCavePresetId, 'custom'>, Deep
     id: 'expert',
     targetSteps: 16,
     rows: 6,
+    cols: 4,
     branchingFactor: 3,
     spurCount: 4,
     decoyCount: 3,
@@ -89,6 +94,7 @@ export const DEEP_CAVE_PRESETS: Record<Exclude<DeepCavePresetId, 'custom'>, Deep
 export const DEEP_CAVE_KNOB_DEFS: Record<DeepCaveKnobKey, DeepCaveKnobDef> = {
   targetSteps: { min: 3, max: 20, step: 1 },
   rows: { min: 3, max: 7, step: 1 },
+  cols: { min: 3, max: 5, step: 1 },
   branchingFactor: { min: 1, max: 3, step: 1 },
   spurCount: { min: 0, max: 5, step: 1 },
   decoyCount: { min: 0, max: 4, step: 1 },

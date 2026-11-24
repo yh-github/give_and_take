@@ -4,7 +4,8 @@ import type { EncounterModule } from '../../../types/index.ts';
  * Curated Encounter 3: Mushroom Grotto (2x1 slots)
  *
  * A hidden fungal pocket behind an interior rock doorway (`pickaxe`). Inside sits
- * a wild Mushroom resource plus an exchange hermit holding an essential progression item.
+ * wild Mushroom forage plus a secondary deep-grotto cache — decoupled from its
+ * distant cave consumers so players explore and carry mushrooms across zones.
  */
 const mushroomGrotto: EncounterModule = {
   id: 'mushroom_grotto',
@@ -20,16 +21,16 @@ const mushroomGrotto: EncounterModule = {
     '##CCCCCC############',
     '#.......####.......#',
     '#.......####.......#',
+    '#.......####..E....#',
     '#.......####.......#',
+    '#.......CGGC.......#',
+    '#.......CGGC.......#',
+    '#.......CGGC.......#',
+    '#.......CGGC.......#',
+    '#.......CGGC.......#',
+    '#.......CGGC.......#',
     '#.......####.......#',
-    '#.......CGGC.......#',
-    '#.......CGGC.......#',
-    '#.......CGGC...E...#',
-    '#.......CGGC.......#',
-    '#.......CGGC.......#',
-    '#.......CGGC.......#',
-    '#...E...####.......#',
-    '#.......####.......#',
+    '#.......####....E..#',
     '#.......####.......#',
     '#.......####.......#',
     '##CCCCCC############',
@@ -37,16 +38,13 @@ const mushroomGrotto: EncounterModule = {
   ],
   puzzleFragment: {
     inputs: ['pickaxe'],
-    outputs: ['emerald'],
-    internalPresetItems: ['mushroom'],
+    outputs: ['mushroom'],
+    internalPresetItems: [],
     gatekeepers: [
       { anchor: 'G1', type: 'rock', requires: ['pickaxe'] }
     ],
-    internalTrade: {
-      templateId: 'goblin',
-      requires: ['mushroom']
-    },
-    internalSteps: 1
+    internalTrade: null,
+    internalSteps: 0
   },
   placement: {
     minDifficulty: 'easy',

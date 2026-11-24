@@ -44,32 +44,33 @@ export const ROOM_ARCHETYPES: RoomArchetype[] = [
 ];
 
 /**
- * Returns isotropic dimensions for a grid with `rows` slot rows.
+ * Returns isotropic dimensions for a grid with `rows` slot rows and `cols` slot columns.
  */
-export function getWorldDimensions(rows: number): WorldDimensions {
-  const totalTileCols = DEEP_CAVE_SLOT_COLS * TILE_COLS_PER_SLOT; // 30
+export function getWorldDimensions(rows: number, cols: number = DEEP_CAVE_SLOT_COLS): WorldDimensions {
+  const totalTileCols = cols * TILE_COLS_PER_SLOT; // 10 tiles per slot col
   const totalTileRows = rows * TILE_ROWS_PER_SLOT;
+  const worldWidth = (cols / DEEP_CAVE_SLOT_COLS) * WORLD_WIDTH;
   const worldHeight = rows * DEEP_CAVE_SLOT_HEIGHT;
   return {
     rows,
-    cols: DEEP_CAVE_SLOT_COLS,
+    cols,
     totalTileCols,
     totalTileRows,
-    worldWidth: WORLD_WIDTH,
+    worldWidth,
     worldHeight,
-    tileWidth: WORLD_WIDTH / totalTileCols,
+    tileWidth: worldWidth / totalTileCols,
     tileHeight: worldHeight / totalTileRows
   };
 }
 
 /**
- * Creates a blank `rows x 3` grid of slot records.
+ * Creates a blank `rows x cols` grid of slot records.
  */
-export function createEmptySlotGrid(rows: number): SlotRecord[][] {
+export function createEmptySlotGrid(rows: number, cols: number = DEEP_CAVE_SLOT_COLS): SlotRecord[][] {
   const grid: SlotRecord[][] = [];
   for (let r = 0; r < rows; r++) {
     const rowArr: SlotRecord[] = [];
-    for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+    for (let c = 0; c < cols; c++) {
       rowArr.push({
         col: c,
         row: r,
@@ -434,7 +435,8 @@ export function rasterizeSlotGrid(
   encountersById: Record<string, EncounterModule> = {},
   rng: RNG = Math.random
 ): RasterizedSlotGrid {
-  const dims = getWorldDimensions(rows);
+  const cols = slots[0]?.length || DEEP_CAVE_SLOT_COLS;
+  const dims = getWorldDimensions(rows, cols);
   const solidGrid = Array.from({ length: dims.totalTileRows }, () =>
     Array<number>(dims.totalTileCols).fill(1)
   );
@@ -448,7 +450,7 @@ export function rasterizeSlotGrid(
 
   // 1. Carve procedural rooms & encounter footprints
   for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+    for (let c = 0; c < cols; c++) {
       const slot = slots[r][c];
       if (!slot.active) continue;
 
@@ -495,7 +497,7 @@ export function rasterizeSlotGrid(
   // 2. Stamp orthogonal seam doorway collars between connected slots
   const doorways: Record<string, DoorwayCollar> = {};
   for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+    for (let c = 0; c < cols; c++) {
       const slot = slots[r][c];
       if (!slot.active) continue;
 
@@ -514,7 +516,7 @@ export function rasterizeSlotGrid(
         }
       }
 
-      if (slot.sockets.E && c + 1 < DEEP_CAVE_SLOT_COLS && slots[r][c + 1].active) {
+      if (slot.sockets.E && c + 1 < cols && slots[r][c + 1].active) {
         const sameEncounter = Boolean(
           slot.encounterId &&
           slots[r][c + 1].encounterId === slot.encounterId &&

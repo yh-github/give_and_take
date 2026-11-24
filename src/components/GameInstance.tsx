@@ -302,7 +302,12 @@ export function GameInstance({
   }, [clearManagedTimeouts]);
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords);
-  const screensX = level.mechanics.screensX || 1;
+  const worldWidth = useIsotropic
+    ? (puzzle?.geometry?.worldWidth || 100)
+    : 100;
+  const screensX = useIsotropic
+    ? (worldWidth / 100)
+    : (level.mechanics.screensX || 1);
   const screens = useIsotropic
     ? ((puzzle?.geometry?.worldHeight || CANONICAL_SCREEN_HEIGHT) / CANONICAL_SCREEN_HEIGHT)
     : (level.mechanics.screens || 1);
@@ -545,6 +550,7 @@ export function GameInstance({
 
   const triggerAirLossBubbles = useCallback((x: number, y: number, isHeavy = false, countOverride?: number) => {
     if (!level.mechanics.hasAir || isTransformedRef.current) return;
+    if (level.id === 'shipwreck' && isInShipwreckAirPocket(x, y)) return;
     const burstId = Date.now() + Math.random();
     const bubbleCount = countOverride ?? (isHeavy ? 12 : 6);
     const bubbles = Array.from({ length: bubbleCount }, (_, i) => ({
@@ -2462,7 +2468,8 @@ export function GameInstance({
     const screenPctX = 100 / screensX;
     const maxScrollPctX = Math.max(0, 100 - screenPctX);
     const _scrollX = drowningFloatPos ? drowningFloatPos.x : displayPlayerPos.x;
-    let targetScrollX = _scrollX - (screenPctX / 2);
+    const scrollXAsPct = useIsotropic ? (_scrollX / worldWidth) * 100 : _scrollX;
+    let targetScrollX = scrollXAsPct - (screenPctX / 2);
     if (targetScrollX < 0) targetScrollX = 0;
     if (targetScrollX > maxScrollPctX) targetScrollX = maxScrollPctX;
     mapTranslateX = `-${targetScrollX}%`;
@@ -2678,7 +2685,7 @@ export function GameInstance({
               onCellClick={(e) => {
                 if (!innerMapRef.current) return;
                 const rect = innerMapRef.current.getBoundingClientRect();
-                const clickX = ((e.clientX - rect.left) / rect.width) * 100;
+                const clickX = ((e.clientX - rect.left) / rect.width) * (useIsotropic ? worldWidth : 100);
                 const clickY = ((e.clientY - rect.top) / rect.height) * (useIsotropic ? worldHeight : 100);
                 handleCellClick(e, clickX, clickY);
               }}

@@ -160,4 +160,42 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
     expect(expertP.difficulty.backtrackCount).toBeGreaterThanOrEqual(2);
     expect(expertP.difficulty.score).toBeGreaterThanOrEqual(75);
   });
+
+  it('supports wider horizontal scrolling caves (cols=4 on hard/expert, cols=5 custom) with isotropic room dimensions', () => {
+    const hardP = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.hard, null, 'wide-hard-check');
+    expect(hardP.geometry.worldWidth).toBeCloseTo(400 / 3, 2);
+    expect(hardP.settings.cols).toBe(4);
+    const hardSol = solvePuzzle(hardP.startItems, hardP.puzzleEntities, hardP.goalEntityId, deepCave, { maxStates: 6000 });
+    expect(hardSol).not.toBeNull();
+
+    const wideCustom = generateDeepCavePuzzle(
+      deepCave,
+      { ...DEEP_CAVE_PRESETS.normal, cols: 5, rows: 4, branchingFactor: 3 },
+      null,
+      'wide-custom-5cols'
+    );
+    expect(wideCustom.geometry.worldWidth).toBeCloseTo(500 / 3, 2);
+    const customSol = solvePuzzle(wideCustom.startItems, wideCustom.puzzleEntities, wideCustom.goalEntityId, deepCave, { maxStates: 6000 });
+    expect(customSol).not.toBeNull();
+  });
+
+  it('decouples Mushroom Grotto resources from its immediate entrance vestibule', () => {
+    let checkedGrottos = 0;
+    for (let i = 0; i < 12; i++) {
+      const p = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.hard, null, `grotto-sep-${i}`);
+      const grottoRock = p.puzzleEntities.find(e => e.id?.startsWith('grotto_rock_'));
+      if (!grottoRock) continue;
+      checkedGrottos++;
+      const mushroomPickups = p.puzzleEntities.filter(e => e.reward === 'mushroom');
+      expect(mushroomPickups.length).toBeGreaterThanOrEqual(1);
+      // Every creature/gate requiring 'mushroom' must be outside the rock's entrance zone and separated from it
+      const consumers = p.puzzleEntities.filter(e => e.requires?.includes('mushroom'));
+      expect(consumers.length).toBeGreaterThanOrEqual(1);
+      for (const consumer of consumers) {
+        expect(consumer.zone).not.toBe(grottoRock.zone);
+        expect(Math.hypot(consumer.x - grottoRock.x, consumer.y - grottoRock.y)).toBeGreaterThan(25);
+      }
+    }
+    expect(checkedGrottos).toBeGreaterThanOrEqual(1);
+  });
 });

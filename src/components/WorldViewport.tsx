@@ -257,12 +257,16 @@ export function WorldViewport({
       : 'transition-transform ease-out';
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords && puzzle?.geometry);
+  const worldWidth = (useIsotropic && puzzle?.geometry?.worldWidth)
+    ? puzzle.geometry.worldWidth
+    : 100;
   const worldHeight = (useIsotropic && puzzle?.geometry?.worldHeight)
     ? puzzle.geometry.worldHeight
     : (level.mechanics.yScaleOverride != null
         ? 100 * level.mechanics.yScaleOverride
         : (level.mechanics.screens || 1) * 100);
   const yScale = useIsotropic ? 1 : (level.mechanics.yScaleOverride ?? (level.mechanics.screens || 1));
+  const toCssX = (x: number): number => (useIsotropic ? (x / worldWidth) * 100 : x);
   const toCssY = (y: number): number => (useIsotropic ? (y / worldHeight) * 100 : y);
   const effectiveCampPos = puzzle?.geometry?.campPos || level.campPos;
   const effectiveCaveLighting = (!debugMode && level.id === 'shipwreck')
@@ -278,6 +282,7 @@ export function WorldViewport({
       }
     : lightingSettings;
 
+  const caveVisibilityWorldWidth = useIsotropic ? worldWidth : null;
   const caveVisibilityWorldHeight = level.mechanics.yScaleOverride != null
     ? 100 * level.mechanics.yScaleOverride
     : (useIsotropic ? worldHeight : null);
@@ -318,6 +323,7 @@ export function WorldViewport({
         polyPoints={polyPoints}
         displayPlayerPos={displayPlayerPos}
         debugSegments={debugSegments}
+        worldWidth={caveVisibilityWorldWidth}
         worldHeight={caveVisibilityWorldHeight}
         yScale={yScale}
       />
@@ -328,13 +334,14 @@ export function WorldViewport({
           polygon={polyPoints}
           gameTime={gameTime}
           screens={level.mechanics.screens || 1}
+          worldWidth={caveVisibilityWorldWidth}
           worldHeight={caveVisibilityWorldHeight}
           yScale={yScale}
           lighting={effectiveCaveLighting}
         />
       )}
 
-      <ClickIndicator indicator={!isLevelEditor ? clickIndicator : null} toCssY={toCssY} />
+      <ClickIndicator indicator={!isLevelEditor ? clickIndicator : null} toCssX={toCssX} toCssY={toCssY} />
 
       <HeroBubbleBursts bursts={heroBubbleBursts} />
       <WaterSplashBursts splashes={waterSplashes} />
@@ -434,7 +441,7 @@ export function WorldViewport({
           (level.id === 'underwater' && (Boolean(item.isFloating) || item.y > effectiveCampPos.y + 4)) ||
           (level.id === 'shipwreck' && Boolean(item.isFloating));
         return (
-          <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${toCssY(item.y)}%` }}>
+          <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${toCssX(item.x)}%`, top: `${toCssY(item.y)}%` }}>
             {isUnderwaterFloating ? (
               <div
                 data-testid={`floating-item-${item.id}`}
@@ -454,7 +461,7 @@ export function WorldViewport({
           onClick={handleCampClick} 
           className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${(selectedItemTypes.length > 0 || (!selectedItemTypes.length && level.mechanics.hasAir)) ? 'cursor-pointer hover:scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] pointer-events-auto' : 'pointer-events-none'}`} 
           style={{
-            left: `${effectiveCampPos.x}%`,
+            left: `${toCssX(effectiveCampPos.x)}%`,
             top: `${toCssY(effectiveCampPos.y)}%`,
             zIndex: (level.id === 'underwater' || level.id === 'shipwreck')
               ? 112
@@ -480,11 +487,11 @@ export function WorldViewport({
       )}
 
       {!isLevelEditor && flyingItem && (
-        <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${flyingItem.x}%`, top: `${toCssY(flyingItem.y)}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div>
+        <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${toCssX(flyingItem.x)}%`, top: `${toCssY(flyingItem.y)}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div>
       )}
 
       {!isLevelEditor && massFlyingTreasures.map((item, idx) => (
-        <div key={`mass-treas-${idx}`} className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${item.x}%`, top: `${toCssY(item.y)}%`, zIndex: 110, animationDelay: `${item.delay}ms` }}>{item.emoji}</div>
+        <div key={`mass-treas-${idx}`} className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${toCssX(item.x)}%`, top: `${toCssY(item.y)}%`, zIndex: 110, animationDelay: `${item.delay}ms` }}>{item.emoji}</div>
       ))}
 
       {level.id === 'river_crossing' && puzzle?.puzzleEntities.some(e => e.id === puzzle.goalEntityId) && (
@@ -520,6 +527,7 @@ export function WorldViewport({
           getCustomEntityMovement={getCustomEntityMovement}
           handleInteract={handleInteract}
           dict={dict}
+          toCssX={toCssX}
           toCssY={toCssY}
           yScale={yScale}
         />
@@ -528,6 +536,7 @@ export function WorldViewport({
       <Hero 
         playerVisualX={playerVisualX}
         playerVisualY={playerVisualY}
+        playerVisualXPct={toCssX(playerVisualX)}
         playerVisualYPct={toCssY(playerVisualY)}
         playerRotation={playerRotation}
         playerScale={playerScale}

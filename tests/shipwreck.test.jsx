@@ -281,18 +281,34 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
       expect(p1.solution).toEqual(p2.solution);
       expect(JSON.stringify(p1.solution)).not.toEqual(JSON.stringify(pDiff.solution));
 
-      const easy = generateShipwreckPuzzle(shipwreck, 3, 1, 'sw-scale');
-      const mid = generateShipwreckPuzzle(shipwreck, 5, 1, 'sw-scale');
-      const hard = generateShipwreckPuzzle(shipwreck, 8, 1, 'sw-scale');
+      const easy = generateShipwreckPuzzle(shipwreck, 4, 0, 'sw-scale');
+      const mid = generateShipwreckPuzzle(shipwreck, 6, 1, 'sw-scale');
+      const hard = generateShipwreckPuzzle(shipwreck, 8, 3, 'sw-scale');
 
       expect(easy.steps).toBeGreaterThanOrEqual(4);
-      expect(mid.steps).toBeGreaterThanOrEqual(5);
+      expect(mid.steps).toBeGreaterThanOrEqual(6);
       expect(hard.steps).toBeGreaterThanOrEqual(8);
 
       const easyWitch = easy.puzzleEntities.find(e => e.id === 'sea_witch');
       const hardWitch = hard.puzzleEntities.find(e => e.id === 'sea_witch');
       expect(easyWitch.requires.length).toBe(2);
       expect(hardWitch.requires.length).toBe(3);
+
+      // Sea Witch must only require genuine treasures (never 'shell' or raw sea clutter)
+      for (const req of [...easyWitch.requires, ...hardWitch.requires]) {
+        expect(['pearl', 'chalice', 'trident', 'abyssal_pearl', 'gem', 'compass']).toContain(req);
+      }
+
+      // Captain's Chest requires key/gear lock items, scaling up on high difficulty
+      const easyChest = easy.puzzleEntities.find(e => e.id === 'captains_chest');
+      const hardChest = hard.puzzleEntities.find(e => e.id === 'captains_chest');
+      expect(easyChest.requires).toEqual(['anchor_key']);
+      expect(hardChest.requires).toEqual(['anchor_key', 'compass']);
+
+      // High difficulty spawns more misdirection clams/creatures than Easy
+      const easyClams = easy.puzzleEntities.filter(e => e.id.startsWith('clam'));
+      const hardClams = hard.puzzleEntities.filter(e => e.id.startsWith('clam'));
+      expect(hardClams.length).toBeGreaterThan(easyClams.length);
 
       // Solution must transform via sea_witch before opening captains_chest
       const witchIdx = hard.solution.findIndex(s => s.entityId === 'sea_witch');
@@ -310,16 +326,18 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
     it('starts as Merman with AirIndicator hidden, blocks Air Pocket until Witch transformation, then lets Human win with 16 air', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const shipwreck = LEVEL_REGISTRY.shipwreck;
-      const basePuzzle = generateShipwreckPuzzle(shipwreck, 4, 1, 'sw-ui-win');
+      const basePuzzle = generateShipwreckPuzzle(shipwreck, 4, 0, 'sw-ui-win');
       const witchEnt = basePuzzle.puzzleEntities.find(e => e.id === 'sea_witch');
+      const chestEnt = basePuzzle.puzzleEntities.find(e => e.id === 'captains_chest');
       const reqItems = [...(witchEnt.requires || [])];
+      const chestReqs = [...(chestEnt.requires || [])];
 
       const savedState = createSavePayload({
         levelId: 'shipwreck',
         targetSteps: 4,
-        numDiggers: 1,
+        numDiggers: 0,
         puzzle: basePuzzle,
-        inventory: reqItems,
+        inventory: [...reqItems, ...chestReqs],
         isTransformed: true,
         air: 16,
         pathHistory: [{ x: 17, y: 81, zone: 1 }]
@@ -373,7 +391,13 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
       expect(screen.getByTestId('air-count-badge').textContent).toBe('16/16');
       expect(screen.getByText('🤿')).toBeDefined();
 
-      // Now Human swims across the waterline into the dry bow Air Pocket to claim Captain's Treasure and win!
+      // Select chest lock key(s), then Human swims across the waterline into the dry bow Air Pocket to claim Captain's Treasure and win!
+      for (const itemId of Array.from(new Set(chestReqs))) {
+        const emoji = shipwreck.items.find(i => i.id === itemId).emoji;
+        await act(async () => {
+          fireEvent.click(screen.getAllByText(emoji).map(el => el.closest('button')).find(Boolean));
+        });
+      }
       await act(async () => {
         fireEvent.click(screen.getByTestId('captains-treasure'));
       });
