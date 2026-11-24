@@ -198,4 +198,20 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
     }
     expect(checkedGrottos).toBeGreaterThanOrEqual(1);
   });
+
+  it('generates procedural landmarks (including Vault Sanctum) and safely spaced lightable braziers', () => {
+    const p = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.normal, null, 'landmarks-check-1');
+    expect(Array.isArray(p.geometry.landmarks)).toBe(true);
+    expect(p.geometry.landmarks.length).toBeGreaterThanOrEqual(3);
+    expect(p.geometry.landmarks.some(l => l.kind === 'vault_sanctum')).toBe(true);
+
+    expect(Array.isArray(p.geometry.braziers)).toBe(true);
+    expect(p.geometry.braziers.length).toBeGreaterThanOrEqual(2);
+    for (const brazier of p.geometry.braziers) {
+      expect(brazier.zone).toBeGreaterThanOrEqual(1);
+      for (const ent of p.puzzleEntities) {
+        expect(Math.hypot(ent.x - brazier.x, ent.y - brazier.y)).toBeGreaterThanOrEqual(8.5);
+      }
+    }
+  });
 });

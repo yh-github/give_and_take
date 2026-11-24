@@ -3,7 +3,8 @@ import {
   getVisibilityPolygon, 
   getObstacleSegments, 
   isPointInVisibilityPolygon, 
-  checkCollision 
+  checkCollision,
+  computeVisibleEntitiesSet
 } from '../src/logic/visibility.js';
 import { CAVE_WALL_VERTICES } from '../src/levels/underground/components.jsx';
 
@@ -52,5 +53,31 @@ describe('Visibility & Raycasting Regression Suite', () => {
 
     // Segment not intersecting (both above y=50)
     expect(checkCollision({ x: 10, y: 20 }, { x: 90, y: 20 }, segments)).toBe(false);
+  });
+
+  it('reveals distant entities illuminated by extra static light sources (lit braziers)', () => {
+    const distantEnt = { id: 'far_trader', x: 80, y: 220, zone: 2, requires: ['crystal'], reqType: 'AND', reward: 'relic' };
+    const baseVisible = computeVisibleEntitiesSet({
+      puzzleEntities: [distantEnt],
+      playerPos: { x: 20, y: 20 },
+      obstacleSegments: [],
+      torchRadius: 48,
+      yScale: 1,
+      levelId: 'deep_cave',
+      hasPickaxe: true
+    });
+    expect(baseVisible.has('far_trader')).toBe(false);
+
+    const brazierLitVisible = computeVisibleEntitiesSet({
+      puzzleEntities: [distantEnt],
+      playerPos: { x: 20, y: 20 },
+      obstacleSegments: [],
+      torchRadius: 48,
+      yScale: 1,
+      levelId: 'deep_cave',
+      hasPickaxe: true,
+      extraLightSources: [{ x: 75, y: 215, radius: 42 }]
+    });
+    expect(brazierLitVisible.has('far_trader')).toBe(true);
   });
 });

@@ -70,10 +70,12 @@ import type {
   ActiveGameSettings,
   AlertReason,
   CampItemState,
+  CaveBrazier,
   ClickIndicatorState,
   CollarBounds,
   CustomEntityMovement,
   DeepCaveSettings,
+  ExtraLightPolygon,
   FlyingItemState,
   GameHistoryEntry,
   GameInstanceProps,
@@ -105,6 +107,7 @@ interface GameStateSnapshotRef {
   unlockedZones: number[];
   campItems: CampItemState[];
   buriedEntities: string[];
+  litBraziers: string[];
   air: number;
   isTransformed: boolean;
   hasDeepTreasure: boolean;
@@ -125,6 +128,7 @@ const hydrateHistoryStack = (
     unlockedZones: entry.unlockedZones || [1],
     campItems: entry.campItems || [],
     buriedEntities: entry.buriedEntities || [],
+    litBraziers: entry.litBraziers || [],
     air: entry.air ?? defaultMaxAir,
     isTransformed: Boolean(entry.isTransformed),
     hasDeepTreasure: Boolean(entry.hasDeepTreasure),
@@ -166,6 +170,7 @@ export function GameInstance({
   const [inventory, setInventory] = useState<string[]>(() => savedState?.inventory || savedState?.puzzle?.startItems || []);
   const [unlockedZones, setUnlockedZones] = useState<number[]>(() => savedState?.unlockedZones || [1]);
   const [defeated, setDefeated] = useState<string[]>(() => savedState?.defeated || []);
+  const [litBraziers, setLitBraziers] = useState<string[]>(() => savedState?.litBraziers || []);
   const [selectedItemTypes, setSelectedItemTypes] = useState<string[]>([]);
   const [pathHistory, setPathHistory] = useState<PathHistoryPoint[]>(() => savedState?.pathHistory || [{ ...level.campPos, zone: 1 }]);
   const [historyStack, setHistoryStack] = useState<GameHistoryEntry[]>(() => hydrateHistoryStack(savedState?.historyStack, maxAir));
@@ -263,6 +268,7 @@ export function GameInstance({
     unlockedZones,
     campItems,
     buriedEntities,
+    litBraziers,
     air,
     isTransformed,
     hasDeepTreasure,
@@ -354,6 +360,45 @@ export function GameInstance({
     return getVisibilityPolygon(pPos, obstacleSegments, activeTorchRadius, yScale);
   }, [puzzle, level.mechanics.hasDarkness, level.mechanics.darknessType, tempPlayerPos, pathHistory, obstacleSegments, activeTorchRadius, yScale]);
 
+  const extraLightSources = useMemo(() => {
+    if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return [];
+    const sources: Array<{ id: string; x: number; y: number; radius: number; ambientColor?: string }> = [];
+    if (level.id === 'deep_cave') {
+      sources.push({
+        id: 'camp_fire',
+        x: effectiveCampPos.x,
+        y: effectiveCampPos.y,
+        radius: 28,
+        ambientColor: '#fde68a'
+      });
+    }
+    const braziers = puzzle.geometry?.braziers || [];
+    for (const b of braziers) {
+      if (litBraziers.includes(b.id)) {
+        sources.push({
+          id: b.id,
+          x: b.x,
+          y: b.y,
+          radius: b.radius || 46,
+          ambientColor: '#fbbf24'
+        });
+      }
+    }
+    return sources;
+  }, [puzzle, level.mechanics.hasDarkness, level.mechanics.darknessType, level.id, effectiveCampPos, litBraziers]);
+
+  const extraLightPolygons: ExtraLightPolygon[] = useMemo(() => {
+    if (!polyPoints || extraLightSources.length === 0) return [];
+    return extraLightSources.map(src => ({
+      id: src.id,
+      x: src.x,
+      y: src.y,
+      radius: src.radius,
+      ambientColor: src.ambientColor,
+      polygon: getVisibilityPolygon({ x: src.x, y: src.y }, obstacleSegments, src.radius, yScale)
+    }));
+  }, [polyPoints, extraLightSources, obstacleSegments, yScale]);
+
   const visibleEntitiesSet = useMemo(() => {
     if (!polyPoints || !puzzle) return null;
     const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
@@ -366,9 +411,37 @@ export function GameInstance({
       yScale,
       levelId: level.id,
       hasPickaxe: Boolean(level.mechanics.hasPickaxe),
-      caveWallVertices: CAVE_WALL_VERTICES
+      caveWallVertices: CAVE_WALL_VERTICES,
+      extraLightSources
     });
-  }, [polyPoints, puzzle, tempPlayerPos, pathHistory, obstacleSegments, yScale, activeTorchRadius, level.mechanics.hasPickaxe, level.id]);
+  }, [polyPoints, puzzle, tempPlayerPos, pathHistory, obstacleSegments, yScale, activeTorchRadius, level.mechanics.hasPickaxe, level.id, extraLightSources]);
+
+  const visibleBraziersSet = useMemo(() => {
+    const braziers = puzzle?.geometry?.braziers;
+    if (!polyPoints || !puzzle || !braziers || braziers.length === 0) return null;
+    const pPos = tempPlayerPos || pathHistory[pathHistory.length - 1];
+    if (!pPos) return null;
+    const asEntities = braziers.map(b => ({
+      id: b.id,
+      x: b.x,
+      y: b.y,
+      zone: b.zone,
+      requires: [] as string[],
+      reqType: 'AND' as const,
+      reward: null
+    }));
+    return computeVisibleEntitiesSet({
+      puzzleEntities: asEntities,
+      playerPos: pPos,
+      obstacleSegments,
+      torchRadius: activeTorchRadius,
+      yScale,
+      levelId: level.id,
+      hasPickaxe: false,
+      caveWallVertices: CAVE_WALL_VERTICES,
+      extraLightSources
+    });
+  }, [polyPoints, puzzle, tempPlayerPos, pathHistory, obstacleSegments, yScale, activeTorchRadius, level.id, extraLightSources]);
 
   const debugSegments = useMemo(() => {
     if (!debugMode || !obstacleSegments) return [];
@@ -382,10 +455,10 @@ export function GameInstance({
   useEffect(() => {
     stateRefs.current = {
       inventory, defeated, pathHistory, envItemState, unlockedZones,
-      campItems, buriedEntities, air, isTransformed, hasDeepTreasure,
+      campItems, buriedEntities, litBraziers, air, isTransformed, hasDeepTreasure,
       inkFogEntities, dolphinState, dolphinYPos
     };
-  }, [inventory, defeated, pathHistory, envItemState, unlockedZones, campItems, buriedEntities, air, isTransformed, hasDeepTreasure, inkFogEntities, dolphinState, dolphinYPos]);
+  }, [inventory, defeated, pathHistory, envItemState, unlockedZones, campItems, buriedEntities, litBraziers, air, isTransformed, hasDeepTreasure, inkFogEntities, dolphinState, dolphinYPos]);
 
   useEffect(() => {
     setGenerationFailed(false);
@@ -402,6 +475,7 @@ export function GameInstance({
       );
       setUnlockedZones(saved.unlockedZones || [1]);
       setDefeated(saved.defeated || []);
+      setLitBraziers(saved.litBraziers || []);
       setHistoryStack(hydrateHistoryStack(saved.historyStack, maxAir));
       setCampItems(saved.campItems || []);
       setBuriedEntities(saved.buriedEntities || []);
@@ -437,6 +511,7 @@ export function GameInstance({
       setPathHistory([{ ...startCamp, zone: 1 }]);
       setUnlockedZones([1]);
       setDefeated([]);
+      setLitBraziers([]);
       setHistoryStack([]);
       setCampItems([]);
       setBuriedEntities([]);
@@ -845,6 +920,7 @@ export function GameInstance({
       unlockedZones: [...stateRefs.current.unlockedZones],
       campItems: [...stateRefs.current.campItems],
       buriedEntities: [...stateRefs.current.buriedEntities],
+      litBraziers: [...stateRefs.current.litBraziers],
       air: stateRefs.current.air,
       isTransformed: stateRefs.current.isTransformed,
       hasDeepTreasure: stateRefs.current.hasDeepTreasure,
@@ -872,7 +948,7 @@ export function GameInstance({
     setInventory(prevState.inventory); setDefeated(prevState.defeated); setPathHistory(prevState.pathHistory);
     setEnvItemState(prevState.envItemState);
     setUnlockedZones(prevState.unlockedZones); setCampItems(prevState.campItems || []);
-    setBuriedEntities(prevState.buriedEntities || []); setAir(restoredAir);
+    setBuriedEntities(prevState.buriedEntities || []); setLitBraziers(prevState.litBraziers || []); setAir(restoredAir);
     setIsTransformed(prevState.isTransformed ?? defaultTransformed);
     setHasDeepTreasure(prevState.hasDeepTreasure || false);
     setInkFogEntities(new Set(prevState.inkFogEntities || []));
@@ -906,6 +982,7 @@ export function GameInstance({
     airRef.current = maxAir;
     setAir(maxAir);
     setDefeated([]);
+    setLitBraziers([]);
     setSelectedItemTypes([]);
     setSelectedEntityId(null);
     setHistoryStack([]);
@@ -963,6 +1040,7 @@ export function GameInstance({
       historyStack,
       campItems,
       buriedEntities,
+      litBraziers,
       air,
       isTransformed,
       hasDeepTreasure,
@@ -976,7 +1054,7 @@ export function GameInstance({
     });
   }, [
     level.id, targetSteps, numDiggers, puzzle, inventory, unlockedZones, defeated,
-    pathHistory, historyStack, campItems, buriedEntities, air, isTransformed,
+    pathHistory, historyStack, campItems, buriedEntities, litBraziers, air, isTransformed,
     hasDeepTreasure, envItemState, envItemCaughtPos, dolphinState, dolphinYPos,
     lightingSettings, debugMode, inkFogEntities
   ]);
@@ -991,6 +1069,7 @@ export function GameInstance({
       defeated.length > 0 ||
       campItems.length > 0 ||
       buriedEntities.length > 0 ||
+      litBraziers.length > 0 ||
       air < maxAir ||
       isTransformed !== defaultTransformed ||
       hasDeepTreasure ||
@@ -1006,7 +1085,7 @@ export function GameInstance({
     }
   }, [
     level.id, puzzle, inventory, unlockedZones, defeated, pathHistory, historyStack,
-    campItems, buriedEntities, air, isTransformed, hasDeepTreasure,
+    campItems, buriedEntities, litBraziers, air, isTransformed, hasDeepTreasure,
     envItemState, dolphinState, dolphinYPos, lightingSettings, debugMode,
     isVictorious, isDemonstrating, generationFailed, getGameStatePayload,
     savedState
@@ -1861,7 +1940,11 @@ export function GameInstance({
       let isValidClick = true;
 
       if (level.mechanics.isCaveType && polyPoints) {
-        if (!isPointInVisibilityPolygon({ x: targetX, y: targetY * yScale }, polyPoints)) {
+        const testPt = { x: targetX, y: targetY * yScale };
+        const inLight =
+          isPointInVisibilityPolygon(testPt, polyPoints) ||
+          extraLightPolygons.some(lp => isPointInVisibilityPolygon(testPt, lp.polygon));
+        if (!inLight) {
           isValidClick = false;
         }
       }
@@ -1997,6 +2080,35 @@ export function GameInstance({
       return { x: ent.x || 50, y: ent.y || 22, rotate: 0, flip: false, isActiveMotion: false };
     }
     return null;
+  };
+
+  const handleLightBrazier = (brazier: CaveBrazier, e: MouseEvent) => {
+    e.stopPropagation();
+    if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
+    if (!puzzle) return;
+
+    if (!unlockedZones.includes(brazier.zone)) {
+      const blockingGate = puzzle.puzzleEntities.find(
+        ent => ent.isGatekeeper && !defeated.includes(ent.id) && ent.unlocksZones?.includes(brazier.zone)
+      );
+      setAlertEntityId(blockingGate?.id ?? null);
+      scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
+      return;
+    }
+
+    const newPath = navigateTo(brazier.x, brazier.y, brazier.zone, 3, false);
+    if (!newPath || newPath.length === 0) return;
+
+    saveHistory();
+    const lastPos = pathHistory[pathHistory.length - 1];
+    const finalPos = newPath[newPath.length - 1];
+    const moveDist = lastPos && finalPos ? Math.hypot(finalPos.x - lastPos.x, finalPos.y - lastPos.y) : 0;
+    setMoveDurationMs(Math.min(700, Math.max(180, Math.round(moveDist * 14))));
+    setPathHistory(prev => {
+      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+      return [...prev, ...newPath];
+    });
+    setLitBraziers(prev => (prev.includes(brazier.id) ? prev : [...prev, brazier.id]));
   };
 
   const handleInteract = (entity: PuzzleEntity, e: MouseEvent) => {
@@ -2625,6 +2737,10 @@ export function GameInstance({
               attachedEntityId={attachedEntityId}
               debugMode={debugMode}
               polyPoints={polyPoints}
+              extraLightPolygons={extraLightPolygons}
+              litBraziers={litBraziers}
+              visibleBraziersSet={visibleBraziersSet}
+              onLightBrazier={handleLightBrazier}
               displayPlayerPos={displayPlayerPos}
               debugSegments={debugSegments}
               lightingSettings={effectiveLighting}

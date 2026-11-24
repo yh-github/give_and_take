@@ -1,9 +1,10 @@
 import React from 'react';
-import type { LightingSettings, Point2D } from '../../types/index.ts';
+import type { ExtraLightPolygon, LightingSettings, Point2D } from '../../types/index.ts';
 
 export interface CaveVisibilityProps {
   heroPos: Point2D;
   polygon: readonly Point2D[] | null;
+  extraLightPolygons?: readonly ExtraLightPolygon[];
   gameTime: number;
   screens?: number;
   worldWidth?: number | null;
@@ -15,6 +16,7 @@ export interface CaveVisibilityProps {
 const CaveVisibility = ({
   heroPos,
   polygon,
+  extraLightPolygons = [],
   gameTime,
   screens = 2.5,
   worldWidth = null,
@@ -44,6 +46,13 @@ const CaveVisibility = ({
   const currentRadius = radius + flicker;
   
   const pointsString = React.useMemo(() => polygon ? polygon.map(p => `${p.x},${p.y}`).join(' ') : '', [polygon]);
+  const extraPaths = React.useMemo(
+    () => extraLightPolygons.map(src => ({
+      ...src,
+      pointsString: src.polygon.map(p => `${p.x},${p.y}`).join(' ')
+    })),
+    [extraLightPolygons]
+  );
   
   return (
     <svg 
@@ -56,18 +65,44 @@ const CaveVisibility = ({
           <feGaussianBlur stdDeviation={blur} />
         </filter>
         
-        {/* Simplified Gradient: BLACK at center = LIT, fading to WHITE at edges = DARK */}
+        {/* Transparent black-opacity gradients let multiple light sources overlap without dark halos */}
         <radialGradient id="torchMaskGrad" cx={heroPos.x} cy={scaledHeroY} gradientUnits="userSpaceOnUse" r={currentRadius}>
-          <stop offset="0%" stopColor="black" />
-          <stop offset="70%" stopColor="black" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="white" stopOpacity="0" />
+          <stop offset="0%" stopColor="black" stopOpacity="1" />
+          <stop offset="70%" stopColor="black" stopOpacity="0.82" />
+          <stop offset="100%" stopColor="black" stopOpacity="0" />
         </radialGradient>
+
+        {extraPaths.map((src, idx) => (
+          <radialGradient
+            key={`extra-grad-${src.id}-${idx}`}
+            id={`extraLightGrad_${idx}`}
+            cx={src.x}
+            cy={src.y * effectiveYScale}
+            gradientUnits="userSpaceOnUse"
+            r={Math.max(8, src.radius + flicker * 0.65)}
+          >
+            <stop offset="0%" stopColor="black" stopOpacity="1" />
+            <stop offset="68%" stopColor="black" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="black" stopOpacity="0" />
+          </radialGradient>
+        ))}
 
         <mask id="caveMask">
           {/* Base: show darkness everywhere */}
           <rect x="0" y="0" width={effectiveWidth} height={effectiveHeight} fill="white" />
           
-          {/* Cut a hole where the hero's torch lights up — raycasted polygon */}
+          {/* Cut holes where the hero's torch & lit braziers/campfire shine */}
+          {extraPaths.map((src, idx) => (
+            src.pointsString ? (
+              <polygon
+                key={`extra-mask-${src.id}-${idx}`}
+                points={src.pointsString}
+                fill={`url(#extraLightGrad_${idx})`}
+                filter="url(#visibilityBlur)"
+              />
+            ) : null
+          ))}
+
           {pointsString && (
             <polygon 
               points={pointsString} 
@@ -78,7 +113,7 @@ const CaveVisibility = ({
         </mask>
       </defs>
 
-      {/* Darkness layer — visible everywhere EXCEPT the torch hole */}
+      {/* Darkness layer — visible everywhere EXCEPT the lit light pools */}
       <rect 
         x="0" y="0" 
         width={effectiveWidth} height={effectiveHeight} 
@@ -87,7 +122,17 @@ const CaveVisibility = ({
         opacity={darknessOpacity}
       />
 
-      {/* Warm ambient tint inside the lit area — very subtle golden torch glow */}
+      {/* Warm ambient tint inside lit braziers and hero torch */}
+      {extraPaths.map((src, idx) => (
+        src.pointsString ? (
+          <polygon
+            key={`extra-glow-${src.id}-${idx}`}
+            points={src.pointsString}
+            fill={src.ambientColor || ambientColor}
+            fillOpacity={ambientOpacity * 0.85}
+          />
+        ) : null
+      ))}
       {pointsString && (
         <polygon 
           points={pointsString} 

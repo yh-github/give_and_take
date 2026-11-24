@@ -40,6 +40,7 @@ export interface HistoryEntryInput {
   unlockedZones?: number[];
   campItems?: CampItemState[];
   buriedEntities?: string[];
+  litBraziers?: string[];
   air?: number;
   isTransformed?: boolean;
   hasDeepTreasure?: boolean;
@@ -57,6 +58,7 @@ export interface SerializedHistoryEntry {
   unlockedZones?: number[];
   campItems?: CampItemState[];
   buriedEntities?: string[];
+  litBraziers?: string[];
   air?: number;
   isTransformed?: boolean;
   hasDeepTreasure?: boolean;
@@ -98,6 +100,7 @@ export interface CreateSavePayloadInput {
   historyStack?: HistoryEntryInput[];
   campItems?: CampItemState[];
   buriedEntities?: string[];
+  litBraziers?: string[];
   air?: number;
   isTransformed?: boolean;
   hasDeepTreasure?: boolean;
@@ -127,6 +130,7 @@ export interface SavePayload {
   historyStack: SerializedHistoryEntry[];
   campItems: CampItemState[];
   buriedEntities: string[];
+  litBraziers?: string[];
   air: number;
   isTransformed: boolean;
   hasDeepTreasure: boolean;

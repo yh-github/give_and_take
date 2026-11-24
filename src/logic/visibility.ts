@@ -405,6 +405,12 @@ export function checkCollision(
   return false;
 }
 
+export interface ExtraLightSource {
+  x: number;
+  y: number;
+  radius: number;
+}
+
 export interface ComputeVisibleEntitiesParams {
   puzzleEntities: readonly PuzzleEntity[];
   playerPos: Point2D;
@@ -414,10 +420,12 @@ export interface ComputeVisibleEntitiesParams {
   levelId: string;
   hasPickaxe: boolean;
   caveWallVertices?: CaveWallVertices | null;
+  extraLightSources?: readonly ExtraLightSource[];
 }
 
 /**
- * Computes the set of entity IDs visible from `playerPos` within `torchRadius`
+ * Computes the set of entity IDs visible from `playerPos` (within `torchRadius`)
+ * or any illuminated secondary light source (e.g. lit cave braziers)
  * after checking line-of-sight against sight-blocking obstacle segments.
  */
 export function computeVisibleEntitiesSet({
@@ -428,11 +436,15 @@ export function computeVisibleEntitiesSet({
   yScale,
   levelId,
   hasPickaxe,
-  caveWallVertices
+  caveWallVertices,
+  extraLightSources = []
 }: ComputeVisibleEntitiesParams): Set<string> {
   const visible = new Set<string>();
   const sightSegments = obstacleSegments.filter((s) => s.blocksSight !== false);
-  const pPosScaled: Point2D = { x: playerPos.x, y: playerPos.y * yScale };
+  const lightSources: ExtraLightSource[] = [
+    { x: playerPos.x, y: playerPos.y, radius: torchRadius },
+    ...extraLightSources
+  ];
 
   puzzleEntities.forEach((e) => {
     if (levelId === 'shipwreck' && (e.id === 'sea_witch' || e.isGoal)) {
@@ -450,45 +462,47 @@ export function computeVisibleEntitiesSet({
           e.gateType !== 'guardian'
       ) || Boolean(e.isExtraRock);
 
-    let targetPoint: Point2D;
-    let dist: number;
+    const otherSegments = sightSegments.filter((s) => s.rockId !== e.id);
 
-    if (isRock || isChasm || e.isGatekeeper) {
-      if (e.collarBounds) {
-        const cb = e.collarBounds;
-        if (cb.orientation === 'vertical') {
-          const rockY = Math.max(cb.yTop + 2, Math.min(cb.yBottom - 2, playerPos.y));
-          const facingX = playerPos.x < e.x ? cb.xLeft : cb.xRight;
-          targetPoint = { x: facingX, y: rockY * yScale };
-          dist = Math.hypot(facingX - playerPos.x, rockY - playerPos.y);
+    for (const src of lightSources) {
+      const srcScaled: Point2D = { x: src.x, y: src.y * yScale };
+      let targetPoint: Point2D;
+      let dist: number;
+
+      if (isRock || isChasm || e.isGatekeeper) {
+        if (e.collarBounds) {
+          const cb = e.collarBounds;
+          if (cb.orientation === 'vertical') {
+            const rockY = Math.max(cb.yTop + 2, Math.min(cb.yBottom - 2, src.y));
+            const facingX = src.x < e.x ? cb.xLeft : cb.xRight;
+            targetPoint = { x: facingX, y: rockY * yScale };
+            dist = Math.hypot(facingX - src.x, rockY - src.y);
+          } else {
+            const rockX = Math.max(cb.xLeft + 2, Math.min(cb.xRight - 2, src.x));
+            const facingY = src.y < e.y ? cb.yTop : cb.yBottom;
+            targetPoint = { x: rockX, y: facingY * yScale };
+            dist = Math.hypot(rockX - src.x, facingY - src.y);
+          }
         } else {
-          const rockX = Math.max(cb.xLeft + 2, Math.min(cb.xRight - 2, playerPos.x));
-          const facingY = playerPos.y < e.y ? cb.yTop : cb.yBottom;
+          let rockX = e.x;
+          if (levelId === 'underground' && caveWallVertices) {
+            const bounds = getCorridorBounds(e.y, caveWallVertices, e.x >= 50);
+            rockX = Math.max(bounds.xLeft + 2, Math.min(bounds.xRight - 2, src.x));
+          }
+          const facingY = src.y < e.y ? e.y - 1.5 : e.y + 1.5;
           targetPoint = { x: rockX, y: facingY * yScale };
-          dist = Math.hypot(rockX - playerPos.x, facingY - playerPos.y);
+          dist = Math.hypot(rockX - src.x, facingY - src.y);
         }
       } else {
-        let rockX = e.x;
-        if (levelId === 'underground' && caveWallVertices) {
-          const bounds = getCorridorBounds(e.y, caveWallVertices, e.x >= 50);
-          rockX = Math.max(bounds.xLeft + 2, Math.min(bounds.xRight - 2, playerPos.x));
-        }
-        const facingY = playerPos.y < e.y ? e.y - 1.5 : e.y + 1.5;
-        targetPoint = { x: rockX, y: facingY * yScale };
-        dist = Math.sqrt(Math.pow(rockX - playerPos.x, 2) + Math.pow(facingY - playerPos.y, 2));
+        targetPoint = { x: e.x, y: e.y * yScale };
+        dist = Math.hypot(e.x - src.x, e.y - src.y);
       }
-    } else {
-      targetPoint = { x: e.x, y: e.y * yScale };
-      dist = Math.sqrt(Math.pow(e.x - playerPos.x, 2) + Math.pow(e.y - playerPos.y, 2));
-    }
 
-    if (dist > torchRadius) return;
-
-    const otherSegments = sightSegments.filter((s) => s.rockId !== e.id);
-    const isLoSBlocked = checkCollision(pPosScaled, targetPoint, otherSegments);
-
-    if (!isLoSBlocked) {
-      visible.add(e.id);
+      if (dist > src.radius) continue;
+      if (!checkCollision(srcScaled, targetPoint, otherSegments)) {
+        visible.add(e.id);
+        break;
+      }
     }
   });
 

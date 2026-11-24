@@ -5,6 +5,7 @@ import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG } from '../levels/underwate
 import { ShipwreckWaterOverlay } from '../levels/shipwreck/components.tsx';
 import { reefKelpHabitats, type ReefKelpHabitat } from '../levels/underwater/data.ts';
 import { CaveEntranceProp } from '../levels/river_crossing/components.tsx';
+import { CaveBrazierProp } from '../levels/deep_cave/components.tsx';
 import CaveVisibility from '../levels/underground/CaveVisibility.tsx';
 import Hero from './Hero.tsx';
 import GameEntity from './GameEntity.tsx';
@@ -13,8 +14,10 @@ import DebugRays from './DebugRays.tsx';
 import type {
   AlertReason,
   CampItemState,
+  CaveBrazier,
   ClickIndicatorState,
   CustomEntityMovement,
+  ExtraLightPolygon,
   FlyingItemState,
   HeroBubbleBurst,
   LevelDefinition,
@@ -43,6 +46,10 @@ export interface WorldViewportProps {
   attachedEntityId: string | null;
   debugMode: boolean;
   polyPoints: readonly Point2D[] | null;
+  extraLightPolygons?: readonly ExtraLightPolygon[];
+  litBraziers?: readonly string[];
+  visibleBraziersSet?: Set<string> | null;
+  onLightBrazier?: (brazier: CaveBrazier, e: MouseEvent) => void;
   displayPlayerPos: Point2D;
   debugSegments: readonly ObstacleSegment[];
   lightingSettings: LightingSettings;
@@ -189,6 +196,10 @@ export function WorldViewport({
   attachedEntityId,
   debugMode,
   polyPoints,
+  extraLightPolygons = [],
+  litBraziers = [],
+  visibleBraziersSet = null,
+  onLightBrazier,
   displayPlayerPos,
   debugSegments,
   lightingSettings,
@@ -332,6 +343,7 @@ export function WorldViewport({
         <CaveVisibility
           heroPos={displayPlayerPos}
           polygon={polyPoints}
+          extraLightPolygons={extraLightPolygons}
           gameTime={gameTime}
           screens={level.mechanics.screens || 1}
           worldWidth={caveVisibilityWorldWidth}
@@ -340,6 +352,18 @@ export function WorldViewport({
           lighting={effectiveCaveLighting}
         />
       )}
+
+      {!isLevelEditor && level.id === 'deep_cave' && puzzle?.geometry?.braziers?.map((brazier) => (
+        <CaveBrazierProp
+          key={brazier.id}
+          brazier={brazier}
+          isLit={litBraziers.includes(brazier.id)}
+          isVisible={!visibleBraziersSet || visibleBraziersSet.has(brazier.id)}
+          leftPct={toCssX(brazier.x)}
+          topPct={toCssY(brazier.y)}
+          onClick={(b, ev) => onLightBrazier && onLightBrazier(b, ev)}
+        />
+      ))}
 
       <ClickIndicator indicator={!isLevelEditor ? clickIndicator : null} toCssX={toCssX} toCssY={toCssY} />
 

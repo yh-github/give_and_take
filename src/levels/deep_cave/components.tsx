@@ -3,6 +3,8 @@ import { CampIcon, RockSVG, type RockSVGProps } from '../underground/components.
 import { calculateFacetLighting, hashSeed } from '../../logic/geometry.ts';
 import type {
   CSSCustomProperties,
+  CaveBrazier,
+  CaveLandmark,
   CollarBounds,
   CollarOrientation,
   OrganicBoulderFacet,
@@ -124,6 +126,102 @@ export interface DeepCaveBackgroundProps {
  * Renders organic extracted `wallPolylines` with layered sedimentary rock rims,
  * cliff drop-off shadows, cavern floor terracing, and camp shaft illumination.
  */
+function renderLandmarkSVG(lm: CaveLandmark) {
+  const s = lm.scale ?? 1;
+  const rot = lm.rotation ?? 0;
+  const tf = `translate(${lm.x} ${lm.y}) rotate(${rot}) scale(${s})`;
+  switch (lm.kind) {
+    case 'mushroom_grove':
+      return (
+        <g key={lm.id} transform={tf}>
+          <circle cx="0" cy="0" r="14" fill="url(#deepCaveSporeGlow)" />
+          <ellipse cx="-3.5" cy="2.5" rx="6.2" ry="3.2" fill="#0d3b3e" opacity="0.55" />
+          <ellipse cx="4.2" cy="-2" rx="5.5" ry="2.8" fill="#134e4a" opacity="0.48" />
+          {/* Clustered bioluminescent fungal caps (pure decorative silhouettes) */}
+          <g opacity="0.92">
+            <rect x="-5.4" y="0.4" width="1.1" height="2.6" rx="0.4" fill="#99f6e4" opacity="0.7" />
+            <path d="M -7.6 0.8 Q -4.8 -3.4 -2.0 0.8 Z" fill="#14b8a6" stroke="#042f2e" strokeWidth="0.35" />
+            <circle cx="-5.6" cy="-0.4" r="0.45" fill="#ccfbf1" opacity="0.85" />
+            <circle cx="-4.0" cy="-1.0" r="0.35" fill="#ccfbf1" opacity="0.8" />
+            <rect x="2.8" y="-3.2" width="0.9" height="2.1" rx="0.35" fill="#a7f3d0" opacity="0.65" />
+            <path d="M 1.1 -2.9 Q 3.2 -6.0 5.4 -2.9 Z" fill="#2dd4bf" stroke="#042f2e" strokeWidth="0.3" />
+            <circle cx="3.1" cy="-3.9" r="0.35" fill="#ecfeff" opacity="0.85" />
+            <circle cx="-0.5" cy="4.2" r="0.45" fill="#5eead4" opacity="0.7" />
+            <circle cx="6.2" cy="1.8" r="0.38" fill="#5eead4" opacity="0.6" />
+            <circle cx="-6.8" cy="-4.0" r="0.32" fill="#99f6e4" opacity="0.6" />
+          </g>
+        </g>
+      );
+    case 'crystal_vein':
+      return (
+        <g key={lm.id} transform={tf}>
+          <circle cx="0" cy="0" r="9.5" fill="url(#deepCaveCrystalGlow)" />
+          <polygon points="-4.2,2.8 -2.8,-3.5 -0.8,2.2" fill="#22d3ee" stroke="#083344" strokeWidth="0.35" opacity="0.85" />
+          <polygon points="-2.8,-3.5 -1.6,-2.2 -0.8,2.2" fill="#a5f3fc" opacity="0.65" />
+          <polygon points="-0.8,3.0 1.4,-4.6 3.5,2.4" fill="#38bdf8" stroke="#0c4a6e" strokeWidth="0.35" opacity="0.9" />
+          <polygon points="1.4,-4.6 2.7,-2.4 3.5,2.4" fill="#e0f2fe" opacity="0.65" />
+          <polygon points="2.2,3.4 4.8,-1.5 6.0,3.2" fill="#818cf8" stroke="#1e1b4b" strokeWidth="0.3" opacity="0.78" />
+        </g>
+      );
+    case 'glow_pool':
+      return (
+        <g key={lm.id} transform={tf}>
+          <ellipse cx="0" cy="0" rx="8.8" ry="5.6" fill="#082f49" stroke="#1e3a5f" strokeWidth="0.55" opacity="0.88" />
+          <ellipse cx="-0.6" cy="-0.4" rx="6.4" ry="3.8" fill="#0e4a6f" opacity="0.72" />
+          <ellipse cx="-1.5" cy="-1.1" rx="3.4" ry="1.6" fill="#38bdf8" opacity="0.22" />
+          <path d="M -3.8 1.2 Q 0 2.5 3.6 0.9" fill="none" stroke="#7dd3fc" strokeWidth="0.3" opacity="0.45" />
+        </g>
+      );
+    case 'mine_rails':
+      return (
+        <g key={lm.id} transform={tf} opacity="0.82">
+          {/* Wooden sleepers */}
+          {[-6, -3, 0, 3, 6].map((rx, idx) => (
+            <rect
+              key={idx}
+              x={rx - 0.55}
+              y="-4.2"
+              width="1.1"
+              height="8.4"
+              rx="0.25"
+              fill="#4a3121"
+              stroke="#1f140d"
+              strokeWidth="0.25"
+            />
+          ))}
+          {/* Twin iron rails */}
+          <line x1="-8.2" y1="-2.2" x2="8.2" y2="-2.2" stroke="#78716c" strokeWidth="0.7" strokeLinecap="round" />
+          <line x1="-8.2" y1="2.2" x2="8.2" y2="2.2" stroke="#78716c" strokeWidth="0.7" strokeLinecap="round" />
+          <line x1="-8.2" y1="-2.3" x2="8.2" y2="-2.3" stroke="#d6d3d1" strokeWidth="0.2" opacity="0.5" />
+          <circle cx="6.2" cy="4.2" r="1.2" fill="#57534e" stroke="#1c1917" strokeWidth="0.3" />
+          <circle cx="7.4" cy="4.8" r="0.85" fill="#d97706" opacity="0.75" />
+        </g>
+      );
+    case 'ruined_arch':
+      return (
+        <g key={lm.id} transform={tf} opacity="0.8">
+          <rect x="-5.8" y="-3.2" width="4.4" height="2.8" rx="0.5" fill="#3f3630" stroke="#1c1613" strokeWidth="0.35" />
+          <rect x="-0.6" y="-2.2" width="5.2" height="3.0" rx="0.5" fill="#4c4139" stroke="#1c1613" strokeWidth="0.35" />
+          <rect x="-3.4" y="0.6" width="4.8" height="2.6" rx="0.5" fill="#352d28" stroke="#1c1613" strokeWidth="0.35" />
+          {/* Subtle emerald moss accents */}
+          <ellipse cx="-4.2" cy="-2.2" rx="1.2" ry="0.65" fill="#15803d" opacity="0.5" />
+          <ellipse cx="2.8" cy="0.2" rx="1.0" ry="0.55" fill="#166534" opacity="0.45" />
+        </g>
+      );
+    case 'vault_sanctum':
+      return (
+        <g key={lm.id} transform={tf}>
+          <circle cx="0" cy="0" r="15" fill="url(#deepCaveVaultGlow)" />
+          <circle cx="0" cy="0" r="10.8" fill="none" stroke="#b45309" strokeWidth="0.5" strokeDasharray="1.8 1.2" opacity="0.65" />
+          <circle cx="0" cy="0" r="7.4" fill="none" stroke="#f59e0b" strokeWidth="0.4" opacity="0.55" />
+          <polygon points="0,-9.2 1.8,-1.8 9.2,0 1.8,1.8 0,9.2 -1.8,1.8 -9.2,0 -1.8,-1.8" fill="#d97706" opacity="0.22" />
+        </g>
+      );
+    default:
+      return null;
+  }
+}
+
 export const DeepCaveBackground = memo(({ geometry }: DeepCaveBackgroundProps) => {
   const worldWidth = geometry?.worldWidth || 100;
   const worldHeight = geometry?.worldHeight || 256;
@@ -182,6 +280,21 @@ export const DeepCaveBackground = memo(({ geometry }: DeepCaveBackgroundProps) =
             <stop offset="55%" stopColor="#fde68a" stopOpacity="0.09" />
             <stop offset="100%" stopColor="#2b221d" stopOpacity="0" />
           </radialGradient>
+          <radialGradient id="deepCaveSporeGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.26" />
+            <stop offset="60%" stopColor="#0f766e" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#042f2e" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="deepCaveCrystalGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.24" />
+            <stop offset="65%" stopColor="#1e3a8a" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="deepCaveVaultGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.22" />
+            <stop offset="60%" stopColor="#92400e" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="#140f12" stopOpacity="0" />
+          </radialGradient>
           <linearGradient id="deepCaveDepthWash" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#3c2f27" stopOpacity="0.22" />
             <stop offset="48%" stopColor="#241c17" stopOpacity="0.32" />
@@ -201,6 +314,11 @@ export const DeepCaveBackground = memo(({ geometry }: DeepCaveBackgroundProps) =
 
         {/* Soft surface shaft spill near camp entrance */}
         <circle cx={campPos.x} cy={campPos.y} r="30" fill="url(#deepCaveCampGlow)" />
+
+        {/* Subterranean room landmarks (masked cleanly beneath outer rock shell) */}
+        {geometry?.landmarks && geometry.landmarks.length > 0 && (
+          <g>{geometry.landmarks.map(renderLandmarkSVG)}</g>
+        )}
 
         {/* Subtle subterranean floor shelves & loose stone grains near walls */}
         <g opacity="0.48">
@@ -289,6 +407,108 @@ export const DeepCaveBackground = memo(({ geometry }: DeepCaveBackgroundProps) =
         ))}
       </svg>
     </div>
+  );
+});
+
+export interface CaveBrazierPropProps {
+  brazier: CaveBrazier;
+  isLit: boolean;
+  isVisible: boolean;
+  leftPct: number;
+  topPct: number;
+  onClick: (brazier: CaveBrazier, e: React.MouseEvent) => void;
+}
+
+/**
+ * Interactive wrought-iron cave brazier landmark. Clicking walks to the brazier
+ * and ignites a permanent flickering firelight beacon across nearby tunnels.
+ */
+export const CaveBrazierProp = memo(({
+  brazier,
+  isLit,
+  isVisible,
+  leftPct,
+  topPct,
+  onClick
+}: CaveBrazierPropProps) => {
+  const showProp = isLit || isVisible;
+  return (
+    <button
+      type="button"
+      data-testid={`brazier-${brazier.id}`}
+      data-lit={isLit ? 'true' : 'false'}
+      onClick={(e) => onClick(brazier, e)}
+      aria-label={isLit ? `Lit brazier ${brazier.id}` : `Light brazier ${brazier.id}`}
+      className={`group absolute transform -translate-x-1/2 -translate-y-1/2 focus:outline-none transition-all duration-300 ${
+        showProp ? 'opacity-100 pointer-events-auto cursor-pointer hover:scale-110' : 'opacity-0 pointer-events-none'
+      }`}
+      style={{
+        left: `${leftPct}%`,
+        top: `${topPct}%`,
+        zIndex: isLit ? 154 : 108
+      }}
+    >
+      <div className="relative flex flex-col items-center justify-center w-[7cqw] h-[7cqw]">
+        {isLit && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-[-35%] rounded-full bg-amber-400/25 blur-sm animate-pulse pointer-events-none"
+          />
+        )}
+        <svg viewBox="0 0 64 64" className="w-full h-full overflow-visible drop-shadow-[0_4px_6px_rgba(0,0,0,0.85)]">
+          {/* Stone plinth base */}
+          <ellipse cx="32" cy="53" rx="18" ry="6" fill="#1c1917" stroke="#0c0a09" strokeWidth="2" />
+          {/* Iron tripod legs */}
+          <path d="M 20 38 L 16 52 M 44 38 L 48 52 M 32 40 L 32 54" stroke="#44403c" strokeWidth="3.2" strokeLinecap="round" />
+          {/* Iron fire bowl */}
+          <path d="M 14 31 Q 32 45 50 31 L 46 27 Q 32 33 18 27 Z" fill="#292524" stroke="#57534e" strokeWidth="2" />
+          <ellipse cx="32" cy="29" rx="15" ry="4.5" fill={isLit ? '#7c2d12' : '#1c1917'} stroke="#44403c" strokeWidth="1.5" />
+
+          {isLit ? (
+            <g className="animate-flicker">
+              {/* Outer orange flame */}
+              <path
+                d="M 21 29 C 19 18, 28 11, 32 5 C 37 12, 45 18, 43 29 C 38 32, 26 32, 21 29 Z"
+                fill="#f97316"
+              />
+              {/* Bright gold core flame */}
+              <path
+                d="M 25 29 C 24 21, 30 16, 32 11 C 35 16, 40 21, 39 29 Z"
+                fill="#fde047"
+              />
+              {/* Floating sparks */}
+              <circle cx="24" cy="12" r="1.6" fill="#fef08a" opacity="0.85" />
+              <circle cx="40" cy="14" r="1.4" fill="#fdba74" opacity="0.85" />
+            </g>
+          ) : (
+            <g>
+              {/* Cold charcoal & subtle unlit spark cue on hover */}
+              <circle cx="27" cy="28" r="2.6" fill="#44403c" />
+              <circle cx="33" cy="29" r="3" fill="#292524" />
+              <circle cx="37" cy="28" r="2.2" fill="#57534e" />
+              <circle
+                cx="32"
+                cy="18"
+                r="6"
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="1.6"
+                strokeDasharray="3 3"
+                className="opacity-0 group-hover:opacity-75 transition-opacity"
+              />
+            </g>
+          )}
+        </svg>
+        {!isLit && isVisible && (
+          <span
+            aria-hidden="true"
+            className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 transition-opacity bg-stone-900/90 border border-amber-500/70 rounded-full px-1.5 py-0.5 shadow-md pointer-events-none"
+          >
+            🔥
+          </span>
+        )}
+      </div>
+    </button>
   );
 });
 

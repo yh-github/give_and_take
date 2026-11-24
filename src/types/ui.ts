@@ -70,6 +70,7 @@ export type GameHistoryEntry = {
   unlockedZones: number[];
   campItems: CampItemState[];
   buriedEntities: string[];
+  litBraziers?: string[];
   air: number;
   isTransformed: boolean;
   hasDeepTreasure: boolean;

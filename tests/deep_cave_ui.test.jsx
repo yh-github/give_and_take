@@ -570,10 +570,8 @@ describe('Deep Cave Phase 4 UI, Worker, Persistence & Hydration', () => {
 
       // Sight polygon casts against solid cave wall segments (cannot see straight through an obstacle polygon)
       const poly = getVisibilityPolygon(hardPuzzle.geometry.campPos, segs, hardPuzzle.settings.torchRadius, 1);
-      const midObstacle = hardPuzzle.geometry.obstaclePolygons[0]?.[0];
-      if (midObstacle) {
-        expect(isPointInVisibilityPolygon(midObstacle, poly)).toBe(false);
-      }
+      const polyLeftInterior = { x: 0.5, y: hardPuzzle.geometry.campPos.y };
+      expect(isPointInVisibilityPolygon(polyLeftInterior, poly)).toBe(false);
     });
 
     it('blocks line-of-sight through cave walls and allows walking past y = 256 to vault_treasure in GameInstance', async () => {
@@ -787,6 +785,93 @@ describe('Deep Cave Phase 4 UI, Worker, Persistence & Hydration', () => {
       expect(heroEl.className).not.toContain('-translate-x-1/2');
       expect(heroEl.className).not.toContain('-translate-y-1/2');
       expect(heroEl.style.transform).toContain('translate(-50%, -50%)');
+    });
+
+    it('ignites a lightable cave brazier on click, cuts an extra light pool in CaveVisibility, and supports Undo', () => {
+      const brazierPuzzle = {
+        levelId: 'deep_cave',
+        startItems: ['crystal'],
+        goalEntityId: 'vault_treasure',
+        settings: { ...DEEP_CAVE_PRESETS.easy },
+        generatorVersion: DEEP_CAVE_GENERATOR_VERSION,
+        geometry: {
+          worldWidth: 100,
+          worldHeight: 192,
+          campPos: { x: 50, y: 18 },
+          torchRadius: 68,
+          wallPolylines: [
+            {
+              closed: true,
+              isPillar: false,
+              points: [
+                { x: 4, y: 4 },
+                { x: 4, y: 188 },
+                { x: 96, y: 188 },
+                { x: 96, y: 4 }
+              ]
+            }
+          ],
+          obstaclePolygons: [],
+          landmarks: [
+            { id: 'lm_crys_1', kind: 'crystal_vein', x: 35, y: 40 },
+            { id: 'lm_vault_1', kind: 'vault_sanctum', x: 50, y: 160 }
+          ],
+          braziers: [
+            { id: 'brazier_1', x: 50, y: 42, zone: 1, radius: 46 }
+          ]
+        },
+        puzzleEntities: [
+          {
+            id: 'vault_treasure',
+            name: 'Vault Treasure',
+            emoji: '👑',
+            isGoal: true,
+            isPreset: 'treasure',
+            isTreasure: true,
+            requires: [],
+            reqType: 'AND',
+            reward: null,
+            zone: 1,
+            x: 50,
+            y: 160
+          }
+        ]
+      };
+
+      render(
+        <GameInstance
+          level={LEVEL_REGISTRY.deep_cave}
+          targetSteps={5}
+          numDiggers={0}
+          deepCaveSettings={DEEP_CAVE_PRESETS.easy}
+          savedState={{
+            levelId: 'deep_cave',
+            targetSteps: 5,
+            numDiggers: 0,
+            settings: { ...DEEP_CAVE_PRESETS.easy },
+            generatorVersion: DEEP_CAVE_GENERATOR_VERSION,
+            inventory: ['crystal'],
+            unlockedZones: [1],
+            defeated: [],
+            pathHistory: [{ x: 50, y: 18, zone: 1 }],
+            puzzle: brazierPuzzle
+          }}
+          onGenerateNew={vi.fn()}
+          onLoadState={vi.fn()}
+          lang="en"
+          setLang={vi.fn()}
+        />
+      );
+
+      const brazierBtn = screen.getByTestId('brazier-brazier_1');
+      expect(brazierBtn.getAttribute('data-lit')).toBe('false');
+
+      fireEvent.click(brazierBtn);
+      expect(brazierBtn.getAttribute('data-lit')).toBe('true');
+
+      const undoBtn = screen.getByTitle('Undo');
+      fireEvent.click(undoBtn);
+      expect(brazierBtn.getAttribute('data-lit')).toBe('false');
     });
   });
 });

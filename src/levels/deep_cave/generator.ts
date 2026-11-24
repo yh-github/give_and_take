@@ -15,6 +15,7 @@ import { items as UNDERGROUND_ITEMS } from './data.ts';
 import { ENCOUNTERS_BY_ID } from './encounters/index.ts';
 import { synthesizeMissionGraph } from './missionGraph.ts';
 import { placeEntitiesInSlots, verifyGeneratedLevel } from './placementAndVerify.ts';
+import { buildCaveFeatures } from './landmarks.ts';
 import { normalizeDeepCaveSettings } from './presets.ts';
 import { rasterizeSlotGrid } from './slotGrid.ts';
 import { buildSpaceBlueprint, chooseEncounters } from './spaceBlueprint.ts';
@@ -126,6 +127,7 @@ export function generateDeepCavePuzzle(
         continue;
       }
 
+      const features = buildCaveFeatures(blueprint, geo, placedRes.placed, placedRes.campPos, settings, rng);
       const geometry: ProceduralGeometry & { torchRadius: number } = {
         worldWidth: geo.worldWidth,
         worldHeight: geo.worldHeight,
@@ -133,6 +135,8 @@ export function generateDeepCavePuzzle(
         wallPolylines: geo.wallPolylines,
         obstaclePolygons: geo.obstaclePolygons,
         campPos: placedRes.campPos,
+        landmarks: features.landmarks,
+        braziers: features.braziers,
         torchRadius: settings.torchRadius,
         slotLayout: {
           rows: blueprint.rows,

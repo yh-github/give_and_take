@@ -75,12 +75,49 @@ export interface NormalizedWallPolyline {
   isPillar: boolean;
 }
 
+export type CaveLandmarkKind =
+  | 'mushroom_grove'
+  | 'crystal_vein'
+  | 'mine_rails'
+  | 'glow_pool'
+  | 'ruined_arch'
+  | 'vault_sanctum';
+
+export interface CaveLandmark {
+  id: string;
+  kind: CaveLandmarkKind;
+  x: number;
+  y: number;
+  scale?: number;
+  rotation?: number;
+  seed?: number;
+}
+
+export interface CaveBrazier {
+  id: string;
+  x: number;
+  y: number;
+  zone: number;
+  radius?: number;
+}
+
+export interface ExtraLightPolygon {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  polygon: Point2D[];
+  ambientColor?: string;
+}
+
 export interface ProceduralGeometry {
   worldWidth?: number;
   worldHeight?: number;
   campPos?: Point2D & { depth?: number };
   wallPolylines?: WallPolyline[];
   obstaclePolygons?: Point2D[][];
+  landmarks?: CaveLandmark[];
+  braziers?: CaveBrazier[];
   [key: string]: unknown;
 }
 
