@@ -111,7 +111,10 @@ interface GameStateSnapshotRef {
   dolphinYPos: number;
 }
 
-const hydrateHistoryStack = (stack: SerializedHistoryEntry[] | undefined): GameHistoryEntry[] =>
+const hydrateHistoryStack = (
+  stack: SerializedHistoryEntry[] | undefined,
+  defaultMaxAir = MAX_AIR
+): GameHistoryEntry[] =>
   (stack || []).map((entry) => ({
     inventory: entry.inventory || [],
     defeated: entry.defeated || [],
@@ -120,7 +123,7 @@ const hydrateHistoryStack = (stack: SerializedHistoryEntry[] | undefined): GameH
     unlockedZones: entry.unlockedZones || [1],
     campItems: entry.campItems || [],
     buriedEntities: entry.buriedEntities || [],
-    air: entry.air ?? MAX_AIR,
+    air: entry.air ?? defaultMaxAir,
     isTransformed: Boolean(entry.isTransformed),
     hasDeepTreasure: Boolean(entry.hasDeepTreasure),
     inkFogEntities: new Set(entry.inkFogEntities || []),
@@ -142,6 +145,9 @@ export function GameInstance({
   lang,
   setLang
 }: GameInstanceProps) {
+  const maxAir = level.mechanics.maxAir ?? MAX_AIR;
+  const defaultTransformed = Boolean(level.mechanics.startsTransformed);
+
   const [puzzle, setPuzzle] = useState<PuzzleData | null>(() => savedState?.puzzle || null);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [generationFailureHint, setGenerationFailureHint] = useState<string | null>(null);
@@ -160,8 +166,8 @@ export function GameInstance({
   const [defeated, setDefeated] = useState<string[]>(() => savedState?.defeated || []);
   const [selectedItemTypes, setSelectedItemTypes] = useState<string[]>([]);
   const [pathHistory, setPathHistory] = useState<PathHistoryPoint[]>(() => savedState?.pathHistory || [{ ...level.campPos, zone: 1 }]);
-  const [historyStack, setHistoryStack] = useState<GameHistoryEntry[]>(() => hydrateHistoryStack(savedState?.historyStack));
-  const [air, setAir] = useState<number>(() => savedState?.air ?? MAX_AIR);
+  const [historyStack, setHistoryStack] = useState<GameHistoryEntry[]>(() => hydrateHistoryStack(savedState?.historyStack, maxAir));
+  const [air, setAir] = useState<number>(() => savedState?.air ?? maxAir);
 
   const dict = STRINGS[lang] || STRINGS.en;
 
@@ -203,7 +209,11 @@ export function GameInstance({
 
   const [animatingEntities, setAnimatingEntities] = useState<string[]>([]);
   const [buriedEntities, setBuriedEntities] = useState<string[]>(() => savedState?.buriedEntities || []);
-  const [isTransformed, setIsTransformed] = useState(() => Boolean(savedState?.isTransformed));
+  const [isTransformed, setIsTransformed] = useState(() =>
+    savedState && savedState.isTransformed !== undefined
+      ? Boolean(savedState.isTransformed)
+      : defaultTransformed
+  );
   const [isRefillingAir, setIsRefillingAir] = useState(false);
   const [hasDeepTreasure, setHasDeepTreasure] = useState(() => Boolean(savedState?.hasDeepTreasure));
   const [inkFogEntities, setInkFogEntities] = useState<Set<string>>(() => new Set(savedState?.inkFogEntities || []));
@@ -306,8 +316,11 @@ export function GameInstance({
     if (useIsotropic && !debugMode && customTorchRadius) {
       return customTorchRadius;
     }
+    if (level.id === 'shipwreck' && !debugMode) {
+      return 65;
+    }
     return lightingSettings?.radius || lightingSettings?.torchRadius || 50;
-  }, [useIsotropic, debugMode, puzzle?.settings, lightingSettings]);
+  }, [useIsotropic, debugMode, puzzle?.settings, lightingSettings, level.id]);
 
   const effectiveLighting = useMemo(() => ({
     ...lightingSettings,
@@ -316,10 +329,10 @@ export function GameInstance({
 
   const obstacleSegments = useMemo(() => {
     if (!puzzle) return [];
-    if (level.getObstacleSegments) return level.getObstacleSegments(puzzle.puzzleEntities, unlockedZones, defeated, screens, puzzle.geometry);
+    if (level.getObstacleSegments) return level.getObstacleSegments(puzzle.puzzleEntities, unlockedZones, defeated, screens, puzzle.geometry, isTransformed);
     if (useIsotropic && puzzle.geometry) return getProceduralObstacleSegments(puzzle.puzzleEntities, puzzle.geometry, defeated);
     return getObstacleSegments(puzzle.puzzleEntities, CAVE_WALL_VERTICES, unlockedZones, defeated, screens);
-  }, [puzzle?.puzzleEntities, puzzle?.geometry, unlockedZones, defeated, screens, level, useIsotropic]);
+  }, [puzzle?.puzzleEntities, puzzle?.geometry, unlockedZones, defeated, screens, level, useIsotropic, isTransformed]);
 
   const obstaclePolygons = useMemo(() => {
     return (useIsotropic && puzzle?.geometry?.obstaclePolygons) ? puzzle.geometry.obstaclePolygons : [];
@@ -380,11 +393,15 @@ export function GameInstance({
       );
       setUnlockedZones(saved.unlockedZones || [1]);
       setDefeated(saved.defeated || []);
-      setHistoryStack(hydrateHistoryStack(saved.historyStack));
+      setHistoryStack(hydrateHistoryStack(saved.historyStack, maxAir));
       setCampItems(saved.campItems || []);
       setBuriedEntities(saved.buriedEntities || []);
-      setAir(saved.air ?? MAX_AIR);
-      setIsTransformed(Boolean(saved.isTransformed));
+      const restoredAir = saved.air ?? maxAir;
+      airRef.current = restoredAir;
+      setAir(restoredAir);
+      const restoredTransformed = saved.isTransformed !== undefined ? Boolean(saved.isTransformed) : defaultTransformed;
+      isTransformedRef.current = restoredTransformed;
+      setIsTransformed(restoredTransformed);
       setHasDeepTreasure(Boolean(saved.hasDeepTreasure));
       setEnvItemState(saved.envItemState || 'active');
       setEnvItemCaughtPos(saved.envItemCaughtPos || { x: 50, y: 50 });
@@ -415,7 +432,11 @@ export function GameInstance({
       setCampItems([]);
       setBuriedEntities([]);
       setSelectedItemTypes([]);
-      setAir(MAX_AIR);
+      airRef.current = maxAir;
+      setAir(maxAir);
+      isTransformedRef.current = defaultTransformed;
+      setIsTransformed(defaultTransformed);
+      setHasDeepTreasure(false);
       setIsAnimatingLoot(false);
       setTempPlayerPos(null);
       setAlertEntityId(null);
@@ -508,7 +529,7 @@ export function GameInstance({
       isInteract,
       occluderType,
       collarBounds,
-      isCaveType: Boolean(level.mechanics.isCaveType),
+      isCaveType: Boolean(level.mechanics.isCaveType || level.mechanics.hasWalls),
       useIsotropic,
       worldHeight,
       yScale,
@@ -516,7 +537,7 @@ export function GameInstance({
       obstaclePolygons,
       caveWallVertices: CAVE_WALL_VERTICES
     });
-  }, [puzzle, pathHistory, level.mechanics.isCaveType, obstacleSegments, obstaclePolygons, useIsotropic, worldHeight, yScale]);
+  }, [puzzle, pathHistory, level.mechanics.isCaveType, level.mechanics.hasWalls, obstacleSegments, obstaclePolygons, useIsotropic, worldHeight, yScale]);
 
   const triggerAirLossBubbles = useCallback((x: number, y: number, isHeavy = false, countOverride?: number) => {
     if (!level.mechanics.hasAir || isTransformedRef.current) return;
@@ -544,18 +565,25 @@ export function GameInstance({
     if (!level.mechanics.hasAir || isTransformedRef.current) return;
     const effectiveInv = options?.nextInventory ?? inventoryRef.current;
 
-    if (finalY <= 20 || isVentAction) {
-      airRef.current = MAX_AIR;
-      setAir(MAX_AIR);
+    const isAtShipwreckRefill =
+      level.id === 'shipwreck' &&
+      (finalY <= 25 || Math.hypot((options?.dropPos?.x ?? effectiveCampPos.x) - effectiveCampPos.x, finalY - effectiveCampPos.y) <= 10);
+    const isAtUnderwaterSurface = level.id !== 'shipwreck' && finalY <= 20;
+
+    if (isAtShipwreckRefill || isAtUnderwaterSurface || isVentAction) {
+      airRef.current = maxAir;
+      setAir(maxAir);
       if (level.id === 'underwater' && finalY <= 20 && hasDeepTreasure && !isTransformedRef.current && effectiveInv.includes('crown')) {
         triggerVictory();
       }
       return;
     }
 
-    const isHeavyCost = options?.wasFullBeforeMove !== undefined
-      ? options.wasFullBeforeMove
-      : isUnderwaterBackpackFull(effectiveInv);
+    const isHeavyCost = level.id === 'underwater' && (
+      options?.wasFullBeforeMove !== undefined
+        ? options.wasFullBeforeMove
+        : isUnderwaterBackpackFull(effectiveInv)
+    );
     const airCost = isHeavyCost ? UNDERWATER_AIR_COST_FULL_BAG : UNDERWATER_AIR_COST_NORMAL;
     const nextAir = Math.max(0, airRef.current - airCost);
 
@@ -576,7 +604,7 @@ export function GameInstance({
       airRef.current = nextAir;
       setAir(nextAir);
     }
-  }, [level.id, level.mechanics.hasAir, level.campPos, hasDeepTreasure, triggerVictory, scheduleTimeout, triggerAirLossBubbles]);
+  }, [level.id, level.mechanics.hasAir, level.campPos, effectiveCampPos, maxAir, hasDeepTreasure, triggerVictory, scheduleTimeout, triggerAirLossBubbles]);
 
   const startDolphinDive = useCallback(() => {
     setAttachedEntityId('dolphin_1');
@@ -758,10 +786,14 @@ export function GameInstance({
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.id, puzzle]);
 
+  const isClamEntity = (ent: Pick<PuzzleEntity, 'id'>) =>
+    Boolean(ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam'));
+
   useEffect(() => {
     if (!puzzle || isDemonstrating || isAnimatingLoot) return;
     const currentPos = pathHistory[pathHistory.length - 1];
     const diggersToBury = puzzle.puzzleEntities.filter(ent => {
+      if (isClamEntity(ent)) return false;
       const isDigger = level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal;
       const isVisibleToPlayer = level.mechanics.darknessType !== 'radial' || (visibleEntitiesSet && visibleEntitiesSet.has(ent.id));
       const isZoneAccessible = level.mechanics.hasTransformation
@@ -815,12 +847,14 @@ export function GameInstance({
     setIsInventoryFullAlert(false);
     const prevState = historyStack[historyStack.length - 1];
     inventoryRef.current = prevState.inventory;
-    isTransformedRef.current = prevState.isTransformed || false;
+    const restoredAir = prevState.air ?? maxAir;
+    airRef.current = restoredAir;
+    isTransformedRef.current = prevState.isTransformed ?? defaultTransformed;
     setInventory(prevState.inventory); setDefeated(prevState.defeated); setPathHistory(prevState.pathHistory);
     setEnvItemState(prevState.envItemState);
     setUnlockedZones(prevState.unlockedZones); setCampItems(prevState.campItems || []);
-    setBuriedEntities(prevState.buriedEntities || []); setAir(prevState.air ?? MAX_AIR);
-    setIsTransformed(prevState.isTransformed || false);
+    setBuriedEntities(prevState.buriedEntities || []); setAir(restoredAir);
+    setIsTransformed(prevState.isTransformed ?? defaultTransformed);
     setHasDeepTreasure(prevState.hasDeepTreasure || false);
     setInkFogEntities(new Set(prevState.inkFogEntities || []));
     if (prevState.dolphinState) {
@@ -841,7 +875,7 @@ export function GameInstance({
     setRustlingKelpId(null);
     kelpCooldownsRef.current = {};
     inventoryRef.current = puzzle.startItems || [];
-    isTransformedRef.current = false;
+    isTransformedRef.current = defaultTransformed;
     setInventory(puzzle.startItems || []);
     setPathHistory([{ ...effectiveCampPos, zone: 1 }]);
     setBreakingRockIds({});
@@ -850,7 +884,8 @@ export function GameInstance({
     setDolphinYPos(22);
     dolphinAnimRef.current = { startTime: 0, startY: 22, targetY: 22, duration: 0, isDiving: false, attachPlayer: false };
     setUnlockedZones([1]);
-    setAir(MAX_AIR);
+    airRef.current = maxAir;
+    setAir(maxAir);
     setDefeated([]);
     setSelectedItemTypes([]);
     setSelectedEntityId(null);
@@ -871,7 +906,7 @@ export function GameInstance({
     setCampItems([]);
     setBuriedEntities([]);
     setMassFlyingTreasures([]);
-    setIsTransformed(false);
+    setIsTransformed(defaultTransformed);
     setHasDeepTreasure(false);
     setInkFogEntities(new Set());
     setRoamingBoats([]);
@@ -937,8 +972,8 @@ export function GameInstance({
       defeated.length > 0 ||
       campItems.length > 0 ||
       buriedEntities.length > 0 ||
-      air < MAX_AIR ||
-      isTransformed ||
+      air < maxAir ||
+      isTransformed !== defaultTransformed ||
       hasDeepTreasure ||
       envItemState !== 'active' ||
       dolphinState !== 'idle_surface' ||
@@ -1001,7 +1036,7 @@ export function GameInstance({
     const currentPath: PathHistoryPoint[] = [{ ...effectiveCampPos, zone: 1 }];
     let currentZoneSim = 1;
     const unlockedZonesSim = new Set<number>([1]);
-    let transformedSim = false;
+    let transformedSim = defaultTransformed;
     let hasTreasureSim = false;
 
     for (const step of puzzle.solution) {
@@ -1074,6 +1109,35 @@ export function GameInstance({
           2.5,
           { radius: DEEP_CAVE_HERO_RADIUS, maxIters: 25000, cornerClearance: 1.5 }
         );
+      } else if (level.mechanics.hasWalls && level.getObstacleSegments) {
+        const simSegs = level.getObstacleSegments(
+          puzzle.puzzleEntities,
+          Array.from(unlockedZonesSim),
+          currentDefeated,
+          screens,
+          puzzle.geometry,
+          transformedSim
+        );
+        const startPos = currentPath[currentPath.length - 1];
+        const dx = entity.x - startPos.x;
+        const dy = entity.y - startPos.y;
+        const d = Math.hypot(dx, dy);
+        let goalX = entity.x;
+        let goalY = entity.y;
+        if (d > 3.5) {
+          goalX -= (dx / d) * 3.5;
+          goalY -= (dy / d) * 3.5;
+        }
+        const rawDemoPath = findGlobalPath(
+          { x: startPos.x, y: startPos.y * yScale },
+          { x: goalX, y: goalY * yScale },
+          simSegs,
+          { width: 100, height: worldHeight },
+          [],
+          3,
+          {}
+        );
+        demoWalkPath = rawDemoPath.map(p => ({ x: p.x, y: p.y / yScale }));
       } else {
         waypoints = computeWaypoints(currentZoneSim, entity.zone);
       }
@@ -1145,7 +1209,7 @@ export function GameInstance({
       setSelectedItemTypes([]);
 
       if (entity.id === 'sea_witch') {
-        transformedSim = !transformedSim;
+        transformedSim = level.id === 'shipwreck' ? false : !transformedSim;
         setIsTransformed(transformedSim);
       }
       if (entity.isGoal && level.mechanics.hasTransformation) {
@@ -1175,7 +1239,7 @@ export function GameInstance({
         setUnlockedZones(Array.from(unlockedZonesSim));
       }
 
-      if (entity.id === puzzle.goalEntityId && !level.mechanics.hasTransformation) {
+      if (entity.id === puzzle.goalEntityId && (!level.mechanics.hasTransformation || level.mechanics.startsTransformed)) {
         if (level.mechanics.isCaveType) {
           const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
           setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
@@ -1185,7 +1249,7 @@ export function GameInstance({
           setMassFlyingTreasures([]);
         }
         triggerVictory();
-      } else if (level.mechanics.hasTransformation && hasTreasureSim && !transformedSim && step.isReturnTrip) {
+      } else if (level.mechanics.hasTransformation && !level.mechanics.startsTransformed && hasTreasureSim && !transformedSim && step.isReturnTrip) {
         currentPath.push({ x: level.campPos.x, y: level.campPos.y, depth: 3, zone: 1 });
         setPathHistory([...currentPath]);
         await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
@@ -1227,7 +1291,9 @@ export function GameInstance({
     const { nextInventory, droppedFloatingItems } = resolveOutOfAirDrop(
       outOfAirModal.items,
       keepItemId,
-      outOfAirModal.dropPos
+      outOfAirModal.dropPos,
+      Date.now(),
+      level.id === 'shipwreck' ? { min: 28, max: 90 } : undefined
     );
 
     inventoryRef.current = nextInventory;
@@ -1288,13 +1354,18 @@ export function GameInstance({
         drowningRafRef.current = 0;
       }
       setDrowningFloatPos(null);
-      const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, 3, false);
-      setPathHistory(prev => [...prev, ...returnPath]);
+      const returnPath = level.id === 'shipwreck'
+        ? []
+        : navigateTo(level.campPos.x, level.campPos.y, 1, 3, false);
+      const nextCampPoint = returnPath.length > 0
+        ? returnPath
+        : [{ x: level.campPos.x, y: level.campPos.y, depth: 3, zone: 1 }];
+      setPathHistory(prev => [...prev, ...nextCampPoint]);
       setIsAnimatingLoot(false);
       setAlertEntityId(null);
       setIsRefillingAir(true);
     }, DROWNING_RETURN_DELAY_MS);
-  }, [outOfAirModal, startDolphinReturn, navigateTo, level.campPos, scheduleTimeout, triggerAirLossBubbles]);
+  }, [outOfAirModal, startDolphinReturn, navigateTo, level.id, level.campPos, scheduleTimeout, triggerAirLossBubbles]);
 
   const triggerAbyssalDrowning = useCallback((
     targetX: number,
@@ -1413,16 +1484,19 @@ export function GameInstance({
     if (!isRefillingAir) return;
     const timer = setInterval(() => {
       setAir(prev => {
-        if (prev >= MAX_AIR - 1) {
+        if (prev >= maxAir - 1) {
           clearInterval(timer);
           setIsRefillingAir(false);
-          return MAX_AIR;
+          airRef.current = maxAir;
+          return maxAir;
         }
-        return prev + 1;
+        const nextVal = prev + 1;
+        airRef.current = nextVal;
+        return nextVal;
       });
     }, AIR_REFILL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [isRefillingAir]);
+  }, [isRefillingAir, maxAir]);
 
   const handleCatchRiverFish = (e: MouseEvent) => {
     e.stopPropagation();
@@ -1662,8 +1736,8 @@ export function GameInstance({
       }
       setIsAnimatingLoot(false);
       if (level.mechanics.hasAir) {
-        airRef.current = MAX_AIR;
-        setAir(MAX_AIR);
+        airRef.current = maxAir;
+        setAir(maxAir);
       }
       if (level.id === 'underwater' && !isTransformedRef.current && hasDeepTreasure && nextInv.includes('crown')) {
         triggerVictory();
@@ -1726,6 +1800,22 @@ export function GameInstance({
     }, swimDuration);
   };
 
+  const triggerAirPocketBlocked = useCallback(() => {
+    setSelectedItemTypes([]);
+    setSelectedEntityId(null);
+    const curPos = pathHistory[pathHistory.length - 1];
+    if (curPos && curPos.y > 26) {
+      const approachPath = navigateTo(50, 29, 4, 3, false);
+      if (approachPath && approachPath.length > 0) {
+        setPathHistory(prev => [...prev, ...approachPath]);
+      }
+    }
+    setAlertEntityId('air_pocket_blocked');
+    scheduleTimeout(() => {
+      setAlertEntityId(prev => (prev === 'air_pocket_blocked' ? null : prev));
+    }, 1800);
+  }, [pathHistory, navigateTo, scheduleTimeout]);
+
   const handleCellClick = async (e: MouseEvent, targetX: number, targetY: number) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
@@ -1747,6 +1837,11 @@ export function GameInstance({
 
       if (!isValidClick) return;
 
+      if (level.id === 'shipwreck' && isTransformedRef.current && targetY <= 25) {
+        triggerAirPocketBlocked();
+        return;
+      }
+
       const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
 
       if (level.id === 'underwater' && !isTransformedRef.current && targetY > UNDERWATER_ABYSS_DROWNING_Y) {
@@ -1758,13 +1853,19 @@ export function GameInstance({
         startDolphinReturn(false);
       }
       setAttachedEntityId(null);
-      saveHistory();
 
       const currentZone = pathHistory[pathHistory.length - 1].zone || 1;
       const targetZone = inferTargetZone(level, targetX, targetY, currentZone);
 
       const newPath = navigateTo(targetX, targetY, targetZone, 3, false);
-      if (!newPath || newPath.length === 0) return;
+      if (!newPath || newPath.length === 0) {
+        if (level.mechanics.hasWalls) {
+          setClickIndicator({ x: targetX, y: targetY, isValid: false, id: indicatorId });
+        }
+        return;
+      }
+
+      saveHistory();
 
       const startP = pathHistory[pathHistory.length - 1];
       triggerAirLossBubbles(startP.x, startP.y, wasFullBeforeMove);
@@ -1878,15 +1979,20 @@ export function GameInstance({
       return;
     }
 
+    if (level.id === 'shipwreck' && isTransformedRef.current && (entity.requiresHuman || targetY <= 25)) {
+      triggerAirPocketBlocked();
+      return;
+    }
+
     const witchEnt = level.mechanics.hasTransformation ? puzzle.puzzleEntities.find(ent => ent.id === 'sea_witch') : null;
-    const isBlockedByTransformation = Boolean(level.id !== 'underwater' && witchEnt && !isTransformed && entity.zone > (witchEnt.zone || 2));
+    const isBlockedByTransformation = Boolean(level.id !== 'underwater' && !level.mechanics.startsTransformed && witchEnt && !isTransformed && entity.zone > (witchEnt.zone || 2));
 
     if (isBlockedByTransformation && selectedItemTypes.length === 0) {
       setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
       return;
     }
 
-    if ((level.id !== 'underwater' && !unlockedZones.includes(entity.zone) && !isReverseAccess) || isBlockedByTransformation) {
+    if ((level.id !== 'underwater' && level.id !== 'shipwreck' && !unlockedZones.includes(entity.zone) && !isReverseAccess) || isBlockedByTransformation) {
       setSelectedItemTypes([]);
       setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
 
@@ -1953,6 +2059,10 @@ export function GameInstance({
       entity.requires.length > 0;
 
     if (isInspectOnly && distToEntity <= UNDERWATER_INSPECT_RADIUS) {
+      if (isClamEntity(entity) && selectedEntityId !== entity.id && !buriedEntities.includes(entity.id)) {
+        saveHistory();
+        setBuriedEntities(prev => (prev.includes(entity.id) ? prev : [...prev, entity.id]));
+      }
       setSelectedEntityId(prev => prev === entity.id ? null : entity.id);
       return;
     }
@@ -2065,6 +2175,9 @@ export function GameInstance({
     if (isInspectOnly) {
       saveHistory();
       setSelectedEntityId(entity.id);
+      if (isClamEntity(entity) && !buriedEntities.includes(entity.id)) {
+        setBuriedEntities(prev => (prev.includes(entity.id) ? prev : [...prev, entity.id]));
+      }
       if (level.id === 'underwater') {
         setIsAnimatingLoot(true);
         scheduleTimeout(() => {
@@ -2111,9 +2224,20 @@ export function GameInstance({
         if (entity.isGoal) {
           setHasDeepTreasure(true);
         }
+      } else if (level.id === 'shipwreck' && entity.id === 'sea_witch') {
+        setIsMagicAnimating(true);
+        scheduleTimeout(() => setIsMagicAnimating(false), 1500);
+        isTransformedRef.current = false;
+        setIsTransformed(false);
+        airRef.current = maxAir;
+        setAir(maxAir);
+        transformedJustEnded = true;
       }
 
       setIsAnimatingLoot(true); saveHistory();
+      if (isClamEntity(entity)) {
+        setBuriedEntities(prev => prev.filter(id => id !== entity.id));
+      }
       if (!entity.roamClass?.includes('elevator')) {
         setAnimatingEntities(prev => [...prev, entity.id]);
       }
@@ -2147,7 +2271,7 @@ export function GameInstance({
       }
 
       setDefeated(prev => {
-        if (entity.id === 'sea_witch' || entity.id === 'dolphin_1') return prev;
+        if ((entity.id === 'sea_witch' && level.id === 'underwater') || entity.id === 'dolphin_1') return prev;
         const newDef = [...prev, entity.id];
         if (entity.isGatekeeper && entity.unlocksZones) {
           setUnlockedZones(uz => computeUnlockedZones(uz, entity));
@@ -2190,6 +2314,10 @@ export function GameInstance({
         scheduleTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), ACTION_ANIM_MS);
         if (!transformedJustEnded) {
           handlePostActionAir(targetY, false, { nextInventory: postConsumeInv, wasFullBeforeMove, dropPos: finalPos });
+        }
+        if (level.id === 'shipwreck' && entity.id === puzzle.goalEntityId) {
+          setFlyingItem({ emoji: '👑', x: entity.x, y: targetY, zIndex: 120 });
+          scheduleTimeout(() => setFlyingItem(null), ACTION_ANIM_MS);
         }
         if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
       }
@@ -2319,32 +2447,40 @@ export function GameInstance({
   }
 
   const isHeavyUnderwater = level.id === 'underwater' && !isTransformed && isUnderwaterBackpackFull(inventory);
-  const isSubmerged = level.id === 'underwater' && playerVisualY > (level.campPos.y + 2);
+  const isSubmerged =
+    (level.id === 'underwater' && playerVisualY > (level.campPos.y + 2)) ||
+    (level.id === 'shipwreck' && playerVisualY > 25);
   const heroFace = isDrowning ? '😵' : (isTransformed ? '🧜‍♂️' : (isInventoryFullAlert ? '😥' : (isSubmerged ? '🤿' : '🤠')));
 
   const handleSwimToSurface = (e?: MouseEvent) => {
     e?.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
-    const curY = pathHistory[pathHistory.length - 1].y;
-    if (curY <= level.campPos.y + 2) return;
+    const curPos = pathHistory[pathHistory.length - 1];
+    if (level.id === 'shipwreck') {
+      if (Math.hypot(curPos.x - level.campPos.x, curPos.y - level.campPos.y) <= 6) return;
+    } else if (curPos.y <= level.campPos.y + 2) {
+      return;
+    }
     const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
     const swimDuration = getUnderwaterMoveDurationMs(650, wasFullBeforeMove);
     setMoveDurationMs(swimDuration);
     if (dolphinStateRef.current === 'idle_deep') {
       startDolphinReturn(false);
     }
-    const curPos = pathHistory[pathHistory.length - 1];
     triggerAirLossBubbles(curPos.x, curPos.y, wasFullBeforeMove);
     setAttachedEntityId(null);
     saveHistory();
     setIsAnimatingLoot(true);
     const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
-    setPathHistory(prev => [...prev, ...returnPath]);
+    const resolvedReturnPath = returnPath.length > 0
+      ? returnPath
+      : [{ x: level.campPos.x, y: level.campPos.y, depth: level.campPos.depth || 3, zone: 1 }];
+    setPathHistory(prev => [...prev, ...resolvedReturnPath]);
     scheduleTimeout(() => {
       setIsAnimatingLoot(false);
-      airRef.current = MAX_AIR;
-      setAir(MAX_AIR);
-      if (hasDeepTreasure && !isTransformedRef.current && inventoryRef.current.includes('crown')) {
+      airRef.current = maxAir;
+      setAir(maxAir);
+      if (level.id === 'underwater' && hasDeepTreasure && !isTransformedRef.current && inventoryRef.current.includes('crown')) {
         triggerVictory();
       }
     }, swimDuration);
@@ -2375,7 +2511,7 @@ export function GameInstance({
           className={`@container relative w-full flex-1 ${
             useIsotropic
               ? 'bg-stone-950 flex items-center justify-center'
-              : level.id === 'underwater'
+              : (level.id === 'underwater' || level.id === 'shipwreck')
                 ? 'bg-slate-950 shadow-[inset_0_0_60px_rgba(2,6,23,0.75),0_10px_30px_rgba(0,0,0,0.5)]'
                 : 'bg-[#dcb27b] shadow-[inset_0_0_80px_rgba(100,50,0,0.6),0_10px_30px_rgba(0,0,0,0.5)]'
           } overflow-hidden cursor-pointer`}
@@ -2486,7 +2622,7 @@ export function GameInstance({
             />
           </div>
 
-          {level.id !== 'underwater' && (
+          {level.id !== 'underwater' && level.id !== 'shipwreck' && (
             <div className="absolute inset-0 opacity-10 z-[140] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#5c3a21 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
           )}
           
@@ -2503,10 +2639,20 @@ export function GameInstance({
           <VictoryCelebration showVictoryMsg={showVictoryMsg} dict={dict} />
 
           <DrowningVignetteOverlay
-            isDrowning={isDrowning && level.id === 'underwater'}
+            isDrowning={isDrowning && (level.id === 'underwater' || level.id === 'shipwreck')}
             isAscending={isDrowningAscending}
             dict={dict}
           />
+
+          {level.id === 'shipwreck' && alertEntityId === 'air_pocket_blocked' && (
+            <div
+              data-testid="air-pocket-blocked-banner"
+              dir={lang === 'he' ? 'rtl' : 'ltr'}
+              className="absolute top-16 inset-x-4 z-[245] mx-auto max-w-xs bg-sky-950/95 border-2 border-cyan-300 text-cyan-100 px-3 py-2 rounded-2xl shadow-2xl text-center text-xs sm:text-sm font-bold font-sans animate-bounce"
+            >
+              🫧 🧜‍♂️ 🚫 {dict.airPocketBlocked}
+            </div>
+          )}
 
           {isDrowning && !isDrowningAscending && level.id === 'underwater' && !isTransformed && playerVisualY > UNDERWATER_ABYSS_DROWNING_Y && !outOfAirModal && (
             <div

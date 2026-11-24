@@ -21,6 +21,7 @@ export type LevelId =
   | 'underground'
   | 'underwater'
   | 'deep_cave'
+  | 'shipwreck'
   | (string & {});
 
 export type DarknessType = 'horizontal' | 'radial';
@@ -38,7 +39,10 @@ export interface LevelMechanics {
   useIsotropicCoords?: boolean;
   supportsProceduralWorker?: boolean;
   hasTransformation?: boolean;
+  startsTransformed?: boolean;
   hasAir?: boolean;
+  maxAir?: number;
+  hasWalls?: boolean;
   hasMurkyWater?: boolean;
   heroBobs?: boolean;
   screens?: number;

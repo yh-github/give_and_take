@@ -91,11 +91,13 @@ export function InventoryBar({
               <span className="text-base sm:text-lg">🎒</span>
               <span className="text-red-700 text-base sm:text-lg font-black leading-none">✕</span>
               <span className="font-extrabold text-sm mx-0.5">➔</span>
-              <span className="text-base sm:text-lg">{level?.id === 'underwater' ? '⛵' : '⛺'}</span>
+              <span className="text-base sm:text-lg">{level?.id === 'underwater' ? '⛵' : level?.id === 'shipwreck' ? '⚓' : '⛺'}</span>
               <span className="font-black text-[11px] sm:text-xs ml-1 bg-amber-600/30 px-2 py-0.5 rounded text-stone-950">
                 {level?.id === 'underwater'
                   ? (dict.inventoryFullTipBoat || 'Bag Full! Drop at ⛵')
-                  : (dict.inventoryFullTip || 'Bag Full! Drop at ⛺')}
+                  : level?.id === 'shipwreck'
+                    ? (dict.inventoryFullTipAnchor || 'Bag Full! Drop at ⚓')
+                    : (dict.inventoryFullTip || 'Bag Full! Drop at ⛺')}
               </span>
             </div>
             <div className="w-3 h-3 bg-amber-500 border-b-2 border-r-2 border-amber-200 rotate-45 -mt-1.5" />

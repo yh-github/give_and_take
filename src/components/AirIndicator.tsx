@@ -19,26 +19,40 @@ export function AirIndicator({
 }: AirIndicatorProps) {
   if (!level.mechanics.hasAir || isTransformed) return null;
 
+  const maxAir = level.mechanics.maxAir ?? MAX_AIR;
+  const isCompactGrid = maxAir > 8;
+
   return (
     <div
-      title="Swim back to boat"
+      data-testid="air-indicator"
+      title={level.id === 'shipwreck' ? 'Swim back to Sea Witch' : 'Swim back to boat'}
       onClick={onSwimToSurface}
-      className={`absolute top-3 left-[54%] transform -translate-x-1/2 flex items-center gap-0.5 z-[150] bg-sky-950/85 px-2.5 py-1.5 rounded-full border-2 backdrop-blur-md cursor-pointer hover:bg-sky-900/90 transition-colors select-none ${
+      className={`absolute top-3 left-[54%] transform -translate-x-1/2 flex items-center gap-1 z-[150] bg-sky-950/85 px-2.5 py-1.5 rounded-full border-2 backdrop-blur-md cursor-pointer hover:bg-sky-900/90 transition-colors select-none ${
         isHeavy
           ? 'border-amber-400/90 shadow-[0_4px_15px_rgba(245,158,11,0.45)] hover:border-amber-300'
           : 'border-cyan-300/80 shadow-[0_4px_15px_rgba(0,0,0,0.45)] hover:border-cyan-200'
       }`}
     >
-      {[...Array(MAX_AIR)].map((_, i) => (
-        <div 
-          key={i} 
-          className={`text-base leading-none transition-all duration-300 ${
-            i < air ? 'opacity-100 scale-100' : 'opacity-25 scale-75 drop-shadow-none grayscale'
-          }`}
+      <div className={isCompactGrid ? 'grid grid-cols-8 gap-x-0.5 gap-y-0' : 'flex items-center gap-0.5'}>
+        {[...Array(maxAir)].map((_, i) => (
+          <div
+            key={i}
+            className={`${isCompactGrid ? 'text-[11px]' : 'text-base'} leading-none transition-all duration-300 ${
+              i < air ? 'opacity-100 scale-100' : 'opacity-25 scale-75 drop-shadow-none grayscale'
+            }`}
+          >
+            🫧
+          </div>
+        ))}
+      </div>
+      {isCompactGrid && (
+        <span
+          data-testid="air-count-badge"
+          className="ml-0.5 text-[10px] font-mono font-black text-cyan-200 whitespace-nowrap"
         >
-          🫧
-        </div>
-      ))}
+          {air}/{maxAir}
+        </span>
+      )}
       {isHeavy && (
         <span
           data-testid="heavy-air-badge"

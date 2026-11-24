@@ -435,6 +435,11 @@ export function computeVisibleEntitiesSet({
   const pPosScaled: Point2D = { x: playerPos.x, y: playerPos.y * yScale };
 
   puzzleEntities.forEach((e) => {
+    if (levelId === 'shipwreck' && (e.id === 'sea_witch' || e.isGoal)) {
+      visible.add(e.id);
+      return;
+    }
+
     const isChasm = Boolean(e.isGatekeeper && e.gateType === 'chasm');
     const isRock =
       Boolean(

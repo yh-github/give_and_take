@@ -273,7 +273,8 @@ export function resolveOutOfAirDrop(
   inventory: readonly string[],
   keepItemId: string | null,
   dropPos: Point2D,
-  uidBase = Date.now()
+  uidBase = Date.now(),
+  yBounds: { min: number; max: number } = { min: 22, max: 68 }
 ): OutOfAirDropResolution {
   if (inventory.length <= 1) {
     return {
@@ -300,7 +301,7 @@ export function resolveOutOfAirDrop(
   });
 
   const baseX = clamp(dropPos?.x ?? 50, 14, 86);
-  const baseY = clamp(dropPos?.y ?? 35, 22, 68);
+  const baseY = clamp(dropPos?.y ?? 35, yBounds.min, yBounds.max);
   const count = nonFishDropped.length;
 
   const droppedFloatingItems: CampItemState[] = nonFishDropped.map((itemId, idx) => {
@@ -310,7 +311,7 @@ export function resolveOutOfAirDrop(
       uid: uidBase + idx + 1,
       id: itemId,
       x: Number(clamp(baseX + spreadX, 14, 86).toFixed(2)),
-      y: Number(clamp(baseY + staggerY, 22, 68).toFixed(2)),
+      y: Number(clamp(baseY + staggerY, yBounds.min, yBounds.max).toFixed(2)),
       isFloating: true
     };
   });

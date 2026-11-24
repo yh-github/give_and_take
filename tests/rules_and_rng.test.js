@@ -136,8 +136,8 @@ describe('Domain Rules (Single Source of Truth) Suite', () => {
 });
 
 describe('Deterministic Level Generation & Underwater Fixes', () => {
-  it('produces identical puzzles when given the same seed and varied puzzles for different seeds across all 3 levels', () => {
-    for (const levelId of ['river_crossing', 'underground', 'underwater']) {
+  it('produces identical puzzles when given the same seed and varied puzzles for different seeds across all 4 procedural levels', () => {
+    for (const levelId of ['river_crossing', 'underground', 'underwater', 'shipwreck']) {
       const level = LEVEL_REGISTRY[levelId];
       const p1 = generateLevelPuzzle(level, 5, 1, 'fixed-seed-2026');
       const p2 = generateLevelPuzzle(level, 5, 1, 'fixed-seed-2026');
@@ -203,7 +203,7 @@ describe('Deterministic Level Generation & Underwater Fixes', () => {
 
   it('strictly enforces across all levels and seeds that no entity ever asks for the item it guards/rewards', () => {
     // Test across all registered levels and varied seeds
-    for (const levelId of ['river_crossing', 'underground', 'underwater']) {
+    for (const levelId of ['river_crossing', 'underground', 'underwater', 'shipwreck']) {
       const level = LEVEL_REGISTRY[levelId];
       for (let s = 1; s <= 15; s++) {
         const seed = `invariant-test-${levelId}-${s}`;

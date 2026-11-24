@@ -119,7 +119,7 @@ export function Hero({
             🎒
           </span>
         )}
-        {level.id === 'underwater' && !isTransformed && isAnimatingLoot && (
+        {(level.id === 'underwater' || (level.id === 'shipwreck' && isSubmerged)) && !isTransformed && isAnimatingLoot && (
           <div className="absolute inset-0 pointer-events-none z-50">
             {[0, 1, 2].map(i => (
               <div
@@ -139,7 +139,7 @@ export function Hero({
             ))}
           </div>
         )}
-        {level.mechanics.darknessType === 'radial' && (
+        {level.mechanics.darknessType === 'radial' && level.id !== 'shipwreck' && (
           <div className="absolute -right-3 -bottom-2 text-xl z-50 drop-shadow-[0_0_10px_rgba(251,191,36,1)]">
             🕯️
           </div>

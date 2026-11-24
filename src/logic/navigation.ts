@@ -132,6 +132,13 @@ export const inferTargetZone = (
     if (targetY < 75) return 2;
     return 3;
   }
+  if (level?.id === 'shipwreck') {
+    if (targetY <= 25) return 5;
+    if (targetY <= 41) return 4;
+    if (targetY <= 58) return 3;
+    if (targetY <= 76) return 2;
+    return 1;
+  }
   return currentZone;
 };
 

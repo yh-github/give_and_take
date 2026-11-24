@@ -584,7 +584,7 @@ export const GiantClamSVG = ({
   rewardEmoji,
   isMurkyFar = false,
 }: GiantClamSVGProps) => {
-  const isOpen = !isBuried;
+  const isOpen = isDefeated || !isBuried;
   const topShellFill = isGoal ? '#f59e0b' : isDigger ? '#9333ea' : '#e11d48';
   const botShellFill = isGoal ? '#d97706' : isDigger ? '#7e22ce' : '#be123c';
   const strokeColor = isGoal ? '#fef08a' : isDigger ? '#d8b4fe' : '#fda4af';

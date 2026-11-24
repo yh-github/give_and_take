@@ -253,6 +253,18 @@ export function WorldViewport({
   const yScale = useIsotropic ? 1 : (level.mechanics.screens || 1);
   const toCssY = (y: number): number => (useIsotropic ? (y / worldHeight) * 100 : y);
   const effectiveCampPos = puzzle?.geometry?.campPos || level.campPos;
+  const effectiveCaveLighting = (!debugMode && level.id === 'shipwreck')
+    ? {
+        ...lightingSettings,
+        radius: 65,
+        blur: 2.0,
+        darknessColor: '#020b1a',
+        darknessOpacity: 0.65,
+        ambientColor: '#22d3ee',
+        ambientOpacity: 0.08,
+        flickerIntensity: 0.2
+      }
+    : lightingSettings;
 
   return (
     <div 
@@ -273,7 +285,7 @@ export function WorldViewport({
           : {})
       }}
     >
-      <Background geometry={puzzle?.geometry} />
+      <Background geometry={puzzle?.geometry} isTransformed={isTransformed} />
 
       <FogOverlay 
         level={level} 
@@ -299,7 +311,7 @@ export function WorldViewport({
           screens={level.mechanics.screens || 1}
           worldHeight={useIsotropic ? worldHeight : null}
           yScale={yScale}
-          lighting={lightingSettings}
+          lighting={effectiveCaveLighting}
         />
       )}
 
@@ -387,7 +399,7 @@ export function WorldViewport({
         );
       })}
 
-      {!isLevelEditor && level.id !== 'underwater' && (
+      {!isLevelEditor && level.id !== 'underwater' && level.id !== 'shipwreck' && (
         <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-[99]" preserveAspectRatio="none">
           {(!level.mechanics.screens || level.mechanics.screens === 1) && pathHistory.map((pos, i) => { if (i === 0) return null; const prev = pathHistory[i - 1]; return <line key={i} x1={`${prev.x}%`} y1={`${prev.y}%`} x2={`${pos.x}%`} y2={`${pos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" className="animate-[dash_1s_linear_forwards]" style={{ strokeDashoffset: 100 }} vectorEffect="non-scaling-stroke" />; })}
           {(!level.mechanics.screens || level.mechanics.screens === 1) && tempPlayerPos && <line x1={`${playerPos.x}%`} y1={`${playerPos.y}%`} x2={`${tempPlayerPos.x}%`} y2={`${tempPlayerPos.y}%`} stroke="#4a2211" strokeWidth="5" strokeDasharray="12 12" opacity="0.5" vectorEffect="non-scaling-stroke" />}
@@ -398,7 +410,9 @@ export function WorldViewport({
         const itemData = level.items.find(i => i.id === item.id);
         if (!itemData) return null;
         const isAlerting = alertEntityId === item.uid;
-        const isUnderwaterFloating = level.id === 'underwater' && (Boolean(item.isFloating) || item.y > effectiveCampPos.y + 4);
+        const isUnderwaterFloating =
+          (level.id === 'underwater' && (Boolean(item.isFloating) || item.y > effectiveCampPos.y + 4)) ||
+          (level.id === 'shipwreck' && Boolean(item.isFloating));
         return (
           <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${item.x}%`, top: `${toCssY(item.y)}%` }}>
             {isUnderwaterFloating ? (
@@ -422,7 +436,7 @@ export function WorldViewport({
           style={{
             left: `${effectiveCampPos.x}%`,
             top: `${toCssY(effectiveCampPos.y)}%`,
-            zIndex: level.id === 'underwater'
+            zIndex: (level.id === 'underwater' || level.id === 'shipwreck')
               ? 112
               : (Math.hypot(effectiveCampPos.x - displayPlayerPos.x, effectiveCampPos.y - displayPlayerPos.y) < 28)
                 ? 110

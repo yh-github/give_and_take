@@ -4,12 +4,13 @@ import riverCrossing from '../src/levels/river_crossing/index.js';
 import underground from '../src/levels/underground/index.js';
 import underwater from '../src/levels/underwater/index.js';
 import deepCave from '../src/levels/deep_cave/index.js';
+import shipwreck from '../src/levels/shipwreck/index.js';
 
 describe('Levels Registry & Schema Regression Suite', () => {
-  const registeredLevels = [riverCrossing, underground, underwater, deepCave];
+  const registeredLevels = [riverCrossing, underground, underwater, deepCave, shipwreck];
 
-  it('contains all 4 registered levels in LEVEL_REGISTRY', () => {
-    expect(Object.keys(LEVEL_REGISTRY)).toEqual(['river_crossing', 'underground', 'underwater', 'deep_cave']);
+  it('contains all 5 registered levels in LEVEL_REGISTRY', () => {
+    expect(Object.keys(LEVEL_REGISTRY)).toEqual(['river_crossing', 'underground', 'underwater', 'deep_cave', 'shipwreck']);
   });
 
   registeredLevels.forEach(level => {
@@ -96,6 +97,19 @@ describe('Levels Registry & Schema Regression Suite', () => {
       expect(underwater.mechanics.hasAir).toBe(true);
       expect(underwater.mechanics.isVertical).toBe(true);
       expect(underwater.mechanics.hasTransformation).toBe(true);
+    });
+  });
+
+  describe('Shipwreck specific mechanics integrity', () => {
+    it('starts transformed on seabed with 16 maxAir, wall collision, and radial underwater visibility', () => {
+      expect(shipwreck.mechanics.hasAir).toBe(true);
+      expect(shipwreck.mechanics.maxAir).toBe(16);
+      expect(shipwreck.mechanics.hasTransformation).toBe(true);
+      expect(shipwreck.mechanics.startsTransformed).toBe(true);
+      expect(shipwreck.mechanics.hasWalls).toBe(true);
+      expect(shipwreck.mechanics.darknessType).toBe('radial');
+      expect(shipwreck.mechanics.isVertical).toBe(true);
+      expect(typeof shipwreck.getObstacleSegments).toBe('function');
     });
   });
 });

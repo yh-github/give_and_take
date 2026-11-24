@@ -56,6 +56,7 @@ export function solvePuzzle(
   options: SolverOptions = {}
 ): SolverResult | null {
   const hasTransformation = Boolean(level?.mechanics?.hasTransformation);
+  const startsTransformed = Boolean(level?.mechanics?.startsTransformed);
   const witchEntity = hasTransformation ? puzzleEntities.find(e => e.id === 'sea_witch') : null;
   const witchZone = witchEntity ? (witchEntity.zone || 1) : 1;
   const singleBoatItem = options?.boatOfferedItem || puzzleEntities?.boatOfferedItem || null;
@@ -86,7 +87,7 @@ export function solvePuzzle(
       def: [...(options?.initialDef || [])],
       path: [],
       steps: 0,
-      transformed: Boolean(options?.initialTransformed),
+      transformed: options?.initialTransformed !== undefined ? Boolean(options.initialTransformed) : startsTransformed,
       hasTreasure: Boolean(options?.initialHasTreasure)
     }
   ];
@@ -101,7 +102,11 @@ export function solvePuzzle(
 
     // Victory condition
     if (hasTransformation) {
-      if (curr.hasTreasure && !curr.transformed && curr.def.includes('untransformed_exit')) return curr;
+      if (startsTransformed) {
+        if (curr.def.includes(goalEntityId)) return curr;
+      } else if (curr.hasTreasure && !curr.transformed && curr.def.includes('untransformed_exit')) {
+        return curr;
+      }
     } else {
       if (curr.def.includes(goalEntityId)) return curr;
     }
@@ -162,7 +167,11 @@ export function solvePuzzle(
       if (!simUnlockedZones.has(entity.zone) && !isReverseAccess) continue;
 
       if (hasTransformation) {
-        if (entity.zone > witchZone && !curr.transformed) continue;
+        if (startsTransformed) {
+          if (entity.requiresHuman && curr.transformed) continue;
+        } else if (entity.zone > witchZone && !curr.transformed) {
+          continue;
+        }
       }
 
       if (entity.isPreset && entity.reqType === 'AND' && (!entity.requires || entity.requires.length === 0)) {
@@ -204,7 +213,7 @@ export function solvePuzzle(
       const stepDelta = isIntermediatePickaxeRock ? 0 : 1;
 
       if (entity.reqType === 'AND') {
-        if (entity.id === 'sea_witch' && curr.transformed) {
+        if (entity.id === 'sea_witch' && curr.transformed && !startsTransformed) {
           if (curr.hasTreasure) {
             const retReqs = Array.isArray(entity.returnRequires) && entity.returnRequires.length > 0
               ? entity.returnRequires
@@ -226,6 +235,9 @@ export function solvePuzzle(
           }
           continue;
         }
+        if (entity.id === 'sea_witch' && !curr.transformed && startsTransformed) {
+          continue;
+        }
 
         const consumedResult = consumeRequiredItems(curr.inv, entity.requires || []);
         const hasAll = consumedResult !== null;
@@ -238,7 +250,7 @@ export function solvePuzzle(
           const nextDef = [...curr.def, entity.id];
 
           if (entity.id === 'sea_witch') {
-            nextTransformed = true;
+            nextTransformed = !startsTransformed;
           }
           if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
           if (entity.reward) nextInv.push(entity.reward);
@@ -248,7 +260,7 @@ export function solvePuzzle(
               entityId: entity.id,
               usedItems: entity.requires,
               reqType: 'AND',
-              isReturnTrip: false
+              isReturnTrip: entity.id === 'sea_witch' && startsTransformed
             };
             queue.push({
               inv: nextInv.sort(),
@@ -261,7 +273,7 @@ export function solvePuzzle(
           }
         }
       } else {
-        if (entity.id === 'sea_witch' && curr.transformed) {
+        if (entity.id === 'sea_witch' && curr.transformed && !startsTransformed) {
           if (curr.hasTreasure) {
             const retReqs = Array.isArray(entity.returnRequires) && entity.returnRequires.length > 0
               ? entity.returnRequires
@@ -283,6 +295,9 @@ export function solvePuzzle(
           }
           continue;
         }
+        if (entity.id === 'sea_witch' && !curr.transformed && startsTransformed) {
+          continue;
+        }
 
         const uniqueInv = Array.from(new Set(curr.inv));
         for (let i = 0; i < uniqueInv.length; i++) {
@@ -295,7 +310,7 @@ export function solvePuzzle(
             const nextDef = [...curr.def, entity.id];
 
             if (entity.id === 'sea_witch') {
-              nextTransformed = true;
+              nextTransformed = !startsTransformed;
             }
             if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
             if (entity.reward) newInv.push(entity.reward);

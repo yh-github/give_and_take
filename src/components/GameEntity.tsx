@@ -7,6 +7,10 @@ import {
   InteractiveKelpSVG,
   InkCloudSVG
 } from '../levels/underwater/components.tsx';
+import {
+  ShipwreckWitchSVG,
+  CaptainsTreasureSVG
+} from '../levels/shipwreck/components.tsx';
 import { getCorridorBounds } from '../logic/geometry.ts';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
 import type {
@@ -84,6 +88,8 @@ export function GameEntity({
   const isAnimating = animatingEntities.includes(ent.id);
 
   const isDigger = Boolean(level.specialEntityTemplate && ent.id?.startsWith(level.specialEntityTemplate) && !ent.isGoal);
+  const isClam = Boolean(ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam'));
+  const isAquaticLevel = level.id === 'underwater' || level.id === 'shipwreck';
   const isChasm = Boolean(ent.isGatekeeper && ent.gateType === 'chasm');
   const isGuardian = Boolean(ent.isGatekeeper && ent.gateType === 'guardian');
   const isRock = (ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate' && !isChasm && !isGuardian) || ent.isExtraRock;
@@ -118,7 +124,7 @@ export function GameEntity({
     rockBounds = getCorridorBounds(ent.y, CAVE_WALL_VERTICES, ent.x >= 50);
   }
 
-  const isBuried = isDigger && buriedEntities.includes(ent.id);
+  const isBuried = (isDigger || isClam) && buriedEntities.includes(ent.id);
   const effectiveTooltipReqs =
     level.id === 'underwater' && ent.id === 'sea_witch' && isTransformed
       ? (ent.returnRequires || [])
@@ -156,6 +162,7 @@ export function GameEntity({
     !ent.isGatekeeper &&
     ent.id !== 'sea_witch' &&
     ent.id !== 'dolphin_1' &&
+    ent.id !== 'captains_chest' &&
     heroDist > UNDERWATER_INSPECT_RADIUS
   );
 
@@ -168,7 +175,6 @@ export function GameEntity({
   const arrowY = isNearTop ? "-top-[7px] border-t-2 border-l-2" : "-bottom-[7px] border-b-2 border-r-2";
 
   const isElevator = ent.roamClass?.includes('elevator');
-  const isClam = Boolean(ent.id?.startsWith('clam') || ent.id?.startsWith('giant_clam'));
   const isMermaid = Boolean(level.id === 'underwater' && ent.id.startsWith('mermaid'));
   const isWitch = ent.id === 'sea_witch';
   const returnRelicEmoji =
@@ -210,7 +216,7 @@ export function GameEntity({
   const rewardOffsetIdle = visualX > 50 ? '-translate-x-9' : 'translate-x-9';
 
   return (
-    <div onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
+    <div data-testid={`entity-${ent.id}`} onClick={(e) => handleInteract(ent, e)} className={wrapperClasses} style={entityStyle}>
       <div className={`relative ${isGatekeeperRock ? 'w-full h-full flex items-center justify-center' : ''}`}>
         {inInkFog && (
           <div className="absolute inset-0 -top-4 left-1/2 -translate-x-1/2 z-[180] flex items-center justify-center pointer-events-none">
@@ -264,7 +270,7 @@ export function GameEntity({
                       <span className="text-base">{visualY > 40 ? '⬆️' : '⬇️'}</span>
                     </span>
                   )}
-                  {level.id === 'underwater' && !isGoal && !isWitch && rewardItem && (
+                  {isAquaticLevel && !isGoal && !isWitch && rewardItem && (
                     <span className="flex items-center gap-1 ml-1 text-sm font-black text-sky-900" style={{ textShadow: 'none' }}>
                       <span>➔</span>
                       <span className="emoji-shadow text-lg">{isBuried ? '❓' : rewardItem.emoji}</span>
@@ -293,12 +299,12 @@ export function GameEntity({
           <div className={`relative ${isGatekeeperRock ? 'w-full h-full flex items-center justify-center' : ''} transition-all duration-700 ease-in-out ${
             (!isRock && !isChasm && !isCurrent && ent.isGatekeeper && isDefeated) 
               ? 'translate-x-12 translate-y-6 rotate-12 opacity-60 grayscale' 
-              : (!isRock && !isChasm && !isCurrent && isDefeated && ent.id !== 'dolphin_1') 
+              : (!isRock && !isChasm && !isCurrent && isDefeated && ent.id !== 'dolphin_1' && ent.id !== 'sea_witch') 
                 ? 'opacity-50 grayscale' 
                 : ''
           }`}>
 
-            {level.id !== 'underwater' && !isGoal && !ent.isRepeatable && !ent.isPreset && (
+            {!isAquaticLevel && !isGoal && !ent.isRepeatable && !ent.isPreset && (
               isClam ? (
                 (!isDefeated && rewardItem && isBuried && isSelected) ? (
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[7cqw] drop-shadow-md pointer-events-none z-20 animate-bounce">❓</div>
@@ -464,6 +470,38 @@ export function GameEntity({
                     ) : (
                       ent.emoji
                     )
+                  ) : level.id === 'shipwreck' ? (
+                    ent.id === 'sea_witch' ? (
+                      <ShipwreckWitchSVG
+                        isTransformed={isTransformed}
+                        reqEmojis={vaultReqEmojis}
+                        emoji={ent.emoji}
+                      />
+                    ) : ent.id === 'captains_chest' ? (
+                      <CaptainsTreasureSVG
+                        isDefeated={isDefeated}
+                        isTransformed={isTransformed}
+                        isAlerting={isAlerting}
+                      />
+                    ) : ent.isPreset === 'kelp' ? (
+                      <InteractiveKelpSVG variant="harvest" />
+                    ) : ent.isPreset ? (
+                      <div className="w-11 h-11 rounded-full bg-amber-950/75 border-2 border-amber-300/70 flex items-center justify-center text-2xl shadow-[0_0_12px_rgba(251,191,36,0.5)] animate-bob">
+                        {ent.emoji || rewardItem?.emoji}
+                      </div>
+                    ) : isClam ? (
+                      <GiantClamSVG
+                        isDefeated={isDefeated}
+                        isBuried={isBuried}
+                        isDigger={isDigger}
+                        isGoal={isGoal}
+                        isAlerting={isAlerting}
+                        rewardEmoji={!isDefeated && !isBuried ? rewardItem?.emoji : null}
+                        isMurkyFar={isMurkyFar}
+                      />
+                    ) : (
+                      ent.emoji
+                    )
                   ) : (
                     ent.emoji || rewardItem?.emoji
                   )}
@@ -477,7 +515,7 @@ export function GameEntity({
             {dict.blocked}
           </div>
         )}
-        {isGoal && !isDefeated && !isAlerting && level.id !== 'river_crossing' && level.id !== 'underwater' && (
+        {isGoal && !isDefeated && !isAlerting && level.id !== 'river_crossing' && !isAquaticLevel && (
           <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">
             {dict.exit}
           </div>

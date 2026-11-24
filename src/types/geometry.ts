@@ -22,6 +22,7 @@ export interface ObstacleSegment extends Segment2D {
   isPillar?: boolean;
   isOuterWall?: boolean;
   isRock?: boolean;
+  isAirBarrier?: boolean;
   blocksSight?: boolean;
   gateType?: string;
   rockId?: string;

@@ -57,6 +57,10 @@ export function OutOfAirModal({
 
   const singleEntry = items.length === 1 ? uniqueEntries[0] : null;
   const canConfirm = !needsChoice || selectedKeepId !== null;
+  const isShipwreck = level.id === 'shipwreck';
+  const singleItemText = isShipwreck ? (dict.outOfAirWitchSingle || dict.outOfAirSingleItem) : dict.outOfAirSingleItem;
+  const emptyText = isShipwreck ? (dict.outOfAirWitchEmpty || dict.outOfAirEmpty) : dict.outOfAirEmpty;
+  const returnBtnText = isShipwreck ? (dict.outOfAirWitchBtn || dict.outOfAirSurfaceBtn) : dict.outOfAirSurfaceBtn;
 
   return (
     <div
@@ -143,10 +147,10 @@ export function OutOfAirModal({
                 <div className="w-16 h-16 rounded-2xl bg-sky-900/60 border-2 border-cyan-400/60 flex items-center justify-center text-4xl shadow-lg">
                   {singleEntry.emoji}
                 </div>
-                <p className="text-xs sm:text-sm text-sky-100">{dict.outOfAirSingleItem}</p>
+                <p className="text-xs sm:text-sm text-sky-100">{singleItemText}</p>
               </>
             ) : (
-              <p className="text-xs sm:text-sm text-sky-100">{dict.outOfAirEmpty}</p>
+              <p className="text-xs sm:text-sm text-sky-100">{emptyText}</p>
             )}
           </div>
         )}
@@ -158,7 +162,7 @@ export function OutOfAirModal({
           onClick={() => onConfirmKeep(needsChoice ? selectedKeepId : (items[0] ?? null))}
           className="mt-4 w-full py-2.5 px-4 rounded-2xl font-black text-sm sm:text-base transition-all bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
-          {dict.outOfAirSurfaceBtn}
+          {returnBtnText}
         </button>
       </div>
     </div>

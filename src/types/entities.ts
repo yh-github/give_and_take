@@ -10,7 +10,7 @@ import type {
 
 export type RequirementType = 'AND' | 'OR';
 export type GateType = 'rock' | 'chasm' | 'guardian' | (string & {});
-export type PresetType = 'pickaxe' | 'mushroom' | 'bubble_vent' | 'treasure' | 'kelp' | 'starfish' | 'doubloon';
+export type PresetType = 'pickaxe' | 'mushroom' | 'bubble_vent' | 'treasure' | 'kelp' | 'starfish' | 'doubloon' | 'spyglass';
 
 export interface OrbitConfig {
   rx: number;
@@ -50,6 +50,7 @@ export interface MapNode {
   isClamNode?: boolean;
   isVent?: boolean;
   isPreset?: PresetType | boolean | (string & {});
+  requiresHuman?: boolean;
   gkIdx?: number;
   unlocksZone?: number;
   unlocksZones?: number[];
@@ -88,6 +89,7 @@ export interface AbstractPuzzleEntity {
   isVent?: boolean;
   isTreasure?: boolean;
   isChasmGate?: boolean;
+  requiresHuman?: boolean;
   roamClass?: string;
   isRight?: boolean;
   size?: 'small' | 'medium' | 'large' | (string & {});
