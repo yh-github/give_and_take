@@ -3,14 +3,15 @@ import {
   DEEP_CAVE_HERO_RADIUS,
   DEEP_CAVE_MIN_ENTITY_DIST,
   DEEP_CAVE_MIN_WALL_MARGIN,
-  DEEP_CAVE_SLOT_COLS
+  DEEP_CAVE_SLOT_COLS,
+  DEEP_CAVE_SLOT_HEIGHT
 } from '../../constants.ts';
 import { distToSegment } from '../../logic/geometry.ts';
 import { checkBatchReachability, findGlobalPath, isPointInPolygon } from '../../logic/pathfinding.ts';
 import { shuffle } from '../../logic/rng.ts';
 import type { RNG } from '../../logic/rng.ts';
 import { validateEntitySpacing } from '../../logic/rules.ts';
-import { solvePuzzle } from '../../logic/solver.ts';
+import { assessPuzzleDifficulty, solvePuzzle } from '../../logic/solver.ts';
 import {
   checkCollision,
   getProceduralObstacleSegments,
@@ -181,12 +182,33 @@ export function placeEntitiesInSlots(
     }
   }
 
+  const slotOccupancy = new Map<string, number>();
+  const slotPresetOccupancy = new Map<string, number>();
+
   for (const spec of freeEntities) {
     const targetSlots = zoneSlots.get(spec.zone) || [];
-    const searchSlots = targetSlots.length > 0 ? shuffle(targetSlots, rng) : [];
-    if (searchSlots.length === 0) return null;
+    const shuffledSlots = targetSlots.length > 0 ? shuffle(targetSlots, rng) : [];
+    if (shuffledSlots.length === 0) return null;
+
+    // Spread entities evenly across slots; avoid piling presets together or putting diggers/presets in camp when alternatives exist
+    const searchSlots = [...shuffledSlots].sort((a, b) => {
+      const ka = `${a.col},${a.row}`;
+      const kb = `${b.col},${b.row}`;
+      if (spec.isPreset) {
+        const pa = slotPresetOccupancy.get(ka) || 0;
+        const pb = slotPresetOccupancy.get(kb) || 0;
+        if (pa !== pb) return pa - pb;
+      }
+      if (spec.isPreset || spec.isDigger) {
+        const aCamp = a.col === campCol && a.row === 0 ? 1 : 0;
+        const bCamp = b.col === campCol && b.row === 0 ? 1 : 0;
+        if (aCamp !== bCamp) return aCamp - bCamp;
+      }
+      return (slotOccupancy.get(ka) || 0) - (slotOccupancy.get(kb) || 0);
+    });
 
     let pos: Point2D | null = null;
+    let chosenSlotKey: string | null = null;
     for (const sl of searchSlots) {
       const center = getSlotCenter(sl.col, sl.row, dims);
       const slotW = dims.worldWidth / DEEP_CAVE_SLOT_COLS;
@@ -223,6 +245,7 @@ export function placeEntitiesInSlots(
         if (cand.y < center.y - slotH / 2 + 8 || cand.y > center.y + slotH / 2 - 8) continue;
         if (isValidFreePos(cand)) {
           pos = cand;
+          chosenSlotKey = `${sl.col},${sl.row}`;
           break;
         }
       }
@@ -230,6 +253,12 @@ export function placeEntitiesInSlots(
     }
 
     if (!pos) return null;
+    if (chosenSlotKey) {
+      slotOccupancy.set(chosenSlotKey, (slotOccupancy.get(chosenSlotKey) || 0) + 1);
+      if (spec.isPreset) {
+        slotPresetOccupancy.set(chosenSlotKey, (slotPresetOccupancy.get(chosenSlotKey) || 0) + 1);
+      }
+    }
     placed.push({ ...spec, x: pos.x, y: pos.y });
   }
 
@@ -364,5 +393,11 @@ export function verifyGeneratedLevel(
     }
   }
 
-  return { valid: true, solution };
+  const difficulty = assessPuzzleDifficulty(startItems, entities, goalEntityId, levelStub, {
+    solution,
+    campPos,
+    rowHeight: DEEP_CAVE_SLOT_HEIGHT
+  });
+
+  return { valid: true, solution, difficulty };
 }

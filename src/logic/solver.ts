@@ -1,9 +1,12 @@
-import { MAX_UNIQUE_ITEMS, SOLVER_MAX_ITERS } from '../constants.ts';
+import { DEEP_CAVE_SLOT_HEIGHT, MAX_UNIQUE_ITEMS, SOLVER_MAX_ITERS } from '../constants.ts';
 import { uniqueCount } from './navigation.ts';
-import { canFitInInventory, consumeRequiredItems } from './rules.ts';
+import { canFitInInventory, consumeRequiredItems, evaluateEntityTrade } from './rules.ts';
 import type {
   AbstractPuzzleEntity,
+  AssessDifficultyOptions,
   LevelDefinition,
+  PuzzleDifficultyReport,
+  PuzzleDifficultyTier,
   SolutionStep,
   SolverOptions,
   SolverResult
@@ -23,8 +26,13 @@ function computeSimulatedUnlockedZones(
   }
 
   puzzleEntities.forEach(e => {
-    if (e.isGatekeeper && defeatedIds.includes(e.id) && e.unlocksZones) {
-      e.unlocksZones.forEach(z => simUnlockedZones.add(z));
+    if (e.isGatekeeper && defeatedIds.includes(e.id)) {
+      if (e.unlocksZones) {
+        e.unlocksZones.forEach(z => simUnlockedZones.add(z));
+      }
+      if (e.zone !== undefined) {
+        simUnlockedZones.add(e.zone);
+      }
     }
   });
 
@@ -75,11 +83,11 @@ export function solvePuzzle(
   const queue: SolverResult[] = [
     {
       inv: [...startItems].sort(),
-      def: [],
+      def: [...(options?.initialDef || [])],
       path: [],
       steps: 0,
-      transformed: false,
-      hasTreasure: false
+      transformed: Boolean(options?.initialTransformed),
+      hasTreasure: Boolean(options?.initialHasTreasure)
     }
   ];
   const visited = new Set<string>();
@@ -312,4 +320,414 @@ export function solvePuzzle(
     }
   }
   return null;
+}
+
+type GreedyPolicy = 'nearest' | 'shallow' | 'traders_first';
+
+function isEntityAccessibleInSim(
+  ent: AbstractPuzzleEntity,
+  unlockedZones: Set<number>,
+  hasTransformation: boolean,
+  witchZone: number,
+  transformed: boolean
+): boolean {
+  const isReverseAccess = Boolean(
+    ent.isGatekeeper &&
+    ent.unlocksZones &&
+    ent.unlocksZones.some(z => unlockedZones.has(z))
+  );
+  if (!unlockedZones.has(ent.zone) && !isReverseAccess) return false;
+  if (hasTransformation && ent.zone > witchZone && !transformed) return false;
+  return true;
+}
+
+function getActionStepDelta(
+  ent: AbstractPuzzleEntity,
+  goalEntityId: string,
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined
+): number {
+  if (ent.isPreset && (!ent.requires || ent.requires.length === 0)) return 0;
+  const isIntermediatePickaxeRock = Boolean(
+    level?.mechanics?.isVertical &&
+    level?.mechanics?.hasPickaxe &&
+    ent.isGatekeeper &&
+    ent.id !== goalEntityId &&
+    ent.gateType !== 'guardian'
+  );
+  return isIntermediatePickaxeRock ? 0 : 1;
+}
+
+function simulateGreedyPlay(
+  startItems: readonly string[],
+  puzzleEntities: ReadonlyArray<AbstractPuzzleEntity>,
+  goalEntityId: string,
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  policy: GreedyPolicy,
+  startPos: { x: number; y: number }
+): boolean {
+  const hasTransformation = Boolean(level?.mechanics?.hasTransformation);
+  const witchEntity = hasTransformation ? puzzleEntities.find(e => e.id === 'sea_witch') : null;
+  const witchZone = witchEntity ? (witchEntity.zone || 1) : 1;
+
+  let inv = [...startItems];
+  const def: string[] = [];
+  let transformed = false;
+  let hasTreasure = false;
+  let curX = startPos.x;
+  let curY = startPos.y;
+  const maxSteps = puzzleEntities.length + 8;
+
+  for (let iter = 0; iter < maxSteps; iter++) {
+    const unlockedZones = computeSimulatedUnlockedZones(puzzleEntities, def, hasTransformation);
+    const evalState = {
+      levelId: hasTransformation ? 'underwater' : undefined,
+      isTransformed: transformed,
+      hasDeepTreasure: hasTreasure
+    };
+
+    // Check immediate win condition
+    const goalEnt = puzzleEntities.find(e => e.id === goalEntityId);
+    if (hasTransformation) {
+      if (
+        hasTreasure &&
+        transformed &&
+        witchEntity &&
+        isEntityAccessibleInSim(witchEntity, unlockedZones, true, witchZone, true) &&
+        evaluateEntityTrade(inv, witchEntity, null, evalState).canDefeat
+      ) {
+        return true;
+      }
+      if (hasTreasure && !transformed) return true;
+    } else if (
+      goalEnt &&
+      !def.includes(goalEnt.id) &&
+      isEntityAccessibleInSim(goalEnt, unlockedZones, false, witchZone, false) &&
+      evaluateEntityTrade(inv, goalEnt, null, evalState).canDefeat
+    ) {
+      return true;
+    }
+
+    const candidates: Array<{
+      ent: AbstractPuzzleEntity;
+      nextInv: string[];
+      dist: number;
+    }> = [];
+
+    for (const ent of puzzleEntities) {
+      if (ent.id === goalEntityId && !hasTransformation) continue;
+      if (!ent.reward && !ent.isGatekeeper && !ent.isGoal && ent.id !== 'sea_witch') continue;
+      const isWitchReturn = hasTransformation && ent.id === 'sea_witch' && transformed && hasTreasure;
+      if (def.includes(ent.id) && !isWitchReturn) continue;
+      if (!isEntityAccessibleInSim(ent, unlockedZones, hasTransformation, witchZone, transformed)) continue;
+
+      const trade = evaluateEntityTrade(inv, ent, null, evalState);
+      if (!trade.canDefeat) continue;
+
+      const ex = typeof ent.x === 'number' ? ent.x : curX;
+      const ey = typeof ent.y === 'number' ? ent.y : ent.zone * 50;
+      const dist = Math.hypot(ex - curX, ey - curY);
+      candidates.push({ ent, nextInv: trade.nextInventory, dist });
+    }
+
+    if (candidates.length === 0) return false;
+
+    candidates.sort((a, b) => {
+      if (policy === 'shallow') {
+        const ay = typeof a.ent.y === 'number' ? a.ent.y : a.ent.zone * 50;
+        const by = typeof b.ent.y === 'number' ? b.ent.y : b.ent.zone * 50;
+        if (Math.abs(ay - by) > 1e-3) return ay - by;
+        return a.dist - b.dist;
+      }
+      if (policy === 'traders_first') {
+        const aIsTrader = !a.ent.isGatekeeper && !a.ent.isPreset ? 0 : (a.ent.isPreset ? 1 : 2);
+        const bIsTrader = !b.ent.isGatekeeper && !b.ent.isPreset ? 0 : (b.ent.isPreset ? 1 : 2);
+        if (aIsTrader !== bIsTrader) return aIsTrader - bIsTrader;
+        return a.dist - b.dist;
+      }
+      // nearest
+      return a.dist - b.dist;
+    });
+
+    const chosen = candidates[0];
+    const ent = chosen.ent;
+    inv = chosen.nextInv;
+    if (ent.id === 'sea_witch' && hasTransformation) {
+      if (transformed && hasTreasure) {
+        transformed = false;
+        return true;
+      }
+      transformed = true;
+    }
+    if ((ent.isGoal || ent.id === goalEntityId) && hasTransformation) {
+      hasTreasure = true;
+    }
+    if (!def.includes(ent.id)) def.push(ent.id);
+    if (typeof ent.x === 'number') curX = ent.x;
+    if (typeof ent.y === 'number') curY = ent.y;
+  }
+
+  return false;
+}
+
+/**
+ * Assesses puzzle difficulty beyond raw step count by measuring decision forks,
+ * fatal/suboptimal greedy traps, backtracking depth, cross-zone dependencies,
+ * multi-requirement gatekeepers, and inventory pressure.
+ */
+export function assessPuzzleDifficulty(
+  startItems: readonly string[],
+  puzzleEntities: ReadonlyArray<AbstractPuzzleEntity>,
+  goalEntityId: string,
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  options: AssessDifficultyOptions = {}
+): PuzzleDifficultyReport {
+  const sol = options.solution ?? solvePuzzle(startItems, puzzleEntities, goalEntityId, level, options);
+  if (!sol) {
+    return {
+      solvable: false,
+      steps: 0,
+      score: 0,
+      tier: 'unsolvable',
+      greedySolvable: false,
+      greedyTrapCount: 3,
+      fatalTrapCount: 0,
+      suboptimalTrapCount: 0,
+      choiceForkCount: 0,
+      backtrackCount: 0,
+      maxBacktrackRows: 0,
+      remoteDepCount: 0,
+      multiReqGateCount: 0,
+      peakInventory: uniqueCount(startItems)
+    };
+  }
+
+  const hasTransformation = Boolean(level?.mechanics?.hasTransformation);
+  const witchEntity = hasTransformation ? puzzleEntities.find(e => e.id === 'sea_witch') : null;
+  const witchZone = witchEntity ? (witchEntity.zone || 1) : 1;
+  const rowHeight = options.rowHeight || DEEP_CAVE_SLOT_HEIGHT;
+  const startPos = options.campPos || { x: 50, y: 16 };
+  const maxProbeStates = options.maxProbeStates ?? 500;
+  const entityById = new Map(puzzleEntities.map(e => [e.id, e]));
+
+  let inv = [...startItems];
+  const def: string[] = [];
+  let transformed = false;
+  let hasTreasure = false;
+
+  let peakInventory = uniqueCount(inv);
+  let fatalTrapCount = 0;
+  let suboptimalTrapCount = 0;
+  let choiceForkCount = 0;
+  let backtrackCount = 0;
+  let maxBacktrackRows = 0;
+  let remoteDepCount = 0;
+
+  let lastZone = 1;
+  const visitedZones = new Set<number>([1]);
+  let maxYReached = typeof startPos.y === 'number' ? startPos.y : 0;
+  let hasMoved = false;
+
+  // Track where each item instance in inventory came from for remote-dependency measurement
+  const itemSources = new Map<string, Array<{ zone: number; y: number }>>();
+  for (const itemId of startItems) {
+    const arr = itemSources.get(itemId) || [];
+    arr.push({ zone: 1, y: startPos.y });
+    itemSources.set(itemId, arr);
+  }
+
+  // Remaining optimal steps from step i onward
+  const stepDeltas = sol.path.map(step => {
+    if (step.isEnvironmentAction || !step.entityId) return 0;
+    const e = entityById.get(step.entityId);
+    return e ? getActionStepDelta(e, goalEntityId, level) : 1;
+  });
+  const remainingStepsFrom = new Array<number>(sol.path.length + 1).fill(0);
+  for (let i = sol.path.length - 1; i >= 0; i--) {
+    remainingStepsFrom[i] = remainingStepsFrom[i + 1] + stepDeltas[i];
+  }
+
+  for (let i = 0; i < sol.path.length; i++) {
+    const step = sol.path[i];
+    if (step.isEnvironmentAction) {
+      if (step.reqItem) {
+        const idx = inv.indexOf(step.reqItem);
+        if (idx > -1) inv.splice(idx, 1);
+      }
+      if (step.itemId) {
+        inv.push(step.itemId);
+        peakInventory = Math.max(peakInventory, uniqueCount(inv));
+      }
+      continue;
+    }
+
+    const ent = step.entityId ? entityById.get(step.entityId) : undefined;
+    if (!ent) continue;
+
+    const unlockedZones = computeSimulatedUnlockedZones(puzzleEntities, def, hasTransformation);
+    const evalState = {
+      levelId: hasTransformation ? 'underwater' : undefined,
+      isTransformed: transformed,
+      hasDeepTreasure: hasTreasure
+    };
+
+    const isNonPresetStep = !(ent.isPreset && (!ent.requires || ent.requires.length === 0));
+    if (isNonPresetStep && ent.id !== goalEntityId) {
+      // Inspect all currently affordable non-preset alternatives (including decoys!)
+      const affordableAlts: AbstractPuzzleEntity[] = [];
+      for (const cand of puzzleEntities) {
+        if (cand.id === goalEntityId && !hasTransformation) continue;
+        if (cand.isPreset && (!cand.requires || cand.requires.length === 0)) continue;
+        if (!cand.reward && !cand.isGatekeeper && !cand.isGoal && cand.id !== 'sea_witch') continue;
+        const isCandWitchReturn = hasTransformation && cand.id === 'sea_witch' && transformed && hasTreasure;
+        if (def.includes(cand.id) && !isCandWitchReturn) continue;
+        if (!isEntityAccessibleInSim(cand, unlockedZones, hasTransformation, witchZone, transformed)) continue;
+        if (evaluateEntityTrade(inv, cand, null, evalState).canDefeat) {
+          affordableAlts.push(cand);
+        }
+      }
+
+      if (affordableAlts.length >= 2) {
+        choiceForkCount++;
+      }
+
+      if (!options.skipTrapProbes) {
+        const altCandidates = affordableAlts.filter(c => c.id !== ent.id).slice(0, 4);
+        for (const alt of altCandidates) {
+          const altTrade = evaluateEntityTrade(inv, alt, null, evalState);
+          if (!altTrade.canDefeat) continue;
+
+          const altDef = def.includes(alt.id) ? [...def] : [...def, alt.id];
+          const altTransformed = alt.id === 'sea_witch' && hasTransformation
+            ? !(transformed && hasTreasure)
+            : transformed;
+          const altHasTreasure = ((alt.isGoal || alt.id === goalEntityId) && hasTransformation)
+            ? true
+            : hasTreasure;
+
+          const probe = solvePuzzle(altTrade.nextInventory, puzzleEntities, goalEntityId, level, {
+            ...options,
+            initialDef: altDef,
+            initialTransformed: altTransformed,
+            initialHasTreasure: altHasTreasure,
+            maxStates: maxProbeStates
+          });
+
+          if (!probe) {
+            fatalTrapCount++;
+          } else {
+            const altStepDelta = getActionStepDelta(alt, goalEntityId, level);
+            if (altStepDelta + probe.steps > remainingStepsFrom[i]) {
+              suboptimalTrapCount++;
+            }
+          }
+        }
+      }
+    }
+
+    // Apply the actual solution step
+    const selectedForStep = step.itemId ? [step.itemId] : null;
+    const trade = evaluateEntityTrade(inv, ent, selectedForStep, evalState);
+    const consumedItems = trade.canDefeat ? trade.itemsToConsume : (step.usedItems || (step.itemId ? [step.itemId] : []));
+
+    const entY = typeof ent.y === 'number' ? ent.y : ent.zone * rowHeight * 0.5;
+    for (const cItem of consumedItems) {
+      const srcs = itemSources.get(cItem);
+      const src = srcs && srcs.length > 0 ? srcs.shift() : undefined;
+      if (src) {
+        const crossZone = src.zone !== ent.zone;
+        const farY = Math.abs(src.y - entY) >= rowHeight * 0.85;
+        if (crossZone || farY) {
+          remoteDepCount++;
+        }
+      }
+    }
+
+    if (ent.reward) {
+      const arr = itemSources.get(ent.reward) || [];
+      arr.push({ zone: ent.zone, y: entY });
+      itemSources.set(ent.reward, arr);
+    }
+
+    if (trade.canDefeat) {
+      inv = trade.nextInventory;
+    } else {
+      const fallback = canFitInInventory(inv, consumedItems, ent.reward ?? null);
+      inv = fallback.nextInventory;
+    }
+    peakInventory = Math.max(peakInventory, uniqueCount(inv));
+
+    if (ent.id === 'sea_witch' && hasTransformation) {
+      transformed = !(transformed && hasTreasure);
+    }
+    if ((ent.isGoal || ent.id === goalEntityId) && hasTransformation) {
+      hasTreasure = true;
+    }
+    if (!def.includes(ent.id)) def.push(ent.id);
+
+    // Measure physical & zone backtracking
+    if (ent.id !== goalEntityId) {
+      if (hasMoved) {
+        const yBack = maxYReached - entY;
+        if (yBack >= rowHeight * 0.75) {
+          backtrackCount++;
+          maxBacktrackRows = Math.max(maxBacktrackRows, Math.round((yBack / rowHeight) * 10) / 10);
+        } else if (ent.zone !== lastZone && visitedZones.has(ent.zone)) {
+          backtrackCount++;
+        }
+      }
+      hasMoved = true;
+      lastZone = ent.zone;
+      visitedZones.add(ent.zone);
+      if (entY > maxYReached) maxYReached = entY;
+    }
+  }
+
+  const multiReqGateCount = puzzleEntities.filter(
+    e => e.isGatekeeper && (e.requires?.length || 0) >= 2
+  ).length;
+
+  const policies: GreedyPolicy[] = ['nearest', 'shallow', 'traders_first'];
+  let greedyTrapCount = 0;
+  for (const policy of policies) {
+    if (!simulateGreedyPlay(startItems, puzzleEntities, goalEntityId, level, policy, startPos)) {
+      greedyTrapCount++;
+    }
+  }
+  const greedySolvable = greedyTrapCount === 0;
+
+  const score = Math.round(
+    Math.min(28, sol.steps * 1.6) +
+    Math.min(45, fatalTrapCount * 15) +
+    Math.min(30, greedyTrapCount * 10) +
+    Math.min(20, choiceForkCount * 5) +
+    Math.min(12, suboptimalTrapCount * 4) +
+    Math.min(24, backtrackCount * 8) +
+    Math.min(12, maxBacktrackRows * 4) +
+    Math.min(18, multiReqGateCount * 6) +
+    Math.min(12, remoteDepCount * 2) +
+    (peakInventory >= 4 ? 5 : (peakInventory === 3 ? 2 : 0))
+  );
+
+  let tier: PuzzleDifficultyTier = 'trivial';
+  if (score >= 75) tier = 'hard';
+  else if (score >= 52) tier = 'challenging';
+  else if (score >= 32) tier = 'moderate';
+  else if (score >= 16) tier = 'easy';
+
+  return {
+    solvable: true,
+    steps: sol.steps,
+    score,
+    tier,
+    greedySolvable,
+    greedyTrapCount,
+    fatalTrapCount,
+    suboptimalTrapCount,
+    choiceForkCount,
+    backtrackCount,
+    maxBacktrackRows,
+    remoteDepCount,
+    multiReqGateCount,
+    peakInventory
+  };
 }

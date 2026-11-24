@@ -1,7 +1,7 @@
 import { shuffle } from '../../logic/rng.ts';
 import type { RNG } from '../../logic/rng.ts';
 import { sanitizePuzzleEntities } from '../../logic/rules.ts';
-import { solvePuzzle } from '../../logic/solver.ts';
+import { assessPuzzleDifficulty, solvePuzzle } from '../../logic/solver.ts';
 import { items as UNDERGROUND_ITEMS, entities as UNDERGROUND_ENTITIES } from './data.ts';
 import { pickOne } from './spaceBlueprint.ts';
 import type {
@@ -72,9 +72,19 @@ interface ProgressionSegment {
   allZoneIds: Set<number>;
 }
 
+interface LiveToken {
+  item: string;
+  zoneId: number;
+  row: number;
+  /** Earliest segment index where this token was produced */
+  bornSegIdx: number;
+  fromEncounter?: EncounterPlacement;
+}
+
 /**
- * Stage 1: Synthesizes an abstract solvable Mission Graph of exact step count
- * matching `(settings, blueprint)` and validates via `solvePuzzle`.
+ * Stage 1: Synthesizes a non-linear, interconnected Mission Graph matching
+ * `(settings, blueprint)` with multi-item Cave Trolls, forward-carry threads,
+ * cross-zone backtracking, earnable tools, and greedy-trap decoys.
  */
 export function synthesizeMissionGraph(
   settings: DeepCaveSettings,
@@ -188,14 +198,33 @@ export function synthesizeMissionGraph(
       childrenByZone.set(edge.fromZone, list);
     }
     list.push(edge);
-    parentEdgeByZone.set(edge.toZone, edge);
+    if (!parentEdgeByZone.has(edge.toZone)) {
+      parentEdgeByZone.set(edge.toZone, edge);
+    }
+  }
+
+  // Shortest-parent walk from vaultZoneId -> 1 (BFS from 1 to build clean spanning parent map in case of loops)
+  const treeParentEdge = new Map<number, TreeEdge>();
+  {
+    const q = [1];
+    const seen = new Set<number>([1]);
+    while (q.length > 0) {
+      const z = q.shift()!;
+      for (const edge of childrenByZone.get(z) || []) {
+        if (!seen.has(edge.toZone)) {
+          seen.add(edge.toZone);
+          treeParentEdge.set(edge.toZone, edge);
+          q.push(edge.toZone);
+        }
+      }
+    }
   }
 
   const spineEdgesRev: TreeEdge[] = [];
   let walkZ = vaultZoneId;
   const seenWalk = new Set([walkZ]);
   while (walkZ !== 1) {
-    const pe = parentEdgeByZone.get(walkZ);
+    const pe = treeParentEdge.get(walkZ) || parentEdgeByZone.get(walkZ);
     if (!pe || seenWalk.has(pe.fromZone)) return null;
     spineEdgesRev.push(pe);
     walkZ = pe.fromZone;
@@ -279,8 +308,7 @@ export function synthesizeMissionGraph(
     segs.reduce((sum, s, i) => {
       if (s.zones.length === 0) return sum;
       const outPenalty = segHasEncOut(s) ? 1 : 0;
-      const initPenalty = i === 0 ? 2 : 1;
-      const tokenMax = Math.max(0, chainItemPoolCount - outPenalty - initPenalty);
+      const tokenMax = Math.min(6, Math.max(0, chainItemPoolCount - 2 - outPenalty));
       const rawPhys = s.zones.reduce((zSum, z) => zSum + (zonePhysicalSlack.get(z.id) || 0), 0);
       const reserve = i === 0
         ? (segs.length > 1 && settings.targetSteps >= 9 && rawPhys >= 5 ? 2 : 1)
@@ -377,17 +405,25 @@ export function synthesizeMissionGraph(
   const decoySinkItem = shuffledPool[0];
   const CHAIN_ITEMS = shuffledPool.slice(1);
 
+  // Pick startItems FIRST and reserve them in globallyUsedEver so encounters/caches never collide with startItems
+  const segStartItemsPool = shuffle(CHAIN_ITEMS, rng);
+  const startItems = [segStartItemsPool[0], segStartItemsPool[1]];
+  const globallyUsedEver = new Set<string>(startItems);
+
   const entitySpecs: MissionEntitySpec[] = [];
   let entitySeq = 1;
-  let diggersAssigned = 0;
-  const toolInputs: Array<{ itemId: string; fromZone: number; segIdx: number }> = [];
-  const segOutputsBySegIdx: string[][] = Array.from({ length: segments.length }, () => []);
+  const toolInputs: Array<{ itemId: string; fromZone: number; toZone: number; segIdx: number; isEncounter: boolean; encounter?: EncounterPlacement }> = [];
+  const segOutputsBySegIdx: Array<Array<{ item: string; zoneId: number; encounter?: EncounterPlacement }>> = Array.from(
+    { length: segments.length },
+    () => []
+  );
   const pendingChasmCaches: Array<{ ep: EncounterPlacement; segIdx: number }> = [];
 
   for (const ep of chasms) {
     const fromZone = ep.fromZone!;
     const toZone = ep.toZone!;
-    toolInputs.push({ itemId: 'rope', fromZone, segIdx: zoneToSegIdx.get(fromZone) ?? 0 });
+    const sIdx = zoneToSegIdx.get(fromZone) ?? 0;
+    toolInputs.push({ itemId: 'rope', fromZone, toZone, segIdx: sIdx, isEncounter: true, encounter: ep });
     entitySpecs.push({
       kind: 'encounter_gate',
       encounter: ep,
@@ -404,15 +440,15 @@ export function synthesizeMissionGraph(
       isGatekeeper: true,
       gateType: 'chasm'
     });
-    const sIdx = zoneToSegIdx.get(toZone) ?? zoneToSegIdx.get(fromZone) ?? (segments.length - 1);
-    pendingChasmCaches.push({ ep, segIdx: sIdx });
+    const toSegIdx = zoneToSegIdx.get(toZone) ?? sIdx;
+    pendingChasmCaches.push({ ep, segIdx: toSegIdx });
   }
 
   for (const ep of grottos) {
     const fromZone = ep.fromZone!;
     const toZone = ep.toZone!;
     const sIdx = zoneToSegIdx.get(fromZone) ?? 0;
-    toolInputs.push({ itemId: 'pickaxe', fromZone, segIdx: sIdx });
+    toolInputs.push({ itemId: 'pickaxe', fromZone, toZone, segIdx: sIdx, isEncounter: true, encounter: ep });
     entitySpecs.push({
       kind: 'encounter_gate',
       encounter: ep,
@@ -444,7 +480,9 @@ export function synthesizeMissionGraph(
       reward: 'mushroom',
       zone: toZone
     });
-    const outReward = pickOne(CHAIN_ITEMS, rng);
+    const unusedForGrotto = CHAIN_ITEMS.filter(id => !globallyUsedEver.has(id));
+    const outReward = unusedForGrotto.length > 0 ? pickOne(unusedForGrotto, rng) : pickOne(CHAIN_ITEMS, rng);
+    globallyUsedEver.add(outReward);
     const tpl = pickOne(TRADER_TEMPLATES, rng);
     entitySpecs.push({
       kind: 'encounter_trader',
@@ -459,16 +497,22 @@ export function synthesizeMissionGraph(
       reward: outReward,
       zone: fromZone
     });
-    segOutputsBySegIdx[sIdx].push(outReward);
+    segOutputsBySegIdx[sIdx].push({ item: outReward, zoneId: fromZone, encounter: ep });
   }
 
   for (const { ep, segIdx } of pendingChasmCaches) {
-    const segAlreadyHasOutput = segOutputsBySegIdx[segIdx].length > 0;
     const segBarrierInSameZone = segments[segIdx]?.barrier?.fromZone === ep.toZone;
+    const segHasOtherZones = (segments[segIdx]?.zones.length ?? 0) >= 2;
+    const existingOuts = segOutputsBySegIdx[segIdx];
     let bonusReward: string;
-    if (!segAlreadyHasOutput && !segBarrierInSameZone) {
-      bonusReward = pickOne(CHAIN_ITEMS, rng);
-      segOutputsBySegIdx[segIdx].push(bonusReward);
+    if (!segBarrierInSameZone && segHasOtherZones && existingOuts.length < 2) {
+      const brandNewChoices = CHAIN_ITEMS.filter(id => !globallyUsedEver.has(id));
+      const unusedChoices = CHAIN_ITEMS.filter(id => !startItems.includes(id) && !existingOuts.some(o => o.item === id));
+      bonusReward = brandNewChoices.length > 0
+        ? pickOne(brandNewChoices, rng)
+        : (unusedChoices.length > 0 ? pickOne(unusedChoices, rng) : pickOne(CHAIN_ITEMS, rng));
+      globallyUsedEver.add(bonusReward);
+      segOutputsBySegIdx[segIdx].push({ item: bonusReward, zoneId: ep.toZone!, encounter: ep });
     } else {
       bonusReward = decoySinkItem;
     }
@@ -498,7 +542,9 @@ export function synthesizeMissionGraph(
     toolInputs.push({
       itemId: tool,
       fromZone,
-      segIdx: zoneToSegIdx.get(fromZone) ?? 0
+      toZone,
+      segIdx: zoneToSegIdx.get(fromZone) ?? 0,
+      isEncounter: false
     });
     entitySpecs.push({
       kind: 'doorway_gate',
@@ -524,12 +570,13 @@ export function synthesizeMissionGraph(
       ancestors.push(cur);
       guard.add(cur);
       if (cur === 1) break;
-      const pe = parentEdgeByZone.get(cur);
+      const pe: TreeEdge | undefined = treeParentEdge.get(cur) || parentEdgeByZone.get(cur);
       cur = pe ? pe.fromZone : null;
     }
     return ancestors;
   };
 
+  // Distribute barter step budget across segments
   const segPhysCaps = segments.map((seg, sIdx) => {
     const rawPhys = seg.zones.reduce((sum, z) => sum + (zonePhysicalSlack.get(z.id) || 0), 0);
     const reserve = sIdx === 0
@@ -539,12 +586,12 @@ export function synthesizeMissionGraph(
   });
   const segStepCounts = Array<number>(segments.length).fill(0);
   let remSteps = totalBarterSteps;
-  for (let pass = 0; remSteps > 0 && pass < 20; pass++) {
+  for (let pass = 0; remSteps > 0 && pass < 24; pass++) {
     let progressed = false;
     for (let sIdx = 0; sIdx < segments.length && remSteps > 0; sIdx++) {
       if (segments[sIdx].zones.length === 0) continue;
       const hasOut = segOutputsBySegIdx[sIdx].length > 0 ? 1 : 0;
-      const tokenMax = Math.max(0, CHAIN_ITEMS.length - hasOut - (sIdx === 0 ? 2 : 1));
+      const tokenMax = Math.min(6, Math.max(0, CHAIN_ITEMS.length - 2 - hasOut));
       const strictMax = Math.min(tokenMax, segPhysCaps[sIdx]);
       if (segStepCounts[sIdx] < strictMax) {
         segStepCounts[sIdx]++;
@@ -558,213 +605,544 @@ export function synthesizeMissionGraph(
     return { ok: false, structural: true, reason: 'NULL_REM_STEPS' };
   }
 
-  const segStartItemsPool = shuffle(CHAIN_ITEMS, rng);
-  const startItems = [segStartItemsPool[0], segStartItemsPool[1]];
+  // Track live threads across the whole cave so later segments inherit carried items
+  const liveThreads: LiveToken[] = [
+    { item: startItems[0], zoneId: 1, row: 0, bornSegIdx: 0 },
+    { item: startItems[1], zoneId: 1, row: 0, bornSegIdx: 0 }
+  ];
+  let activeCarryItem: string | null = null;
+
+  const liveItemSet = (extraLive: readonly LiveToken[] = []): Set<string> => {
+    const s = new Set<string>(liveThreads.map(t => t.item));
+    if (activeCarryItem) s.add(activeCarryItem);
+    for (const lt of extraLive) s.add(lt.item);
+    for (const segOuts of segOutputsBySegIdx) {
+      for (const eo of segOuts) s.add(eo.item);
+    }
+    return s;
+  };
+
+  const pickNextRewardItem = (
+    exclude: readonly string[],
+    segUsed: Set<string>,
+    extraLive: readonly LiveToken[] = [],
+    preferFresh = true
+  ): string => {
+    const live = liveItemSet(extraLive);
+    const excl = new Set(exclude);
+    if (preferFresh) {
+      const brandNew = CHAIN_ITEMS.filter(
+        id => !globallyUsedEver.has(id) && !segUsed.has(id) && !live.has(id) && !excl.has(id)
+      );
+      if (brandNew.length > 0) {
+        const chosen = pickOne(brandNew, rng);
+        globallyUsedEver.add(chosen);
+        return chosen;
+      }
+    }
+    const segFresh = CHAIN_ITEMS.filter(id => !segUsed.has(id) && !live.has(id) && !excl.has(id));
+    if (segFresh.length > 0) {
+      const chosen = pickOne(segFresh, rng);
+      globallyUsedEver.add(chosen);
+      return chosen;
+    }
+    const safeAny = CHAIN_ITEMS.filter(id => !segUsed.has(id) && !excl.has(id));
+    if (safeAny.length > 0) {
+      const chosen = pickOne(safeAny, rng);
+      globallyUsedEver.add(chosen);
+      return chosen;
+    }
+    const fallback = CHAIN_ITEMS.filter(id => !excl.has(id));
+    const chosen = fallback.length > 0 ? pickOne(fallback, rng) : CHAIN_ITEMS[0];
+    globallyUsedEver.add(chosen);
+    return chosen;
+  };
+
+  // Helper: free preset items already in a zone (anti-silliness check)
+  const getFreePresetsInZone = (zId: number): Set<string> =>
+    new Set(
+      entitySpecs
+        .filter(p => p.isPreset && (!p.requires || p.requires.length === 0) && p.zone === zId && p.reward)
+        .map(p => p.reward!)
+    );
+
+  // Pick up to `wantEarnableTools` toolInputs to be earned from barter trades instead of free floor pickups.
+  // Never make a tool earnable if a free floor preset or surplus of that same tool exists at/before that segment!
+  const wantEarnableTools = settings.targetSteps >= 12
+    ? Math.min(2, toolInputs.length)
+    : (settings.targetSteps >= 6 ? Math.min(1, toolInputs.length) : 0);
+  const earnableToolSet = new Set<number>();
+  if (wantEarnableTools > 0 && totalBarterSteps >= 3) {
+    const eligibleIndices = toolInputs
+      .map((t, idx) => ({ t, idx }))
+      .filter(({ t }) => {
+        if (t.itemId === 'pickaxe' && settings.pickaxeSurplus > 0) return false;
+        // Must not share the cave up to t.segIdx with any other gate needing the same tool
+        const sameToolUpToSeg = toolInputs.filter(
+          other => other.itemId === t.itemId && other.segIdx <= t.segIdx
+        ).length;
+        if (sameToolUpToSeg > 1) return false;
+        if (segStepCounts[t.segIdx] < 2) return false;
+        if (t.isEncounter) {
+          return segOutputsBySegIdx[t.segIdx]?.some(o => o.encounter === t.encounter) ?? false;
+        }
+        const toZ = zoneMeta.get(t.toZone);
+        const barZ = segments[t.segIdx]?.barrier?.fromZone;
+        return Boolean(toZ && !toZ.isGrottoPocket && t.toZone !== barZ && regularZones.some(z => z.id === t.toZone));
+      });
+    for (const item of shuffle(eligibleIndices, rng)) {
+      if (earnableToolSet.size >= wantEarnableTools) break;
+      const alreadyInSeg = Array.from(earnableToolSet).some(i => toolInputs[i].segIdx === item.t.segIdx);
+      if (alreadyInSeg && segStepCounts[item.t.segIdx] < 3) continue;
+      // Avoid earning both a pickaxe and a rope in the same segment unless it has >= 4 barter steps
+      if (alreadyInSeg && segStepCounts[item.t.segIdx] < 4) continue;
+      earnableToolSet.add(item.idx);
+    }
+  }
+
   let backtracksUsed = 0;
   let prevBarrierSpec: MissionEntitySpec | null = null;
+  const barterTradesMeta: Array<{ spec: MissionEntitySpec; segIdx: number; row: number }> = [];
+  const itemsUsedInSegByIdx: Array<Set<string>> = Array.from({ length: segments.length }, () => new Set<string>());
 
   for (let sIdx = 0; sIdx < segments.length; sIdx++) {
     const seg = segments[sIdx];
     const segOutputs = segOutputsBySegIdx[sIdx];
-    const usedInSeg = new Set(segOutputs);
+    const segUsed = new Set<string>(segOutputs.map(o => o.item));
     const segZones = seg.zones;
-    const stepsInSeg = segStepCounts[sIdx];
+    let stepsInSeg = segStepCounts[sIdx];
 
-    let activeToken: string | null = null;
-    let reserveToken: string | null = null;
-    let segSeedZoneId: number | null = null;
-    if (sIdx === 0) {
-      activeToken = startItems[0];
-      usedInSeg.add(startItems[0]);
-      usedInSeg.add(startItems[1]);
-      if (stepsInSeg > 0) {
-        reserveToken = startItems[1];
-      }
-    } else if (segZones.length > 0) {
-      const prevReqs = new Set(prevBarrierSpec?.requires || []);
-      const freshPool = shuffle(CHAIN_ITEMS.filter(id => !usedInSeg.has(id) && !prevReqs.has(id)), rng);
-      const fallbackPool = shuffle(CHAIN_ITEMS.filter(id => !prevReqs.has(id)), rng);
-      let seedItem: string | undefined = freshPool[0] || fallbackPool[0] || CHAIN_ITEMS[0];
+    // Sort segment zones shallow->deep for structured non-linear placement
+    const zonesByDepth = [...segZones].sort((a, b) => a.minRow - b.minRow || a.id - b.id);
+    const barrierZoneId = seg.barrier.fromZone;
+    const barrierRow = zoneMeta.get(barrierZoneId)?.maxRow ?? 0;
 
-      const forbiddenZeroZone = stepsInSeg === 0 ? seg.barrier?.fromZone : null;
-      const nonForbiddenSegZones = segZones.filter(z => z.id !== forbiddenZeroZone);
+    // Earlier segments' unlocked zones available for cross-segment backtracking
+    const earlierSegZones = sIdx > 0
+      ? regularZones.filter(z => {
+          const zSeg = zoneToSegIdx.get(z.id);
+          return zSeg != null && zSeg < sIdx && (zonePhysicalSlack.get(z.id) || 0) > 0;
+        })
+      : [];
 
-      const safeEncOutIdx = segOutputs.findIndex(outId =>
-        !entitySpecs.some(
-          p => p.isPreset && (!p.requires || p.requires.length === 0) && p.zone === segZones[0].id && p.reward === outId
-        )
-      );
-
-      if (stepsInSeg === 0 && segOutputs.length > 0) {
-        activeToken = null;
-      } else if (stepsInSeg > 0 && segZones.length === 1 && safeEncOutIdx !== -1) {
-        const [encOut] = segOutputs.splice(safeEncOutIdx, 1);
-        usedInSeg.add(encOut);
-        activeToken = encOut;
-      } else if (stepsInSeg > 0 && segZones.length >= 2) {
-        usedInSeg.add(seedItem);
-        activeToken = seedItem;
-        if ((zoneRemainingCapacity.get(segZones[0].id) || 0) > 0) {
-          segSeedZoneId = segZones[0].id;
-          consumeZoneSlot(segSeedZoneId);
-        } else {
-          segSeedZoneId = pickCapacityZone(segZones);
-        }
-        const seedMeta = getItemMeta(seedItem, 'Floor Item');
+    // Ensure segment has active threads entering it without resetting via floor cache when avoidable
+    if (sIdx > 0 && liveThreads.length === 0 && segOutputs.length === 0) {
+      // Only if no carried thread & no encounter output survived, place a floor cache strictly outside barrierZoneId
+      const nonBarrier = zonesByDepth.filter(z => z.id !== barrierZoneId);
+      if (nonBarrier.length > 0) {
+        const seedItem = pickNextRewardItem([], segUsed, liveThreads);
+        segUsed.add(seedItem);
+        const zId = pickCapacityZone(nonBarrier);
+        const meta = getItemMeta(seedItem, 'Floor Item');
         entitySpecs.push({
           kind: 'preset_seg_seed',
           id: `seg_${sIdx}_cache_${entitySeq++}`,
-          name: seedMeta.name,
-          emoji: seedMeta.emoji,
+          name: meta.name,
+          emoji: meta.emoji,
           isPreset: seedItem,
           requires: [],
           reqType: 'AND',
           reward: seedItem,
-          zone: segSeedZoneId
+          zone: zId
         });
-      } else if (stepsInSeg === 0 && nonForbiddenSegZones.length > 0) {
-        usedInSeg.add(seedItem);
-        activeToken = seedItem;
-        segSeedZoneId = pickCapacityZone(nonForbiddenSegZones);
-        const seedMeta = getItemMeta(seedItem, 'Floor Item');
-        entitySpecs.push({
-          kind: 'preset_seg_seed',
-          id: `seg_${sIdx}_cache_${entitySeq++}`,
-          name: seedMeta.name,
-          emoji: seedMeta.emoji,
-          isPreset: seedItem,
-          requires: [],
-          reqType: 'AND',
-          reward: seedItem,
-          zone: segSeedZoneId
+        liveThreads.push({
+          item: seedItem,
+          zoneId: zId,
+          row: zoneMeta.get(zId)?.minRow ?? 0,
+          bornSegIdx: sIdx
         });
       } else {
-        const ancZones = getAncestorZoneIds(segZones[0].id)
-          .filter(zId => zId !== segZones[0].id)
+        const seedSourceRef = segZones[0]?.id ?? seg.barrier.fromZone;
+        const ancZones = getAncestorZoneIds(seedSourceRef)
+          .filter(zId => zId !== seedSourceRef && zId !== barrierZoneId)
           .map(zId => regularZones.find(z => z.id === zId))
           .filter((z): z is ZoneMeta => Boolean(z));
-        if (ancZones.length === 0) {
-          return { ok: false, reason: 'NO_SAFE_SEG_SEED_SLOT' };
-        }
-        const prevBarrierZone = prevBarrierSpec
-          ? ancZones.find(z => z.id === prevBarrierSpec!.zone)
-          : null;
-        let chosenAncZoneId: number;
-        if (prevBarrierZone && (zoneRemainingCapacity.get(prevBarrierZone.id) || 0) > 0) {
-          chosenAncZoneId = prevBarrierZone.id;
-          consumeZoneSlot(chosenAncZoneId);
-        } else {
-          chosenAncZoneId = pickCapacityZone(ancZones);
-        }
-
-        const alreadyRequired = new Set(entitySpecs.flatMap(e => e.requires || []));
-        const requiredInSeedZone = new Set(
-          entitySpecs.filter(e => e.zone === chosenAncZoneId).flatMap(e => e.requires || [])
+        if (ancZones.length === 0) return { ok: false, reason: 'NO_SAFE_SEG_SEED_SLOT' };
+        const alreadyReq = new Set(entitySpecs.flatMap(e => e.requires || []));
+        const liveNow = liveItemSet(liveThreads);
+        let chosenAnc = ancZones[0].id;
+        let seedItem: string | undefined;
+        const orderedAncs = [...ancZones].sort(
+          (a, b) => (zonePhysicalSlack.get(b.id) || 0) - (zonePhysicalSlack.get(a.id) || 0)
         );
-        const ancCandidates = [...freshPool, ...fallbackPool];
-        seedItem =
-          ancCandidates.find(id => !alreadyRequired.has(id) && !usedInSeg.has(id)) ||
-          ancCandidates.find(id => !requiredInSeedZone.has(id) && !usedInSeg.has(id)) ||
-          shuffle(CHAIN_ITEMS, rng).find(id => !requiredInSeedZone.has(id));
-        if (!seedItem || requiredInSeedZone.has(seedItem)) {
-          return { ok: false, reason: 'NO_SAFE_SEG_SEED_SLOT' };
+        for (const anc of orderedAncs) {
+          const freeInAnc = getFreePresetsInZone(anc.id);
+          const reqInAnc = new Set(
+            entitySpecs
+              .filter(e => e.zone === anc.id && e.gateType !== 'rock' && e.gateType !== 'chasm')
+              .flatMap(e => e.requires || [])
+          );
+          const cand =
+            CHAIN_ITEMS.find(id => !alreadyReq.has(id) && !freeInAnc.has(id) && !reqInAnc.has(id) && !segUsed.has(id) && !liveNow.has(id)) ||
+            CHAIN_ITEMS.find(id => !reqInAnc.has(id) && !freeInAnc.has(id) && !segUsed.has(id) && !liveNow.has(id)) ||
+            CHAIN_ITEMS.find(id => !reqInAnc.has(id) && !freeInAnc.has(id) && !liveNow.has(id));
+          if (cand) {
+            chosenAnc = anc.id;
+            seedItem = cand;
+            break;
+          }
         }
-        usedInSeg.add(seedItem);
-        activeToken = seedItem;
-
-        const seedMeta = getItemMeta(seedItem, 'Floor Item');
+        if (!seedItem) return { ok: false, reason: 'NO_SAFE_SEG_SEED_SLOT' };
+        consumeZoneSlot(chosenAnc);
+        segUsed.add(seedItem);
+        const meta = getItemMeta(seedItem, 'Floor Item');
         entitySpecs.push({
           kind: 'preset_seg_seed',
           id: `seg_${sIdx}_cache_${entitySeq++}`,
-          name: seedMeta.name,
-          emoji: seedMeta.emoji,
+          name: meta.name,
+          emoji: meta.emoji,
           isPreset: seedItem,
           requires: [],
           reqType: 'AND',
           reward: seedItem,
-          zone: chosenAncZoneId
+          zone: chosenAnc
+        });
+        liveThreads.push({
+          item: seedItem,
+          zoneId: chosenAnc,
+          row: zoneMeta.get(chosenAnc)?.minRow ?? 0,
+          bornSegIdx: sIdx
         });
       }
     }
 
-    let curMaxZone = segZones[0]?.id ?? 0;
-    for (let k = 0; k < stepsInSeg; k++) {
-      let tradeZone: number;
-      if (k === 0) {
-        const nonSeedZones = segSeedZoneId != null
-          ? segZones.filter(z => z.id !== segSeedZoneId)
-          : segZones;
-        const k0Pool = nonSeedZones.length > 0 ? nonSeedZones : segZones;
-        if (k0Pool[0] && (zoneRemainingCapacity.get(k0Pool[0].id) || 0) > 0) {
-          tradeZone = k0Pool[0].id;
-          consumeZoneSlot(tradeZone);
-        } else {
-          tradeZone = pickCapacityZone(k0Pool);
-        }
-      } else {
-        const frac = (k + 1) / Math.max(1, stepsInSeg);
-        const zIdx = Math.min(segZones.length - 1, Math.floor(frac * segZones.length));
-        tradeZone = segZones[zIdx].id;
-
-        if (backtracksUsed >= settings.maxBacktracks) {
-          tradeZone = curMaxZone > tradeZone && zoneMeta.get(curMaxZone) ? curMaxZone : tradeZone;
-        } else if ((zoneMeta.get(tradeZone)?.minRow ?? 0) < (zoneMeta.get(curMaxZone)?.minRow ?? 0)) {
-          const rowDiff = (zoneMeta.get(curMaxZone)?.maxRow ?? 0) - (zoneMeta.get(tradeZone)?.minRow ?? 0);
-          if (rowDiff > settings.maxBacktrackRows) tradeZone = curMaxZone;
-          else if (rowDiff > 0) backtracksUsed++;
-        }
-        if ((zoneRemainingCapacity.get(tradeZone) || 0) > 0) {
-          consumeZoneSlot(tradeZone);
-        } else {
-          tradeZone = pickCapacityZone(segZones);
-        }
+    // Absorb encounter outputs from this segment into local segment tokens
+    const localThreads: LiveToken[] = [];
+    // If we have >= 2 live threads (or 1 live thread + an encounter output in this segment) and more segments remain,
+    // keep 1 thread to carry forward into deeper segments!
+    const isFinalSeg = sIdx === segments.length - 1;
+    let carryThread: LiveToken | null = null;
+    if (!isFinalSeg && (liveThreads.length >= 2 || (liveThreads.length === 1 && segOutputs.length >= 1))) {
+      const nextSegHasOut = segOutputsBySegIdx[sIdx + 1]?.length > 0;
+      if (!nextSegHasOut || settings.targetSteps >= 8) {
+        carryThread = liveThreads.pop()!;
+        activeCarryItem = carryThread.item;
+        segUsed.add(carryThread.item);
       }
-      if ((zoneMeta.get(tradeZone)?.minRow ?? 0) >= (zoneMeta.get(curMaxZone)?.minRow ?? 0)) {
-        curMaxZone = tradeZone;
-      }
+    } else {
+      activeCarryItem = null;
+    }
 
-      const consumes = reserveToken
-        ? [activeToken!, reserveToken]
-        : [activeToken!];
-      reserveToken = null;
-
-      const freshCandidates = CHAIN_ITEMS.filter(id => !usedInSeg.has(id) && !consumes.includes(id));
-      const reward = freshCandidates.length > 0
-        ? pickOne(freshCandidates, rng)
-        : pickOne(CHAIN_ITEMS.filter(id => !consumes.includes(id)), rng);
-
-      usedInSeg.add(reward);
-      activeToken = reward;
-
-      const makeDigger = diggersAssigned < settings.numDiggers;
-      if (makeDigger) diggersAssigned++;
-      const tpl = makeDigger ? MOLE_TEMPLATE : pickOne(TRADER_TEMPLATES, rng);
-      const idPrefix = makeDigger ? 'mole' : tpl.id;
-
-      entitySpecs.push({
-        kind: 'barter_trader',
-        id: `${idPrefix}_tr_${entitySeq++}`,
-        name: tpl.name,
-        emoji: tpl.emoji,
-        isDigger: makeDigger,
-        requires: consumes,
-        reqType: 'AND',
-        reward,
-        zone: tradeZone
+    while (liveThreads.length > 0) {
+      const lt = liveThreads.shift()!;
+      segUsed.add(lt.item);
+      localThreads.push(lt);
+    }
+    for (const eo of segOutputs) {
+      segUsed.add(eo.item);
+      localThreads.push({
+        item: eo.item,
+        zoneId: eo.zoneId,
+        row: zoneMeta.get(eo.zoneId)?.minRow ?? 0,
+        bornSegIdx: sIdx,
+        fromEncounter: eo.encounter
       });
     }
 
-    const barrierReqs: string[] = [];
-    if (activeToken) barrierReqs.push(activeToken);
-    if (sIdx === 0 && stepsInSeg === 0 && startItems[1] && !barrierReqs.includes(startItems[1])) {
-      barrierReqs.push(startItems[1]);
+    // Handle earnable tool trades scheduled for this segment (strictly preserving localThreads.length >= 1)
+    const segEarnableTools = toolInputs
+      .map((t, idx) => ({ t, idx }))
+      .filter(({ t, idx }) => t.segIdx === sIdx && earnableToolSet.has(idx));
+
+    for (const { t, idx: tInputIdx } of segEarnableTools) {
+      if (stepsInSeg < 2) {
+        earnableToolSet.delete(tInputIdx);
+        continue;
+      }
+      if (t.isEncounter && localThreads.length < 2) {
+        // Need another independent thread to spend so the encounter's own output remains
+        earnableToolSet.delete(tInputIdx);
+        continue;
+      }
+      if (!t.isEncounter && localThreads.length === 0) {
+        earnableToolSet.delete(tInputIdx);
+        continue;
+      }
+
+      const ancIds = getAncestorZoneIds(t.fromZone);
+      const ancZoneMetas = ancIds
+        .map(id => regularZones.find(z => z.id === id))
+        .filter((z): z is ZoneMeta => Boolean(z));
+      if (ancZoneMetas.length === 0) {
+        earnableToolSet.delete(tInputIdx);
+        continue;
+      }
+
+      const threadIdx = localThreads.findIndex(lt => {
+        if (t.isEncounter && lt.fromEncounter === t.encounter) return false;
+        // Token used to buy the tool MUST already be reachable in an ancestor zone before passing t!
+        if (!ancIds.includes(lt.zoneId)) return false;
+        return ancZoneMetas.some(az => !getFreePresetsInZone(az.id).has(lt.item));
+      });
+      if (threadIdx === -1) {
+        earnableToolSet.delete(tInputIdx);
+        continue;
+      }
+      const chosenThread = localThreads.splice(threadIdx, 1)[0];
+      const safeAncs = ancZoneMetas.filter(z => !getFreePresetsInZone(z.id).has(chosenThread.item));
+      const slackSafeAncs = safeAncs.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
+      const toolTraderZone = pickCapacityZone(slackSafeAncs.length > 0 ? slackSafeAncs : safeAncs);
+
+      const tpl = pickOne(TRADER_TEMPLATES, rng);
+      const toolSpec: MissionEntitySpec = {
+        kind: 'barter_trader',
+        id: `${tpl.id}_tr_${entitySeq++}`,
+        name: tpl.name,
+        emoji: tpl.emoji,
+        isDigger: false,
+        requires: [chosenThread.item],
+        reqType: 'AND',
+        reward: t.itemId,
+        zone: toolTraderZone
+      };
+      entitySpecs.push(toolSpec);
+      barterTradesMeta.push({
+        spec: toolSpec,
+        segIdx: sIdx,
+        row: zoneMeta.get(toolTraderZone)?.minRow ?? 0
+      });
+      stepsInSeg--;
+
+      const toZoneMeta = zoneMeta.get(t.toZone);
+      if (!t.isEncounter && toZoneMeta && !toZoneMeta.isGrottoPocket && regularZones.some(z => z.id === t.toZone)) {
+        const unlockedReward = pickNextRewardItem([chosenThread.item], segUsed, localThreads);
+        segUsed.add(unlockedReward);
+        consumeZoneSlot(t.toZone);
+        const uMeta = getItemMeta(unlockedReward, 'Cache Item');
+        entitySpecs.push({
+          kind: 'preset_branch_cache',
+          id: `branch_${sIdx}_cache_${entitySeq++}`,
+          name: uMeta.name,
+          emoji: uMeta.emoji,
+          isPreset: unlockedReward,
+          requires: [],
+          reqType: 'AND',
+          reward: unlockedReward,
+          zone: t.toZone
+        });
+        localThreads.push({
+          item: unlockedReward,
+          zoneId: t.toZone,
+          row: toZoneMeta.minRow,
+          bornSegIdx: sIdx
+        });
+      }
     }
-    for (const eo of segOutputs) {
-      if (!barrierReqs.includes(eo)) {
-        barrierReqs.push(eo);
+
+    // If we want a 2+ item Cave Troll on this segment and only have 1 thread,
+    // fork a 2nd thread from a non-barrier branch zone (or earlier segment zone for the Final Vault Troll).
+    const wantMultiReqTroll =
+      localThreads.length === 1 &&
+      ((settings.targetSteps >= 7 && stepsInSeg >= 2) || (isFinalSeg && settings.targetSteps >= 6));
+    if (wantMultiReqTroll) {
+      const sameSegForks = zonesByDepth.filter(
+        z => z.id !== 1 && z.id !== barrierZoneId && (zonePhysicalSlack.get(z.id) || 0) >= 1
+      );
+      const anySameSegNonBar = zonesByDepth.filter(
+        z => z.id !== barrierZoneId && (z.slots.length >= 2 || (zonePhysicalSlack.get(z.id) || 0) >= 0)
+      );
+      const earlierMultiSlot = regularZones.filter(z => {
+        const zSeg = zoneToSegIdx.get(z.id);
+        return (
+          zSeg != null &&
+          zSeg < sIdx &&
+          z.id !== barrierZoneId &&
+          (zonePhysicalSlack.get(z.id) || 0) >= (z.slots.length >= 2 ? 0 : 1)
+        );
+      });
+      const fallbackForks = sameSegForks.length > 0
+        ? sameSegForks
+        : (anySameSegNonBar.length > 0
+            ? anySameSegNonBar
+            : (isFinalSeg ? earlierMultiSlot : []));
+      if (fallbackForks.length > 0) {
+        const forkZ = pickCapacityZone(fallbackForks);
+        const reqInForkZ = entitySpecs
+          .filter(e => e.zone === forkZ && e.gateType !== 'rock' && e.gateType !== 'chasm')
+          .flatMap(e => e.requires || []);
+        const excludeForFork = [...localThreads.map(t => t.item), ...reqInForkZ];
+        const forkItem = pickNextRewardItem(excludeForFork, segUsed, localThreads);
+        segUsed.add(forkItem);
+        const fMeta = getItemMeta(forkItem, 'Relic Cache');
+        entitySpecs.push({
+          kind: 'preset_branch_cache',
+          id: `fork_${sIdx}_cache_${entitySeq++}`,
+          name: fMeta.name,
+          emoji: fMeta.emoji,
+          isPreset: forkItem,
+          requires: [],
+          reqType: 'AND',
+          reward: forkItem,
+          zone: forkZ
+        });
+        localThreads.push({
+          item: forkItem,
+          zoneId: forkZ,
+          row: zoneMeta.get(forkZ)?.minRow ?? 0,
+          bornSegIdx: sIdx
+        });
+      }
+    }
+
+    // Execute remaining `stepsInSeg` barter trades across `localThreads`
+    // Weaving in within-segment AND cross-segment backtracking!
+    let threadCursor = 0;
+    for (let k = 0; k < stepsInSeg; k++) {
+      if (localThreads.length === 0) break;
+
+      const primary = localThreads[threadCursor % localThreads.length];
+      let secondary: LiveToken | null = null;
+      // Preserve >= 2 threads in the final segment so the Vault Troll demands >= 2 items
+      const minThreadsToKeep = isFinalSeg && settings.targetSteps >= 7 ? 2 : 1;
+      const shouldMergeTwo =
+        localThreads.length > minThreadsToKeep &&
+        (localThreads.length >= 3 ||
+          (localThreads.length === 2 && k === stepsInSeg - 1 && settings.targetSteps >= 8 && rng() < 0.45 && !isFinalSeg));
+
+      if (shouldMergeTwo) {
+        const otherIdx = (threadCursor + 1) % localThreads.length;
+        if (otherIdx !== threadCursor % localThreads.length) {
+          const candSec = localThreads[otherIdx];
+          const pair = [primary.item, candSec.item];
+          const hasSafeForPair =
+            zonesByDepth.some(z => !pair.some(c => getFreePresetsInZone(z.id).has(c))) ||
+            earlierSegZones.some(z => (zonePhysicalSlack.get(z.id) || 0) > 0 && !pair.some(c => getFreePresetsInZone(z.id).has(c)));
+          if (hasSafeForPair) {
+            secondary = localThreads.splice(otherIdx, 1)[0];
+          }
+        }
+      }
+
+      const activeIdx = localThreads.indexOf(primary);
+      const consumes = secondary && secondary.item !== primary.item
+        ? [primary.item, secondary.item]
+        : [primary.item];
+
+      // Pick trade zone: intentionally schedule backtracks when maxBacktracks allows!
+      const canBacktrack = backtracksUsed < settings.maxBacktracks && settings.maxBacktrackRows > 0;
+      const isBacktrackStep = canBacktrack && (k > 0 || sIdx > 0) && (k === stepsInSeg - 1 || k % 2 === 1);
+
+      let tradeZoneId: number | null = null;
+
+      if (isBacktrackStep) {
+        const sourceRow = Math.max(primary.row, secondary?.row ?? primary.row);
+
+        // Prefer cross-segment backtrack into an earlier segment's shallow zone when sIdx > 0
+        if (sIdx > 0 && earlierSegZones.length > 0) {
+          const validEarlier = earlierSegZones.filter(z => {
+            const zSeg = zoneToSegIdx.get(z.id) ?? 0;
+            const earlierUsed = itemsUsedInSegByIdx[zSeg];
+            const rowDiff = sourceRow - z.minRow;
+            const free = getFreePresetsInZone(z.id);
+            return (
+              rowDiff >= 1 &&
+              rowDiff <= settings.maxBacktrackRows &&
+              (zoneRemainingCapacity.get(z.id) || 0) > 0 &&
+              !consumes.some(c => free.has(c) || earlierUsed.has(c))
+            );
+          });
+          if (validEarlier.length > 0) {
+            tradeZoneId = pickCapacityZone(validEarlier);
+            backtracksUsed++;
+          }
+        }
+
+        // Otherwise within-segment backtrack (from deeper zone back up to shallower zone)
+        if (tradeZoneId == null && zonesByDepth.length >= 2) {
+          const validShallow = zonesByDepth.filter(z => {
+            const rowDiff = sourceRow - z.minRow;
+            const free = getFreePresetsInZone(z.id);
+            return (
+              rowDiff >= 1 &&
+              rowDiff <= settings.maxBacktrackRows &&
+              (zonePhysicalSlack.get(z.id) || 0) > 0 &&
+              !consumes.some(c => free.has(c))
+            );
+          });
+          if (validShallow.length > 0) {
+            tradeZoneId = pickCapacityZone(validShallow);
+            backtracksUsed++;
+          }
+        }
+      }
+
+      if (tradeZoneId == null) {
+        const safeSegZones = zonesByDepth.filter(z => {
+          const free = getFreePresetsInZone(z.id);
+          return !consumes.some(c => free.has(c));
+        });
+        const safePool = safeSegZones.length > 0
+          ? safeSegZones
+          : earlierSegZones.filter(z => {
+              const zSeg = zoneToSegIdx.get(z.id) ?? 0;
+              const earlierUsed = itemsUsedInSegByIdx[zSeg];
+              const free = getFreePresetsInZone(z.id);
+              return (zonePhysicalSlack.get(z.id) || 0) > 0 && !consumes.some(c => free.has(c) || earlierUsed.has(c));
+            });
+        if (safePool.length === 0) return { ok: false, reason: 'SAME_ZONE_FREE_REQUIRED_ITEM' };
+
+        const slackSafePool = safePool.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
+        const activePool = slackSafePool.length > 0 ? slackSafePool : safePool;
+
+        if (canBacktrack && k < stepsInSeg - 1 && activePool.length >= 2) {
+          const deepPool = activePool.slice(Math.floor(activePool.length / 2));
+          tradeZoneId = pickCapacityZone(deepPool);
+        } else {
+          const frac = (k + 1) / Math.max(1, stepsInSeg);
+          const idx = Math.min(activePool.length - 1, Math.floor(frac * activePool.length));
+          const preferred = activePool[idx];
+          if ((zoneRemainingCapacity.get(preferred.id) || 0) > 0) {
+            consumeZoneSlot(preferred.id);
+            tradeZoneId = preferred.id;
+          } else {
+            tradeZoneId = pickCapacityZone(activePool);
+          }
+        }
+      }
+
+      const reward = pickNextRewardItem(consumes, segUsed, localThreads);
+      segUsed.add(reward);
+
+      const tpl = pickOne(TRADER_TEMPLATES, rng);
+      const tradeSpec: MissionEntitySpec = {
+        kind: 'barter_trader',
+        id: `${tpl.id}_tr_${entitySeq++}`,
+        name: tpl.name,
+        emoji: tpl.emoji,
+        isDigger: false,
+        requires: consumes,
+        reqType: 'AND',
+        reward,
+        zone: tradeZoneId
+      };
+      entitySpecs.push(tradeSpec);
+
+      const tzRow = zoneMeta.get(tradeZoneId)?.minRow ?? 0;
+      barterTradesMeta.push({ spec: tradeSpec, segIdx: sIdx, row: tzRow });
+
+      localThreads[activeIdx] = {
+        item: reward,
+        zoneId: tradeZoneId,
+        row: tzRow,
+        bornSegIdx: sIdx
+      };
+      threadCursor++;
+    }
+
+    // Converge localThreads into this segment's Cave Troll barrier
+    const barrierReqs: string[] = [];
+    for (const lt of localThreads) {
+      if (!barrierReqs.includes(lt.item)) {
+        barrierReqs.push(lt.item);
       }
     }
     if (barrierReqs.length === 0) return null;
+
+    // Anti-silliness guard for barrier (cannot share zone with free preset of its own required item)
+    const freeAtBarrier = getFreePresetsInZone(barrierZoneId);
+    if (barrierReqs.some(r => freeAtBarrier.has(r))) {
+      return { ok: false, reason: 'SAME_ZONE_FREE_REQUIRED_ITEM' };
+    }
 
     const barrier = seg.barrier;
     let barrierSpec: MissionEntitySpec;
@@ -820,42 +1198,55 @@ export function synthesizeMissionGraph(
     }
     entitySpecs.push(barrierSpec);
     prevBarrierSpec = barrierSpec;
+    itemsUsedInSegByIdx[sIdx] = segUsed;
+
+    // Restore carried thread (if saved) for the next segment!
+    if (carryThread) {
+      liveThreads.push(carryThread);
+    }
+    // Check if barrierRow was deeper than a trade's row (back-and-forth)
+    void barrierRow;
   }
 
-  for (const tReq of toolInputs) {
+  // Place remaining non-earnable tool presets, distributed across ancestor zones (not all piled in Camp)
+  const campSlotZones = new Set<number>([1]);
+  for (let idx = 0; idx < toolInputs.length; idx++) {
+    if (earnableToolSet.has(idx)) continue;
+    const tReq = toolInputs[idx];
     const ancestorIds = getAncestorZoneIds(tReq.fromZone);
     const strictIds = ancestorIds.filter(zId => zId !== tReq.fromZone);
     const resolveZones = (ids: readonly number[]) =>
       ids.map(zId => regularZones.find(z => z.id === zId)).filter((z): z is ZoneMeta => Boolean(z));
+
+    const sameSegNonCamp = resolveZones(
+      strictIds.filter(zId => zoneToSegIdx.get(zId) === tReq.segIdx && !campSlotZones.has(zId))
+    );
     const strictSameSeg = resolveZones(strictIds.filter(zId => zoneToSegIdx.get(zId) === tReq.segIdx));
     const strictAll = resolveZones(strictIds);
-    const sameSegAncestors = resolveZones(ancestorIds.filter(zId => zoneToSegIdx.get(zId) === tReq.segIdx));
     const allAncestors = resolveZones(ancestorIds);
     const withSoft = (list: readonly ZoneMeta[]) => list.filter(z => (zoneRemainingCapacity.get(z.id) || 0) > 0);
     const withPhys = (list: readonly ZoneMeta[]) => list.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
 
+    // Filter out zones that already contain an entity requiring this tool (keeps rock/chasm clean, avoids piling)
+    const noDuplicateTool = (list: readonly ZoneMeta[]) =>
+      list.filter(z => !getFreePresetsInZone(z.id).has(tReq.itemId));
+
     let chosenZone: number;
-    if (withSoft(strictSameSeg).length > 0) {
-      chosenZone = pickCapacityZone(withSoft(strictSameSeg));
-    } else if (withSoft(strictAll).length > 0) {
-      chosenZone = pickCapacityZone(withSoft(strictAll));
-    } else if (withPhys(strictSameSeg).length > 0) {
-      chosenZone = pickCapacityZone(withPhys(strictSameSeg));
-    } else if (withPhys(strictAll).length > 0) {
-      chosenZone = pickCapacityZone(withPhys(strictAll));
-    } else if (withSoft(sameSegAncestors).length > 0) {
-      chosenZone = pickCapacityZone(withSoft(sameSegAncestors));
-    } else if (withSoft(allAncestors).length > 0) {
-      chosenZone = pickCapacityZone(withSoft(allAncestors));
-    } else if (withPhys(sameSegAncestors).length > 0) {
-      chosenZone = pickCapacityZone(withPhys(sameSegAncestors));
-    } else if (withPhys(allAncestors).length > 0) {
-      chosenZone = pickCapacityZone(withPhys(allAncestors));
-    } else if (allAncestors.length > 0) {
-      chosenZone = pickCapacityZone(allAncestors);
-    } else {
-      chosenZone = pickCapacityZone([regularZones[0]]);
-    }
+    const tiers = [
+      withSoft(noDuplicateTool(sameSegNonCamp)),
+      withSoft(noDuplicateTool(strictSameSeg)),
+      withSoft(noDuplicateTool(strictAll)),
+      withSoft(strictSameSeg),
+      withSoft(strictAll),
+      withPhys(strictSameSeg),
+      withPhys(strictAll),
+      withSoft(allAncestors),
+      withPhys(allAncestors),
+      allAncestors
+    ];
+    const pickedTier = tiers.find(t => t.length > 0);
+    chosenZone = pickedTier ? pickCapacityZone(pickedTier) : pickCapacityZone([regularZones[0]]);
+
     const toolMeta = getItemMeta(tReq.itemId, 'Tool');
     entitySpecs.push({
       kind: 'preset_tool',
@@ -870,9 +1261,14 @@ export function synthesizeMissionGraph(
     });
   }
 
+  // Spread surplus pickaxes away from Zone 1 when other zones have capacity
   for (let s = 0; s < settings.pickaxeSurplus; s++) {
-    const surplusCandidates = regularZones.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
-    if (surplusCandidates.length === 0) break;
+    const surplusNonRoot = regularZones.filter(
+      z => z.id !== 1 && (zonePhysicalSlack.get(z.id) || 0) > 0 && !getFreePresetsInZone(z.id).has('pickaxe')
+    );
+    const surplusAny = regularZones.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
+    const pool = surplusNonRoot.length > 0 ? surplusNonRoot : surplusAny;
+    if (pool.length === 0) break;
     const pickaxeMeta = getItemMeta('pickaxe', 'Pickaxe');
     entitySpecs.push({
       kind: 'preset_surplus',
@@ -883,7 +1279,7 @@ export function synthesizeMissionGraph(
       requires: [],
       reqType: 'AND',
       reward: 'pickaxe',
-      zone: pickCapacityZone(surplusCandidates)
+      zone: pickCapacityZone(pool)
     });
   }
 
@@ -902,38 +1298,163 @@ export function synthesizeMissionGraph(
     zone: vaultZoneId
   });
 
-  const allNeededByChain = new Set(entitySpecs.flatMap(e => e.requires || []));
-  const safeDecoyRewards = NON_MUSHROOM_TRADE_ITEMS.filter(i => !allNeededByChain.has(i));
-  for (let d = 0; d < settings.decoyCount; d++) {
-    const decoyCandidates = regularZones.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
-    if (decoyCandidates.length === 0) break;
-    const decoyZone = pickCapacityZone(decoyCandidates);
-    const freeInDecoyZone = new Set(
-      entitySpecs
-        .filter(p => p.isPreset && p.zone === decoyZone && p.reward)
-        .map(p => p.reward!)
-    );
-    const rew = decoySinkItem && !allNeededByChain.has(decoySinkItem)
-      ? decoySinkItem
-      : (safeDecoyRewards.length > 0 ? pickOne(safeDecoyRewards, rng) : null);
-    if (!rew) continue;
-    const req = pickOne(CHAIN_ITEMS.filter(i => i !== rew && !freeInDecoyZone.has(i)), rng);
-    if (!req) continue;
-    const makeDigger = diggersAssigned < settings.numDiggers;
-    if (makeDigger) diggersAssigned++;
-    const tpl = makeDigger ? MOLE_TEMPLATE : pickOne(TRADER_TEMPLATES, rng);
-    const idPrefix = makeDigger ? 'mole' : tpl.id;
-    entitySpecs.push({
-      kind: 'decoy_trader',
-      id: `${idPrefix}_decoy_${entitySeq++}`,
-      name: tpl.name,
-      emoji: tpl.emoji,
-      isDigger: makeDigger,
-      requires: [req],
-      reqType: 'AND',
-      reward: rew,
-      zone: decoyZone
+  // Distribute Diggers (Moles) across distinct segments/zones on trades whose inputs come from earlier/different zones
+  let diggersAssigned = 0;
+  if (settings.numDiggers > 0 && barterTradesMeta.length > 0) {
+    const usedMoleSegs = new Set<number>();
+    // Prefer trades in zones != 1 (so player doesn't trigger mole immediately on step 1) or deeper rows, spread across segments
+    const sortedForMole = [...barterTradesMeta].sort((a, b) => {
+      const aNonRoot = a.spec.zone !== 1 ? 0 : 1;
+      const bNonRoot = b.spec.zone !== 1 ? 0 : 1;
+      if (aNonRoot !== bNonRoot) return aNonRoot - bNonRoot;
+      return a.segIdx - b.segIdx;
     });
+    for (const candidate of sortedForMole) {
+      if (diggersAssigned >= settings.numDiggers) break;
+      if (usedMoleSegs.has(candidate.segIdx) && sortedForMole.some(m => !usedMoleSegs.has(m.segIdx))) {
+        continue;
+      }
+      usedMoleSegs.add(candidate.segIdx);
+      candidate.spec.isDigger = true;
+      candidate.spec.name = MOLE_TEMPLATE.name;
+      candidate.spec.emoji = MOLE_TEMPLATE.emoji;
+      candidate.spec.id = candidate.spec.id.replace(/^[a-z]+_tr_/, 'mole_tr_');
+      diggersAssigned++;
+    }
+  }
+
+  // Verify core puzzle (pre-decoy) and record timeline of (unlockedZones, inv) for smart Trap Decoy placement
+  const coreSanitized = sanitizePuzzleEntities(entitySpecs, UNDERGROUND_ITEMS);
+  const coreSol = solvePuzzle(startItems, coreSanitized, goalEntityId, levelStub);
+  if (!coreSol) {
+    return { ok: false, reason: 'MISSION_UNSOLVABLE' };
+  }
+  if (coreSol.steps < settings.targetSteps || coreSol.steps > settings.targetSteps + 1) {
+    return { ok: false, reason: `MISSION_STEPS_${coreSol.steps}_WANT_${settings.targetSteps}` };
+  }
+
+  // Place Temptation Decoys in zones where the player ACTUALLY holds the critical item,
+  // creating real decisions ("trade now -> soft-lock, vs hold for the real consumer!")
+  if (settings.decoyCount > 0) {
+    const coreById = new Map(coreSanitized.map(e => [e.id, e]));
+    const simUnlocked = new Set<number>([1]);
+    let simInv = [...startItems];
+    const temptationSlots: Array<{ zone: number; item: string; stepIdx: number }> = [];
+
+    for (let s = 0; s < coreSol.path.length; s++) {
+      const step = coreSol.path[s];
+      const ent = step.entityId ? coreById.get(step.entityId) : undefined;
+      if (!ent) continue;
+
+      if (!ent.isPreset && ent.id !== goalEntityId && simInv.length > 0) {
+        const unlockedList = Array.from(simUnlocked).filter(z => z !== vaultZoneId && regularZones.some(rz => rz.id === z));
+        for (const held of Array.from(new Set(simInv))) {
+          if (held === 'pickaxe' || held === 'rope' || held === 'mushroom') continue;
+          for (const uz of unlockedList) {
+            if (!getFreePresetsInZone(uz).has(held)) {
+              temptationSlots.push({ zone: uz, item: held, stepIdx: s });
+            }
+          }
+        }
+      }
+
+      if (ent.isGatekeeper && ent.unlocksZones) {
+        ent.unlocksZones.forEach(z => simUnlocked.add(z));
+      }
+      for (const req of ent.requires || []) {
+        const idx = simInv.indexOf(req);
+        if (idx > -1) simInv.splice(idx, 1);
+      }
+      if (ent.reward) simInv.push(ent.reward);
+    }
+
+    const allNeededByChain = new Set(coreSanitized.flatMap(e => e.requires || []));
+    const safeSinkRewards = NON_MUSHROOM_TRADE_ITEMS.filter(i => !allNeededByChain.has(i));
+    const decoyTrapTargetsUsed = new Set<string>();
+
+    for (let d = 0; d < settings.decoyCount; d++) {
+      const availSlotsStrict = temptationSlots.filter(ts => (zonePhysicalSlack.get(ts.zone) || 0) > 0);
+      const availSlots = availSlotsStrict.length > 0
+        ? availSlotsStrict
+        : temptationSlots.filter(ts => {
+            const zm = zoneMeta.get(ts.zone);
+            return zm && zm.slots.length >= 2 && (zonePhysicalSlack.get(ts.zone) ?? -99) >= -1;
+          });
+      // Prefer placing first decoy in Zone 1 / early steps where player holds carried or starting items
+      const earlyPriority = availSlots.filter(
+        ts => ts.zone === 1 && !decoyTrapTargetsUsed.has(`${ts.zone}:${ts.item}`)
+      );
+      const unusedItemSlots = availSlots.filter(ts => !decoyTrapTargetsUsed.has(`${ts.zone}:${ts.item}`));
+      const orderedCandidates = shuffle(
+        earlyPriority.length > 0 && d === 0 ? earlyPriority : (unusedItemSlots.length > 0 ? unusedItemSlots : availSlots),
+        rng
+      );
+
+      let decoyZone: number;
+      let req: string;
+      const pickedSlot = orderedCandidates[0] || null;
+      if (pickedSlot) {
+        // Prefer a slot whose item is uniquely needed (not duplicated in start/presets) so taking the decoy is a genuine trap
+        const verifiedTrapSlot = orderedCandidates.slice(0, 4).find(cand => {
+          const remainingWithoutItem = startItems.filter(it => it !== cand.item);
+          if (remainingWithoutItem.length === startItems.length) return true;
+          const testWithout = solvePuzzle(remainingWithoutItem, coreSanitized, goalEntityId, levelStub, { maxStates: 400 });
+          return !testWithout;
+        }) || pickedSlot;
+        decoyZone = verifiedTrapSlot.zone;
+        consumeZoneSlot(decoyZone);
+        req = verifiedTrapSlot.item;
+        decoyTrapTargetsUsed.add(`${decoyZone}:${req}`);
+      } else {
+        const fallbackCandidatesStrict = regularZones.filter(z => (zonePhysicalSlack.get(z.id) || 0) > 0);
+        const fallbackCandidates = fallbackCandidatesStrict.length > 0
+          ? fallbackCandidatesStrict
+          : regularZones.filter(z => z.slots.length >= 2 && (zonePhysicalSlack.get(z.id) ?? -99) >= -1);
+        if (fallbackCandidates.length === 0) break;
+        decoyZone = pickCapacityZone(fallbackCandidates);
+        const freeInZone = getFreePresetsInZone(decoyZone);
+        const fbReq = pickOne(CHAIN_ITEMS.filter(i => i !== decoySinkItem && !freeInZone.has(i)), rng);
+        if (!fbReq) continue;
+        req = fbReq;
+      }
+
+      // On multi-decoy maps, occasionally make a decoy reward a tempting real progression item
+      // (as long as it doesn't shortcut the optimal step count!)
+      const temptingRealItems = CHAIN_ITEMS.filter(i => i !== req && allNeededByChain.has(i));
+      const candidateRew = (d % 2 === 1 && temptingRealItems.length > 0)
+        ? pickOne(temptingRealItems, rng)
+        : (decoySinkItem && !allNeededByChain.has(decoySinkItem)
+            ? decoySinkItem
+            : (safeSinkRewards.length > 0 ? pickOne(safeSinkRewards, rng) : null));
+      if (!candidateRew) continue;
+
+      const makeDigger = diggersAssigned < settings.numDiggers;
+      if (makeDigger) diggersAssigned++;
+      const tpl = makeDigger ? MOLE_TEMPLATE : pickOne(TRADER_TEMPLATES, rng);
+      const idPrefix = makeDigger ? 'mole' : tpl.id;
+      const decoySpec: MissionEntitySpec = {
+        kind: 'decoy_trader',
+        id: `${idPrefix}_decoy_${entitySeq++}`,
+        name: tpl.name,
+        emoji: tpl.emoji,
+        isDigger: makeDigger,
+        requires: [req],
+        reqType: 'AND',
+        reward: candidateRew,
+        zone: decoyZone
+      };
+      entitySpecs.push(decoySpec);
+
+      // Ensure a tempting real-item decoy never accidentally creates a shorter shortcut
+      if (allNeededByChain.has(candidateRew)) {
+        const probeSol = solvePuzzle(startItems, sanitizePuzzleEntities(entitySpecs, UNDERGROUND_ITEMS), goalEntityId, levelStub);
+        if (!probeSol || probeSol.steps < settings.targetSteps || probeSol.steps > settings.targetSteps + 1) {
+          decoySpec.reward = decoySinkItem && !allNeededByChain.has(decoySinkItem)
+            ? decoySinkItem
+            : (safeSinkRewards[0] || decoySinkItem);
+        }
+      }
+    }
   }
 
   for (const ent of entitySpecs) {
@@ -963,6 +1484,10 @@ export function synthesizeMissionGraph(
   if (sol.steps < settings.targetSteps || sol.steps > settings.targetSteps + 1) {
     return { ok: false, reason: `MISSION_STEPS_${sol.steps}_WANT_${settings.targetSteps}` };
   }
+
+  // Silence unused import warning if assessPuzzleDifficulty is imported for diagnostics/checks
+  void assessPuzzleDifficulty;
+  void prevBarrierSpec;
 
   return {
     ok: true,

@@ -7,7 +7,7 @@ import type {
 
 export type { CollarOrientation };
 import type { AbstractPuzzleEntity, GateType, PuzzleEntity } from './entities.ts';
-import type { DeepCavePresetId, DeepCaveSettings, PuzzleData, SolverResult } from './level.ts';
+import type { DeepCavePresetId, DeepCaveSettings, PuzzleData, PuzzleDifficultyReport, SolverResult } from './level.ts';
 
 export type EncounterDirection = 'north' | 'south' | 'east' | 'west';
 
@@ -250,6 +250,7 @@ export interface SpaceBlueprint {
   gatedEdges: GatedEdgeSpec[];
   encounterPlacements: EncounterPlacement[];
   maxZoneId: number;
+  loopCount?: number;
 }
 
 export interface MissionEntitySpec extends AbstractPuzzleEntity {
@@ -284,6 +285,7 @@ export type VerifyGeneratedLevelResult =
   | {
       valid: true;
       solution: SolverResult;
+      difficulty: PuzzleDifficultyReport;
     }
   | {
       valid: false;

@@ -14,6 +14,11 @@ export const items: ItemDefinition[] = [
   { id: 'rope', name: 'Rope', emoji: '🪢' },
   { id: 'bone', name: 'Bone', emoji: '🦴' },
   { id: 'gem', name: 'Gem', emoji: '💎' },
+  { id: 'lantern', name: 'Lantern', emoji: '🏮' },
+  { id: 'compass', name: 'Compass', emoji: '🧭' },
+  { id: 'scroll', name: 'Scroll', emoji: '📜' },
+  { id: 'ring', name: 'Ring', emoji: '💍' },
+  { id: 'chalice', name: 'Chalice', emoji: '🏆' },
   { id: 'pickaxe', name: 'Pickaxe', emoji: '⛏️' }
 ];
 

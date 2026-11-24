@@ -136,4 +136,28 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
       expect(sol).not.toBeNull();
     }
   });
+
+  it('produces non-linear hard/expert puzzles with multi-item trolls, backtracking, greedy traps, and maze loops', () => {
+    let totalLoops = 0;
+    for (let i = 0; i < 6; i++) {
+      const hardP = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.hard, null, `nonlinear-hard-${i}`);
+      expect(hardP.difficulty).toBeDefined();
+      expect(hardP.difficulty.greedySolvable).toBe(false);
+      expect(hardP.difficulty.fatalTrapCount).toBeGreaterThanOrEqual(1);
+      expect(hardP.difficulty.backtrackCount).toBeGreaterThanOrEqual(1);
+      expect(hardP.difficulty.multiReqGateCount).toBeGreaterThanOrEqual(1);
+
+      const multiReqTrolls = hardP.puzzleEntities.filter(
+        e => e.isGatekeeper && e.gateType === 'guardian' && (e.requires?.length || 0) >= 2
+      );
+      expect(multiReqTrolls.length).toBeGreaterThanOrEqual(1);
+      totalLoops += hardP.diagnostics?.loopCount || 0;
+    }
+    expect(totalLoops).toBeGreaterThanOrEqual(1);
+
+    const expertP = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.expert, null, 'nonlinear-expert-check');
+    expect(expertP.difficulty.greedySolvable).toBe(false);
+    expect(expertP.difficulty.backtrackCount).toBeGreaterThanOrEqual(2);
+    expect(expertP.difficulty.score).toBeGreaterThanOrEqual(75);
+  });
 });

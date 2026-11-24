@@ -87,6 +87,42 @@ export interface SolverOptions {
   boatOfferedItems?: string[];
   boatTradeMap?: Record<string, string>;
   maxStates?: number;
+  initialDef?: string[];
+  initialTransformed?: boolean;
+  initialHasTreasure?: boolean;
+}
+
+export type PuzzleDifficultyTier =
+  | 'unsolvable'
+  | 'trivial'
+  | 'easy'
+  | 'moderate'
+  | 'challenging'
+  | 'hard';
+
+export interface PuzzleDifficultyReport {
+  solvable: boolean;
+  steps: number;
+  score: number;
+  tier: PuzzleDifficultyTier;
+  greedySolvable: boolean;
+  greedyTrapCount: number;
+  fatalTrapCount: number;
+  suboptimalTrapCount: number;
+  choiceForkCount: number;
+  backtrackCount: number;
+  maxBacktrackRows: number;
+  remoteDepCount: number;
+  multiReqGateCount: number;
+  peakInventory: number;
+}
+
+export interface AssessDifficultyOptions extends SolverOptions {
+  solution?: SolverResult | null;
+  campPos?: Point2D;
+  rowHeight?: number;
+  maxProbeStates?: number;
+  skipTrapProbes?: boolean;
 }
 
 export interface PuzzleData {
@@ -104,6 +140,7 @@ export interface PuzzleData {
   boatOfferedItems?: string[];
   boatTradeMap?: Record<string, string>;
   safeBoatItems?: string[];
+  difficulty?: PuzzleDifficultyReport;
   diagnostics?: Record<string, unknown>;
 }
 

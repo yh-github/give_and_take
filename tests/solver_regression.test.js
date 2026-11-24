@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { solvePuzzle } from '../src/logic/solver.js';
+import { assessPuzzleDifficulty, solvePuzzle } from '../src/logic/solver.js';
 
 describe('Solver Comprehensive Regression Suite', () => {
   const dummyLevel = {
@@ -214,5 +214,50 @@ describe('Solver Comprehensive Regression Suite', () => {
     expect(returnStep.usedItems).toEqual(['abyssal_pearl']);
     const mirrorTrade = sol.path.find(p => p.isBoatTrade && p.itemId === 'mirror');
     expect(mirrorTrade.reqItem).toBe('gold_fish');
+  });
+
+  it('unlocks gatekeeper source zone on reverse access across loops (matching computeUnlockedZones)', () => {
+    // Zone 1 has an open connection to Zone 3; Zone 2 is behind a gate between Zone 2 <-> Zone 3.
+    // Approaching from Zone 3 (reverse access) unlocks Zone 2!
+    const entities = [
+      { id: 'bridge_to_3', requires: ['rope'], reqType: 'AND', reward: null, zone: 1, unlocksZones: [3], isGatekeeper: true },
+      { id: 'reverse_gate', requires: ['pickaxe'], reqType: 'AND', reward: null, zone: 2, unlocksZones: [3], isGatekeeper: true },
+      { id: 'goal_in_2', requires: ['gem'], reqType: 'AND', reward: null, zone: 2, isGoal: true }
+    ];
+    const sol = solvePuzzle(['rope', 'pickaxe', 'gem'], entities, 'goal_in_2', dummyLevel);
+    expect(sol).not.toBeNull();
+    expect(sol.path.map(p => p.entityId)).toEqual(['bridge_to_3', 'reverse_gate', 'goal_in_2']);
+  });
+
+  it('assessPuzzleDifficulty scores linear forward chains lower than trap/backtrack/multi-req puzzles', () => {
+    const linearEntities = [
+      { id: 't1', requires: ['a'], reqType: 'AND', reward: 'b', zone: 1, x: 50, y: 20 },
+      { id: 't2', requires: ['b'], reqType: 'AND', reward: 'c', zone: 1, x: 50, y: 50 },
+      { id: 'gate', requires: ['c'], reqType: 'AND', reward: null, zone: 1, unlocksZones: [2], isGatekeeper: true, gateType: 'guardian', x: 50, y: 80 },
+      { id: 'goal', requires: [], reqType: 'AND', reward: null, zone: 2, isPreset: 'treasure', isGoal: true, x: 50, y: 120 }
+    ];
+    const linearReport = assessPuzzleDifficulty(['a'], linearEntities, 'goal', dummyLevel, { campPos: { x: 50, y: 10 } });
+    expect(linearReport.solvable).toBe(true);
+    expect(linearReport.greedySolvable).toBe(true);
+    expect(linearReport.fatalTrapCount).toBe(0);
+    expect(linearReport.multiReqGateCount).toBe(0);
+
+    // Non-linear puzzle: Zone 1 has a fatal decoy stealing 'a' AND a shallow trader requiring 'd' obtained deep in Zone 2,
+    // plus a 2-item Cave Troll requiring ['c', 'e'].
+    const richEntities = [
+      { id: 'trap_decoy', requires: ['a'], reqType: 'AND', reward: 'junk', zone: 1, x: 40, y: 20 },
+      { id: 'deep_fetch', requires: ['a'], reqType: 'AND', reward: 'd', zone: 1, x: 50, y: 110 },
+      { id: 'backtrack_hub', requires: ['d'], reqType: 'AND', reward: 'e', zone: 1, x: 50, y: 25 },
+      { id: 'troll', requires: ['b', 'e'], reqType: 'AND', reward: null, zone: 1, unlocksZones: [2], isGatekeeper: true, gateType: 'guardian', x: 50, y: 130 },
+      { id: 'goal', requires: [], reqType: 'AND', reward: null, zone: 2, isPreset: 'treasure', isGoal: true, x: 50, y: 170 }
+    ];
+    const richReport = assessPuzzleDifficulty(['a', 'b'], richEntities, 'goal', dummyLevel, { campPos: { x: 50, y: 10 } });
+    expect(richReport.solvable).toBe(true);
+    expect(richReport.greedySolvable).toBe(false);
+    expect(richReport.greedyTrapCount).toBeGreaterThanOrEqual(1);
+    expect(richReport.fatalTrapCount).toBeGreaterThanOrEqual(1);
+    expect(richReport.backtrackCount).toBeGreaterThanOrEqual(1);
+    expect(richReport.multiReqGateCount).toBe(1);
+    expect(richReport.score).toBeGreaterThan(linearReport.score + 30);
   });
 });

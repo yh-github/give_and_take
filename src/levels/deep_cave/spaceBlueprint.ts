@@ -1,6 +1,7 @@
 import { DEEP_CAVE_SLOT_COLS } from '../../constants.ts';
 import { shuffle } from '../../logic/rng.ts';
 import type { RNG } from '../../logic/rng.ts';
+import { items as UNDERGROUND_ITEMS } from './data.ts';
 import { DEEP_CAVE_ENCOUNTERS } from './encounters/index.ts';
 import { connectSlots, createEmptySlotGrid, makeEdgeKey } from './slotGrid.ts';
 import type {
@@ -378,7 +379,10 @@ export function buildSpaceBlueprint(
       .filter(ep => ep.encounter.id === 'rope_chasm_bridge')
       .map(ep => `${ep.originCol + 1},${ep.originRow}`)
   );
-  const chainPoolSize = 6 - (settings.decoyCount > 0 ? 1 : 0);
+  const tradeItemPoolCount = UNDERGROUND_ITEMS.filter(
+    i => i.id !== 'pickaxe' && i.id !== 'rope' && i.id !== 'mushroom'
+  ).length;
+  const chainPoolSize = tradeItemPoolCount - (settings.decoyCount > 0 ? 1 : 0);
 
   const evaluateGuardianSet = (guardianKeys: Set<string>): GuardianEvalResult => {
     const visited = Array.from({ length: rows }, () => Array<boolean>(DEEP_CAVE_SLOT_COLS).fill(false));
@@ -475,7 +479,7 @@ export function buildSpaceBlueprint(
       const rawPhys = seg.campCnt + seg.regCnt * 2;
       const reserve = sIdx === 0 ? (totalSegs > 1 && settings.targetSteps >= 9 && rawPhys >= 5 ? 2 : 1) : 1;
       const physMax = Math.max(0, rawPhys - reserve);
-      const tokenMax = Math.max(0, chainPoolSize - (seg.hasEncOut ? 1 : 0) - (sIdx === 0 ? 2 : 1));
+      const tokenMax = Math.min(6, Math.max(0, chainPoolSize - 2 - (seg.hasEncOut ? 1 : 0)));
       const cap = Math.min(physMax, tokenMax);
       totalCap += cap;
       if (cap < minCap) minCap = cap;
@@ -496,19 +500,26 @@ export function buildSpaceBlueprint(
 
   const candCount = spineDoorCandidates.length;
   const maxPick = Math.min(3, candCount);
-  const desiredSegTarget = settings.targetSteps >= 15
-    ? 4
-    : (settings.targetSteps >= 10 ? 3 : (settings.targetSteps >= 7 ? 2 : 1));
+  const desiredSegTarget = settings.targetSteps >= 12
+    ? 3
+    : (settings.targetSteps >= 7 ? 2 : 1);
   let bestGuardianSet = new Set<string>();
   let bestScore = -Infinity;
 
+  const row0ExitKeys = new Set(
+    spineDoorCandidates.filter(e => e.rowA === 0 && e.rowB === 1).map(e => e.edgeKey)
+  );
   const tryCombo = (keys: Set<string>) => {
     const ev = evaluateGuardianSet(keys);
     if (!ev.feasible) return;
+    // Prefer guardian barriers deeper than row 0->1 when rows >= 4 so Segment 0 spans multiple rows for loops/backtracks
+    const hasRow0Barrier = Array.from(keys).some(k => row0ExitKeys.has(k));
+    const shallowPenalty = rows >= 4 && hasRow0Barrier ? 35 : 0;
     const score =
       ev.minCap * 20 -
       Math.abs(ev.segCount - desiredSegTarget) * 12 +
-      Math.min(4, ev.margin) * 3;
+      Math.min(4, ev.margin) * 3 -
+      shallowPenalty;
     if (score > bestScore) {
       bestScore = score;
       bestGuardianSet = new Set(keys);
@@ -563,6 +574,213 @@ export function buildSpaceBlueprint(
         isSpurGate: true,
         gateType: rng() < 0.7 ? 'rock' : 'chasm'
       });
+    }
+  }
+
+  // Add open maze loops within ungated components (direct cycle edges + 2x2 corner rings around pillars)
+  let loopCount = 0;
+  const targetLoops = settings.branchingFactor <= 1
+    ? (settings.targetSteps >= 6 ? 1 : 0)
+    : Math.min(3, settings.branchingFactor);
+
+  if (targetLoops > 0) {
+    const compGrid: number[][] = Array.from({ length: rows }, () =>
+      Array<number>(DEEP_CAVE_SLOT_COLS).fill(-1)
+    );
+    let nextComp = 0;
+    for (let sr = 0; sr < rows - 1; sr++) {
+      for (let sc = 0; sc < DEEP_CAVE_SLOT_COLS; sc++) {
+        const startSlot = slots[sr][sc];
+        if (!startSlot.active || startSlot.encounterId || startSlot.role === 'vault' || compGrid[sr][sc] !== -1) {
+          continue;
+        }
+        const cId = nextComp++;
+        const q: Array<[number, number]> = [[sc, sr]];
+        compGrid[sr][sc] = cId;
+        while (q.length > 0) {
+          const [cc, cr] = q.shift()!;
+          const curSlot = slots[cr][cc];
+          const dirs: Array<[number, number, boolean]> = [
+            [cc + 1, cr, curSlot.sockets.E],
+            [cc - 1, cr, curSlot.sockets.W],
+            [cc, cr + 1, curSlot.sockets.S],
+            [cc, cr - 1, curSlot.sockets.N]
+          ];
+          for (const [nc, nr, open] of dirs) {
+            if (!open || nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows - 1) continue;
+            const ns = slots[nr][nc];
+            if (!ns.active || ns.encounterId || ns.role === 'vault' || compGrid[nr][nc] !== -1) continue;
+            if (gatedEdges.has(makeEdgeKey(cc, cr, nc, nr))) continue;
+            compGrid[nr][nc] = cId;
+            q.push([nc, nr]);
+          }
+        }
+      }
+    }
+
+    // 1. Direct cycle edges between adjacent active slots in the same ungated component
+    const directLoopCandidates: Array<{ c1: number; r1: number; c2: number; r2: number; vert: boolean }> = [];
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+        const s = slots[r][c];
+        if (!s.active || s.encounterId || s.role === 'vault' || compGrid[r][c] === -1) continue;
+        if (c + 1 < DEEP_CAVE_SLOT_COLS && !s.sockets.E && compGrid[r][c + 1] === compGrid[r][c]) {
+          directLoopCandidates.push({ c1: c, r1: r, c2: c + 1, r2: r, vert: false });
+        }
+        if (r + 1 < rows - 1 && !s.sockets.S && compGrid[r + 1][c] === compGrid[r][c]) {
+          directLoopCandidates.push({ c1: c, r1: r, c2: c, r2: r + 1, vert: true });
+        }
+      }
+    }
+    const sortedDirect = shuffle(directLoopCandidates, rng).sort((a, b) => Number(b.vert) - Number(a.vert));
+    for (const cand of sortedDirect) {
+      if (loopCount >= targetLoops) break;
+      const ek = makeEdgeKey(cand.c1, cand.r1, cand.c2, cand.r2);
+      if (gatedEdges.has(ek)) continue;
+      connectSlots(slots, cand.c1, cand.r1, cand.c2, cand.r2);
+      loopCount++;
+    }
+
+    // 2. 2x2 L-corner completions to carve ring loops around rock pillars
+    if (loopCount < targetLoops) {
+      const cornerCandidates: Array<{
+        c: number;
+        r: number;
+        n1: [number, number];
+        n2: [number, number];
+        compId: number;
+      }> = [];
+      for (let r = 0; r < rows - 1; r++) {
+        for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+          if (slots[r][c].active || slots[r][c].encounterId) continue;
+          const pairs: Array<[[number, number], [number, number]]> = [
+            [[c + 1, r], [c, r + 1]],
+            [[c - 1, r], [c, r + 1]],
+            [[c + 1, r], [c, r - 1]],
+            [[c - 1, r], [c, r - 1]]
+          ];
+          for (const [[c1, r1], [c2, r2]] of pairs) {
+            if (
+              c1 < 0 || c1 >= DEEP_CAVE_SLOT_COLS || r1 < 0 || r1 >= rows - 1 ||
+              c2 < 0 || c2 >= DEEP_CAVE_SLOT_COLS || r2 < 0 || r2 >= rows - 1
+            ) continue;
+            const comp1 = compGrid[r1][c1];
+            const comp2 = compGrid[r2][c2];
+            if (comp1 !== -1 && comp1 === comp2) {
+              cornerCandidates.push({ c, r, n1: [c1, r1], n2: [c2, r2], compId: comp1 });
+              break;
+            }
+          }
+        }
+      }
+      for (const cc of shuffle(cornerCandidates, rng)) {
+        if (loopCount >= targetLoops) break;
+        if (slots[cc.r][cc.c].active) continue;
+        // Verify both neighbors are still in the same component and haven't changed
+        if (compGrid[cc.n1[1]][cc.n1[0]] !== cc.compId || compGrid[cc.n2[1]][cc.n2[0]] !== cc.compId) continue;
+        connectSlots(slots, cc.c, cc.r, cc.n1[0], cc.n1[1]);
+        connectSlots(slots, cc.c, cc.r, cc.n2[0], cc.n2[1]);
+        slots[cc.r][cc.c].role = 'loop';
+        compGrid[cc.r][cc.c] = cc.compId;
+        loopCount++;
+      }
+    }
+
+    // 3. 2-slot ring extension off an existing open horizontal/vertical edge when still below targetLoops
+    if (loopCount < targetLoops) {
+      const ringCandidates: Array<{ a: [number, number]; b: [number, number]; na: [number, number]; nb: [number, number]; compId: number }> = [];
+      for (let r = 0; r < rows - 1; r++) {
+        for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+          const s = slots[r][c];
+          if (!s.active || s.encounterId || s.role === 'vault' || compGrid[r][c] === -1) continue;
+          if (c + 1 < DEEP_CAVE_SLOT_COLS && s.sockets.E && compGrid[r][c + 1] === compGrid[r][c] && !gatedEdges.has(makeEdgeKey(c, r, c + 1, r))) {
+            for (const dr of [1, -1]) {
+              const nr = r + dr;
+              if (nr < 0 || nr >= rows - 1) continue;
+              if (!slots[nr][c].active && !slots[nr][c].encounterId && !slots[nr][c + 1].active && !slots[nr][c + 1].encounterId) {
+                ringCandidates.push({ a: [c, r], b: [c + 1, r], na: [c, nr], nb: [c + 1, nr], compId: compGrid[r][c] });
+              }
+            }
+          }
+          if (r + 1 < rows - 1 && s.sockets.S && compGrid[r + 1][c] === compGrid[r][c] && !gatedEdges.has(makeEdgeKey(c, r, c, r + 1))) {
+            for (const dc of [1, -1]) {
+              const nc = c + dc;
+              if (nc < 0 || nc >= DEEP_CAVE_SLOT_COLS) continue;
+              if (!slots[r][nc].active && !slots[r][nc].encounterId && !slots[r + 1][nc].active && !slots[r + 1][nc].encounterId) {
+                ringCandidates.push({ a: [c, r], b: [c, r + 1], na: [nc, r], nb: [nc, r + 1], compId: compGrid[r][c] });
+              }
+            }
+          }
+        }
+      }
+      for (const rc of shuffle(ringCandidates, rng)) {
+        if (loopCount >= targetLoops) break;
+        if (slots[rc.na[1]][rc.na[0]].active || slots[rc.nb[1]][rc.nb[0]].active) continue;
+        connectSlots(slots, rc.a[0], rc.a[1], rc.na[0], rc.na[1]);
+        connectSlots(slots, rc.b[0], rc.b[1], rc.nb[0], rc.nb[1]);
+        connectSlots(slots, rc.na[0], rc.na[1], rc.nb[0], rc.nb[1]);
+        slots[rc.na[1]][rc.na[0]].role = 'loop';
+        slots[rc.nb[1]][rc.nb[0]].role = 'loop';
+        compGrid[rc.na[1]][rc.na[0]] = rc.compId;
+        compGrid[rc.nb[1]][rc.nb[0]] = rc.compId;
+        loopCount++;
+      }
+    }
+
+    // 4. If still 0 loops, connect two adjacent active slots within the same barrier segment
+    // (promoting a gated spur into a navigable loop when an adjacent active neighbor exists)
+    if (loopCount === 0 && targetLoops > 0) {
+      const segGrid: number[][] = Array.from({ length: rows }, () =>
+        Array<number>(DEEP_CAVE_SLOT_COLS).fill(-1)
+      );
+      let nextSeg = 0;
+      for (let sr = 0; sr < rows - 1; sr++) {
+        for (let sc = 0; sc < DEEP_CAVE_SLOT_COLS; sc++) {
+          const st = slots[sr][sc];
+          if (!st.active || st.encounterId || st.role === 'vault' || segGrid[sr][sc] !== -1) continue;
+          const sId = nextSeg++;
+          const q: Array<[number, number]> = [[sc, sr]];
+          segGrid[sr][sc] = sId;
+          while (q.length > 0) {
+            const [cc, cr] = q.shift()!;
+            const cs = slots[cr][cc];
+            const dirs: Array<[number, number, boolean]> = [
+              [cc + 1, cr, cs.sockets.E],
+              [cc - 1, cr, cs.sockets.W],
+              [cc, cr + 1, cs.sockets.S],
+              [cc, cr - 1, cs.sockets.N]
+            ];
+            for (const [nc, nr, open] of dirs) {
+              if (!open || nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows - 1) continue;
+              const ns = slots[nr][nc];
+              if (!ns.active || ns.encounterId || ns.role === 'vault' || segGrid[nr][nc] !== -1) continue;
+              const ge = gatedEdges.get(makeEdgeKey(cc, cr, nc, nr));
+              if (ge && (ge.gateType === 'guardian' || ge.isVaultEntry)) continue;
+              segGrid[nr][nc] = sId;
+              q.push([nc, nr]);
+            }
+          }
+        }
+      }
+
+      const segLoopCands: Array<{ c1: number; r1: number; c2: number; r2: number }> = [];
+      for (let r = 0; r < rows - 1; r++) {
+        for (let c = 0; c < DEEP_CAVE_SLOT_COLS; c++) {
+          const s = slots[r][c];
+          if (!s.active || s.encounterId || s.role === 'vault' || segGrid[r][c] === -1) continue;
+          if (c + 1 < DEEP_CAVE_SLOT_COLS && !s.sockets.E && segGrid[r][c + 1] === segGrid[r][c]) {
+            segLoopCands.push({ c1: c, r1: r, c2: c + 1, r2: r });
+          }
+          if (r + 1 < rows - 1 && !s.sockets.S && segGrid[r + 1][c] === segGrid[r][c]) {
+            segLoopCands.push({ c1: c, r1: r, c2: c, r2: r + 1 });
+          }
+        }
+      }
+      if (segLoopCands.length > 0) {
+        const picked = pickOne(segLoopCands, rng);
+        connectSlots(slots, picked.c1, picked.r1, picked.c2, picked.r2);
+        loopCount++;
+      }
     }
   }
 
@@ -632,10 +850,22 @@ export function buildSpaceBlueprint(
       ];
       for (const [nc, nr, open] of neighbors) {
         if (!open || nc < 0 || nc >= DEEP_CAVE_SLOT_COLS || nr < 0 || nr >= rows) continue;
-        if (!slots[nr][nc].active || slotZone[nr][nc] !== null) continue;
+        if (!slots[nr][nc].active) continue;
         if (s.encounterId === 'guardian_lair' && nr === cur.row + 1) continue;
         const ek = makeEdgeKey(cur.col, cur.row, nc, nr);
         const gate = gatedEdges.get(ek);
+        if (slotZone[nr][nc] !== null) {
+          if (gate && gate.fromZone == null) {
+            const existingZ = slotZone[nr][nc]!;
+            if (existingZ === zoneId) {
+              gatedEdges.delete(ek);
+            } else {
+              gate.fromZone = Math.min(zoneId, existingZ);
+              gate.toZone = Math.max(zoneId, existingZ);
+            }
+          }
+          continue;
+        }
         if (gate) {
           frontier.push({
             fromCol: cur.col,
@@ -659,7 +889,18 @@ export function buildSpaceBlueprint(
   const pendingFrontiers = floodZone(campCol, 0, nextZoneId++);
   while (pendingFrontiers.length > 0) {
     const f = pendingFrontiers.shift()!;
-    if (slotZone[f.toRow][f.toCol] !== null) continue;
+    const existingToZone = slotZone[f.toRow][f.toCol];
+    if (existingToZone !== null) {
+      if (f.edgeGate) {
+        if (existingToZone === f.fromZone) {
+          gatedEdges.delete(f.edgeGate.edgeKey);
+        } else {
+          f.edgeGate.fromZone = f.fromZone;
+          f.edgeGate.toZone = existingToZone;
+        }
+      }
+      continue;
+    }
     const zId = nextZoneId++;
     if (f.edgeGate) {
       f.edgeGate.fromZone = f.fromZone;
@@ -709,6 +950,7 @@ export function buildSpaceBlueprint(
     zoneMeta,
     gatedEdges: Array.from(gatedEdges.values()),
     encounterPlacements,
-    maxZoneId: nextZoneId - 1
+    maxZoneId: nextZoneId - 1,
+    loopCount
   };
 }

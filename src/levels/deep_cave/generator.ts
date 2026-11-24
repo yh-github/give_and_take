@@ -18,7 +18,13 @@ import { placeEntitiesInSlots, verifyGeneratedLevel } from './placementAndVerify
 import { normalizeDeepCaveSettings } from './presets.ts';
 import { rasterizeSlotGrid } from './slotGrid.ts';
 import { buildSpaceBlueprint, chooseEncounters } from './spaceBlueprint.ts';
-import type { LevelDefinition, ProceduralGeometry, PuzzleData } from '../../types/index.ts';
+import type {
+  DeepCaveSettings,
+  LevelDefinition,
+  ProceduralGeometry,
+  PuzzleData,
+  PuzzleDifficultyReport
+} from '../../types/index.ts';
 
 export {
   chooseEncounters,
@@ -27,6 +33,30 @@ export {
   placeEntitiesInSlots,
   verifyGeneratedLevel
 };
+
+function meetsDifficultyExpectation(
+  diff: PuzzleDifficultyReport,
+  settings: DeepCaveSettings,
+  loopCount: number
+): boolean {
+  if (settings.targetSteps <= 6) return true;
+  if (settings.decoyCount >= 1 && diff.fatalTrapCount < 1 && diff.greedyTrapCount < 1) {
+    return false;
+  }
+  if (settings.maxBacktracks >= 1 && settings.maxBacktrackRows >= 1 && settings.rows >= 4 && diff.backtrackCount < 1) {
+    return false;
+  }
+  if (settings.targetSteps >= 8 && diff.multiReqGateCount < 1) {
+    return false;
+  }
+  if (settings.branchingFactor >= 2 && settings.rows >= 5 && settings.encounterCount <= 2 && loopCount < 1 && diff.score < 90) {
+    return false;
+  }
+  if (settings.targetSteps >= 12 && settings.decoyCount >= 2 && diff.score < 42) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Generates a complete, verified `deep_cave` level payload.
@@ -57,6 +87,7 @@ export function generateDeepCavePuzzle(
 
   let missionAttempts = 0;
   let totalFirstPass = true;
+  let bestFallback: { puzzle: PuzzleData; score: number } | null = null;
   const rejectCounts: Record<string, number> = {};
   const recordReject = (r: string) => {
     rejectCounts[r] = (rejectCounts[r] || 0) + 1;
@@ -120,7 +151,8 @@ export function generateDeepCavePuzzle(
       );
 
       if (check.valid) {
-        return {
+        const loopCount = blueprint.loopCount ?? 0;
+        const candidate: PuzzleData = {
           startItems: mission.startItems,
           puzzleEntities: placedRes.placed,
           goalEntityId: mission.goalEntityId,
@@ -130,15 +162,34 @@ export function generateDeepCavePuzzle(
           seed,
           settings,
           generatorVersion: DEEP_CAVE_GENERATOR_VERSION,
+          difficulty: check.difficulty,
           diagnostics: {
             firstPassMissionSolved: totalFirstPass && missionAttempts === 1,
             missionAttempts,
-            rejectCounts
+            rejectCounts,
+            loopCount,
+            difficultyScore: check.difficulty.score,
+            difficultyTier: check.difficulty.tier
           }
         };
+
+        if (meetsDifficultyExpectation(check.difficulty, settings, loopCount) || outerAttempt >= 5) {
+          return candidate;
+        }
+
+        recordReject('DIFFICULTY_TOO_LINEAR');
+        const rankScore = check.difficulty.score + loopCount * 5;
+        if (!bestFallback || rankScore > bestFallback.score) {
+          bestFallback = { puzzle: candidate, score: rankScore };
+        }
+        break;
       }
       recordReject(check.reason || 'VERIFY_OTHER');
     }
+  }
+
+  if (bestFallback) {
+    return bestFallback.puzzle;
   }
 
   throw new Error(
