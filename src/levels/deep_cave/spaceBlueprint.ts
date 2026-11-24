@@ -120,7 +120,7 @@ export function buildSpaceBlueprint(
   const rowToEncounter = new Map<number, EncounterModule>();
   const usedEncRows = new Set<number>();
   for (const enc of orderedEncs) {
-    const preferredRow = enc.id === 'mushroom_grotto' && rows >= 4
+    const preferredRow = enc.id === 'mushroom_grotto' && rows >= 5
       ? (encRowPool.find(r => !usedEncRows.has(r) && r <= rows - 3) ?? encRowPool.find(r => !usedEncRows.has(r)))
       : encRowPool.find(r => !usedEncRows.has(r));
     if (preferredRow === undefined) break;

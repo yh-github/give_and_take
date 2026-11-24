@@ -611,10 +611,21 @@ export function synthesizeMissionGraph(
     const reserve = sIdx === 0
       ? (segments.length > 1 && settings.targetSteps >= 9 && rawPhys >= 5 ? 2 : 1)
       : 1;
-    return Math.max(0, rawPhys - reserve);
+    const needsGrottoRelocation =
+      sIdx > 0 && segOutputsBySegIdx[sIdx].some(o => o.avoidZoneId === seg.barrier.fromZone);
+    return Math.max(needsGrottoRelocation ? 1 : 0, rawPhys - reserve);
   });
   const segStepCounts = Array<number>(segments.length).fill(0);
   let remSteps = totalBarterSteps;
+  // Seed 1 step first on segments that must route a grotto mushroom away from its barrier zone
+  for (let sIdx = 0; sIdx < segments.length && remSteps > 0; sIdx++) {
+    const mustRoute =
+      sIdx > 0 && segOutputsBySegIdx[sIdx].some(o => o.avoidZoneId === segments[sIdx].barrier.fromZone);
+    if (mustRoute && segPhysCaps[sIdx] >= 1) {
+      segStepCounts[sIdx]++;
+      remSteps--;
+    }
+  }
   for (let pass = 0; remSteps > 0 && pass < 24; pass++) {
     let progressed = false;
     for (let sIdx = 0; sIdx < segments.length && remSteps > 0; sIdx++) {
