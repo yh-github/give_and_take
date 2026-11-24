@@ -36,40 +36,40 @@ export const entities: EntityTemplate[] = [
   { id: 'captains_chest', name: "Captain's Treasure", emoji: '🧰', allowedReqs: [] }
 ];
 
-// === Ship Wreck: Map Layout (Zones 1-5) ===
-// Zone 1: Seabed outside the wreck (y: 72-95)
-// Zone 2: Deck 2 — Cargo Hold & Bilge (y: 58-80)
-// Zone 3: Deck 3 — Gun Deck & Galley (y: 41-58)
-// Zone 4: Deck 4 — Upper Crew Quarters (y: 25-41)
-// Zone 5: Captain's Cabin Air Pocket (y: 8-25, requires Human)
+// === Ship Wreck: Map Layout (2D Crashed Galleon, 100 x 100) ===
+// Zone 1: Exterior Seabed & Sand Trench (left & beneath keel)
+// Zone 2: Shattered Stern & Cargo Bilge
+// Zone 3: Midship Gun Deck & Hold
+// Zone 4: Flooded Forepeak Beneath the Waterline
+// Zone 5: Windowless Bow Air Pocket (requires Human)
 export const mapNodes: MapNode[] = [
-  // Zone 1: Seabed
-  { x: 18, y: 88, zone: 1, id: 'sea_witch' },
-  { x: 12, y: 74, zone: 1, isPreset: 'kelp' },
-  { x: 78, y: 90, zone: 1, isPreset: 'starfish' },
+  // Zone 1: Seabed Exterior
+  { x: 11, y: 69, zone: 1, id: 'sea_witch' },
+  { x: 20, y: 54, zone: 1, isPreset: 'kelp' },
+  { x: 46, y: 90, zone: 1, isPreset: 'starfish' },
 
-  // Zone 2: Cargo Hold & Bilge
-  { x: 40, y: 69, zone: 2, isClamNode: true },
-  { x: 70, y: 68, zone: 2 },
-  { x: 56, y: 75, zone: 2, isPreset: 'doubloon' },
+  // Zone 2: Shattered Stern & Cargo Bilge
+  { x: 37, y: 69, zone: 2, isClamNode: true },
+  { x: 46, y: 56, zone: 2 },
+  { x: 47, y: 73, zone: 2, isPreset: 'doubloon' },
 
-  // Zone 3: Gun Deck & Galley
-  { x: 34, y: 49, zone: 3, isClamNode: true },
-  { x: 68, y: 49, zone: 3 },
-  { x: 58, y: 53, zone: 3, isPreset: 'spyglass' },
+  // Zone 3: Midship Gun Deck & Hold
+  { x: 59, y: 44, zone: 3, isClamNode: true },
+  { x: 64, y: 63, zone: 3 },
+  { x: 55, y: 65, zone: 3, isPreset: 'spyglass' },
 
-  // Zone 4: Upper Crew Quarters
-  { x: 36, y: 33, zone: 4, isClamNode: true },
-  { x: 64, y: 33, zone: 4 },
+  // Zone 4: Flooded Forepeak Directly Below Air Pocket
+  { x: 77, y: 46, zone: 4, isClamNode: true },
+  { x: 85, y: 40, zone: 4 },
 
-  // Zone 5: Captain's Stern Air Pocket
-  { x: 50, y: 16, zone: 5, isGoalNode: true, requiresHuman: true }
+  // Zone 5: Sealed Windowless Bow Air Pocket
+  { x: 81, y: 23, zone: 5, isGoalNode: true, requiresHuman: true }
 ];
 
 // === Ship Wreck: Scenery ===
 export const sceneryNodes: SceneryNode[] = [
-  { x: 6, y: 93, e: '🪸', s: 'text-4xl', z: 20 },
-  { x: 92, y: 84, e: '🪸', s: 'text-4xl', z: 20 },
-  { x: 8, y: 58, e: '🪸', s: 'text-3xl', z: 20 },
-  { x: 94, y: 52, e: '🪸', s: 'text-3xl', z: 20 }
+  { x: 5, y: 88, e: '🪸', s: 'text-4xl', z: 20 },
+  { x: 27, y: 92, e: '🪸', s: 'text-3xl', z: 20 },
+  { x: 64, y: 86, e: '🪸', s: 'text-4xl', z: 20 },
+  { x: 95, y: 64, e: '🪸', s: 'text-3xl', z: 20 }
 ];

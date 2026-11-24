@@ -11,6 +11,7 @@ import type {
 } from '../types/index.ts';
 import { getCorridorBounds } from './geometry.ts';
 import { findGlobalPath } from './pathfinding.ts';
+import { isInShipwreckAirPocket } from '../levels/shipwreck/geometry.ts';
 
 /**
  * Count unique values in an array.
@@ -133,10 +134,10 @@ export const inferTargetZone = (
     return 3;
   }
   if (level?.id === 'shipwreck') {
-    if (targetY <= 25) return 5;
-    if (targetY <= 41) return 4;
-    if (targetY <= 58) return 3;
-    if (targetY <= 76) return 2;
+    if (isInShipwreckAirPocket(targetX, targetY)) return 5;
+    if (targetX >= 66 && targetY > 33 && targetY <= 64) return 4;
+    if (targetX >= 52 && targetX < 66 && targetY <= 74) return 3;
+    if (targetX >= 28 && targetX < 54 && targetY <= 80) return 2;
     return 1;
   }
   return currentZone;
@@ -197,10 +198,13 @@ export const computeNavigationPath = ({
   const depth = targetDepth || 3;
 
   if (isCaveType && lastPos) {
-    const res = useIsotropic ? 2.5 : 3;
+    const isCompact2DWorld = !useIsotropic && worldHeight <= 120;
+    const res = useIsotropic ? 2.5 : (isCompact2DWorld ? 1.5 : 3);
     const pathOpts: PathfindingOptions = useIsotropic
       ? { radius: DEEP_CAVE_HERO_RADIUS, maxIters: 25000, cornerClearance: 1.5 }
-      : {};
+      : isCompact2DWorld
+        ? { radius: 1.4, maxIters: 20000, cornerClearance: 0.9 }
+        : {};
     const pathBounds = { width: 100, height: worldHeight };
     let finalTargetX = targetX;
     let finalTargetY = targetY;

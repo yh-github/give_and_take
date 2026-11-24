@@ -46,6 +46,7 @@ import {
   shouldSpookFishFromPoint
 } from '../logic/underwater.ts';
 import type { ReefKelpHabitat } from '../levels/underwater/data.ts';
+import { AIR_POCKET_Y, isInShipwreckAirPocket } from '../levels/shipwreck/geometry.ts';
 import { createShuffleBag } from '../logic/rng.ts';
 import { CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
 import {
@@ -90,6 +91,7 @@ import type {
   SavePayload,
   SchoolFishState,
   SerializedHistoryEntry,
+  WaterSplashState,
   Waypoint
 } from '../types/index.ts';
 
@@ -189,6 +191,7 @@ export function GameInstance({
   const [massFlyingTreasures, setMassFlyingTreasures] = useState<FlyingItemState[]>([]);
   const [clickIndicator, setClickIndicator] = useState<ClickIndicatorState | null>(null);
   const [heroBubbleBursts, setHeroBubbleBursts] = useState<HeroBubbleBurst[]>([]);
+  const [waterSplashes, setWaterSplashes] = useState<WaterSplashState[]>([]);
   const [moveDurationMs, setMoveDurationMs] = useState(300);
 
   const resolvedDeepCaveSettings: DeepCaveSettings = useMemo(() => {
@@ -299,13 +302,14 @@ export function GameInstance({
   }, [clearManagedTimeouts]);
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords);
+  const screensX = level.mechanics.screensX || 1;
+  const screens = useIsotropic
+    ? ((puzzle?.geometry?.worldHeight || CANONICAL_SCREEN_HEIGHT) / CANONICAL_SCREEN_HEIGHT)
+    : (level.mechanics.screens || 1);
+  const yScale = useIsotropic ? 1 : (level.mechanics.yScaleOverride ?? screens);
   const worldHeight = useIsotropic
     ? (puzzle?.geometry?.worldHeight || CANONICAL_SCREEN_HEIGHT)
-    : ((level.mechanics.screens || 1) * 100);
-  const screens = useIsotropic
-    ? (worldHeight / CANONICAL_SCREEN_HEIGHT)
-    : (level.mechanics.screens || 1);
-  const yScale = useIsotropic ? 1 : screens;
+    : (100 * yScale);
   const effectiveCampPos = puzzle?.geometry?.campPos || level.campPos;
 
   const activeTorchRadius = useMemo(() => {
@@ -317,7 +321,7 @@ export function GameInstance({
       return customTorchRadius;
     }
     if (level.id === 'shipwreck' && !debugMode) {
-      return 65;
+      return 44;
     }
     return lightingSettings?.radius || lightingSettings?.torchRadius || 50;
   }, [useIsotropic, debugMode, puzzle?.settings, lightingSettings, level.id]);
@@ -557,6 +561,14 @@ export function GameInstance({
     }, 1600);
   }, [level.mechanics.hasAir, scheduleTimeout]);
 
+  const triggerWaterSplash = useCallback((x: number, y: number, intensity: 'normal' | 'bounce' = 'normal') => {
+    const splashId = Date.now() + Math.random();
+    setWaterSplashes(prev => [...prev, { id: splashId, x, y, intensity }]);
+    scheduleTimeout(() => {
+      setWaterSplashes(prev => prev.filter(s => s.id !== splashId));
+    }, 850);
+  }, [scheduleTimeout]);
+
   const handlePostActionAir = useCallback((
     finalY: number,
     isVentAction = false,
@@ -565,9 +577,10 @@ export function GameInstance({
     if (!level.mechanics.hasAir || isTransformedRef.current) return;
     const effectiveInv = options?.nextInventory ?? inventoryRef.current;
 
+    const checkX = options?.dropPos?.x ?? effectiveCampPos.x;
     const isAtShipwreckRefill =
       level.id === 'shipwreck' &&
-      (finalY <= 25 || Math.hypot((options?.dropPos?.x ?? effectiveCampPos.x) - effectiveCampPos.x, finalY - effectiveCampPos.y) <= 10);
+      (isInShipwreckAirPocket(checkX, finalY) || Math.hypot(checkX - effectiveCampPos.x, finalY - effectiveCampPos.y) <= 10);
     const isAtUnderwaterSurface = level.id !== 'shipwreck' && finalY <= 20;
 
     if (isAtShipwreckRefill || isAtUnderwaterSurface || isVentAction) {
@@ -1128,14 +1141,15 @@ export function GameInstance({
           goalX -= (dx / d) * 3.5;
           goalY -= (dy / d) * 3.5;
         }
+        const isCompact2DWorld = !useIsotropic && worldHeight <= 120;
         const rawDemoPath = findGlobalPath(
           { x: startPos.x, y: startPos.y * yScale },
           { x: goalX, y: goalY * yScale },
           simSegs,
           { width: 100, height: worldHeight },
           [],
-          3,
-          {}
+          isCompact2DWorld ? 1.5 : 3,
+          isCompact2DWorld ? { radius: 1.4, maxIters: 20000, cornerClearance: 0.9 } : {}
         );
         demoWalkPath = rawDemoPath.map(p => ({ x: p.x, y: p.y / yScale }));
       } else {
@@ -1293,7 +1307,7 @@ export function GameInstance({
       keepItemId,
       outOfAirModal.dropPos,
       Date.now(),
-      level.id === 'shipwreck' ? { min: 28, max: 90 } : undefined
+      level.id === 'shipwreck' ? { min: 36, max: 92 } : undefined
     );
 
     inventoryRef.current = nextInventory;
@@ -1714,6 +1728,14 @@ export function GameInstance({
 
     if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
       triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      if (
+        level.id === 'shipwreck' &&
+        !isTransformedRef.current &&
+        isInShipwreckAirPocket(lastPos.x, lastPos.y) !== isInShipwreckAirPocket(finalPos.x, finalPos.y)
+      ) {
+        const crossX = Math.max(68, Math.min(91, finalPos.x));
+        triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
+      }
     }
 
     setPathHistory(prev => {
@@ -1777,6 +1799,14 @@ export function GameInstance({
 
     if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
       triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      if (
+        level.id === 'shipwreck' &&
+        !isTransformedRef.current &&
+        isInShipwreckAirPocket(lastPos.x, lastPos.y) !== isInShipwreckAirPocket(finalPos.x, finalPos.y)
+      ) {
+        const crossX = Math.max(68, Math.min(91, finalPos.x));
+        triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
+      }
     }
 
     setPathHistory(prev => {
@@ -1804,23 +1834,24 @@ export function GameInstance({
     setSelectedItemTypes([]);
     setSelectedEntityId(null);
     const curPos = pathHistory[pathHistory.length - 1];
-    if (curPos && curPos.y > 26) {
-      const approachPath = navigateTo(50, 29, 4, 3, false);
+    if (curPos && curPos.y > AIR_POCKET_Y + 1) {
+      const approachPath = navigateTo(80, 37, 4, 3, false);
       if (approachPath && approachPath.length > 0) {
         setPathHistory(prev => [...prev, ...approachPath]);
       }
     }
+    triggerWaterSplash(80, AIR_POCKET_Y, 'bounce');
     setAlertEntityId('air_pocket_blocked');
     scheduleTimeout(() => {
       setAlertEntityId(prev => (prev === 'air_pocket_blocked' ? null : prev));
     }, 1800);
-  }, [pathHistory, navigateTo, scheduleTimeout]);
+  }, [pathHistory, navigateTo, scheduleTimeout, triggerWaterSplash]);
 
   const handleCellClick = async (e: MouseEvent, targetX: number, targetY: number) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
 
-    if (screens > 1 || useIsotropic) {
+    if (screens > 1 || screensX > 1 || useIsotropic) {
       let isValidClick = true;
 
       if (level.mechanics.isCaveType && polyPoints) {
@@ -1837,7 +1868,7 @@ export function GameInstance({
 
       if (!isValidClick) return;
 
-      if (level.id === 'shipwreck' && isTransformedRef.current && targetY <= 25) {
+      if (level.id === 'shipwreck' && isTransformedRef.current && isInShipwreckAirPocket(targetX, targetY)) {
         triggerAirPocketBlocked();
         return;
       }
@@ -1884,6 +1915,15 @@ export function GameInstance({
         const duration = (level.id === 'underwater' && !isTransformedRef.current)
           ? getUnderwaterMoveDurationMs(baseDuration, wasFullBeforeMove)
           : baseDuration;
+
+        if (
+          level.id === 'shipwreck' &&
+          !isTransformedRef.current &&
+          isInShipwreckAirPocket(lastP.x, lastP.y) !== isInShipwreckAirPocket(wp.x, wp.y)
+        ) {
+          const crossX = Math.max(68, Math.min(91, (lastP.x + wp.x) / 2));
+          triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
+        }
 
         setMoveDurationMs(duration);
         setPathHistory(prev => [...prev, wp]);
@@ -1979,7 +2019,7 @@ export function GameInstance({
       return;
     }
 
-    if (level.id === 'shipwreck' && isTransformedRef.current && (entity.requiresHuman || targetY <= 25)) {
+    if (level.id === 'shipwreck' && isTransformedRef.current && (entity.requiresHuman || isInShipwreckAirPocket(entity.x, targetY))) {
       triggerAirPocketBlocked();
       return;
     }
@@ -2081,6 +2121,14 @@ export function GameInstance({
 
     if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
       triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      if (
+        level.id === 'shipwreck' &&
+        !isTransformedRef.current &&
+        isInShipwreckAirPocket(lastPos.x, lastPos.y) !== isInShipwreckAirPocket(finalPos.x, finalPos.y)
+      ) {
+        const crossX = Math.max(68, Math.min(91, finalPos.x));
+        triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
+      }
     }
 
     setPathHistory(prev => {
@@ -2404,9 +2452,21 @@ export function GameInstance({
   const playerFilter = '';
   const playerZ = 35;
 
+  const totalMapWidth = screensX > 1 ? `${screensX * 100}%` : '100%';
   const totalMapHeight = (level.mechanics.isVertical || useIsotropic) ? `${screens * 100}%` : '100%';
   const isDrowning = alertEntityId === 'out_of_air';
   const isDrowningAscending = Boolean(drowningFloatPos);
+
+  let mapTranslateX = '0%';
+  if (!isLevelEditor && screensX > 1) {
+    const screenPctX = 100 / screensX;
+    const maxScrollPctX = Math.max(0, 100 - screenPctX);
+    const _scrollX = drowningFloatPos ? drowningFloatPos.x : displayPlayerPos.x;
+    let targetScrollX = _scrollX - (screenPctX / 2);
+    if (targetScrollX < 0) targetScrollX = 0;
+    if (targetScrollX > maxScrollPctX) targetScrollX = maxScrollPctX;
+    mapTranslateX = `-${targetScrollX}%`;
+  }
 
   let mapTranslateY = '0%';
   if (isLevelEditor) {
@@ -2449,7 +2509,7 @@ export function GameInstance({
   const isHeavyUnderwater = level.id === 'underwater' && !isTransformed && isUnderwaterBackpackFull(inventory);
   const isSubmerged =
     (level.id === 'underwater' && playerVisualY > (level.campPos.y + 2)) ||
-    (level.id === 'shipwreck' && playerVisualY > 25);
+    (level.id === 'shipwreck' && !isInShipwreckAirPocket(playerVisualX, playerVisualY));
   const heroFace = isDrowning ? '😵' : (isTransformed ? '🧜‍♂️' : (isInventoryFullAlert ? '😥' : (isSubmerged ? '🤿' : '🤠')));
 
   const handleSwimToSurface = (e?: MouseEvent) => {
@@ -2548,7 +2608,9 @@ export function GameInstance({
             <WorldViewport 
               innerMapRef={innerMapRef}
               level={level}
+              totalMapWidth={totalMapWidth}
               totalMapHeight={totalMapHeight}
+              mapTranslateX={mapTranslateX}
               mapTranslateY={mapTranslateY}
               unlockedZones={unlockedZones}
               isTransformed={isTransformed}
@@ -2563,6 +2625,7 @@ export function GameInstance({
               isLevelEditor={isLevelEditor}
               clickIndicator={clickIndicator}
               heroBubbleBursts={heroBubbleBursts}
+              waterSplashes={waterSplashes}
               envItemState={envItemState}
               envItemCaughtPos={envItemCaughtPos}
               handleCatchRiverFish={handleCatchRiverFish}
@@ -2648,9 +2711,10 @@ export function GameInstance({
             <div
               data-testid="air-pocket-blocked-banner"
               dir={lang === 'he' ? 'rtl' : 'ltr'}
-              className="absolute top-16 inset-x-4 z-[245] mx-auto max-w-xs bg-sky-950/95 border-2 border-cyan-300 text-cyan-100 px-3 py-2 rounded-2xl shadow-2xl text-center text-xs sm:text-sm font-bold font-sans animate-bounce"
+              className="absolute top-16 inset-x-4 z-[245] mx-auto max-w-xs bg-sky-950/95 border-2 border-cyan-300 text-cyan-100 px-3 py-2 rounded-2xl shadow-2xl text-center font-sans animate-bounce flex flex-col items-center gap-0.5"
             >
-              🫧 🧜‍♂️ 🚫 {dict.airPocketBlocked}
+              <span className="text-base tracking-widest">🧜‍♂️ 💦 🚫 ➔ 😈</span>
+              <span className="text-xs sm:text-sm font-bold">{dict.airPocketBlocked}</span>
             </div>
           )}
 

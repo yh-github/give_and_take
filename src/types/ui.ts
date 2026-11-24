@@ -117,6 +117,13 @@ export interface HeroBubbleBurst {
   bubbles: BubbleParticle[];
 }
 
+export interface WaterSplashState {
+  id: number | string;
+  x: number;
+  y: number;
+  intensity?: 'normal' | 'bounce';
+}
+
 export interface HeroRenderState {
   startX: number;
   startY: number;

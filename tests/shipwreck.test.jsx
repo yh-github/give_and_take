@@ -10,9 +10,11 @@ import { generateUnderwaterPuzzle } from '../src/levels/underwater/generator.ts'
 import { generateShipwreckPuzzle } from '../src/levels/shipwreck/generator.ts';
 import {
   AIR_POCKET_Y,
-  SHIPWRECK_SCREENS,
+  SHIPWRECK_SCREENS_X,
+  SHIPWRECK_SCREENS_Y,
   SHIPWRECK_WALL_POLYLINES,
-  getShipwreckObstacleSegments
+  getShipwreckObstacleSegments,
+  isInShipwreckAirPocket
 } from '../src/levels/shipwreck/geometry.ts';
 import { findGlobalPath } from '../src/logic/pathfinding.ts';
 import { isValidEntityTrade, validateEntitySpacing } from '../src/logic/rules.ts';
@@ -235,30 +237,35 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
 
     it('lets Merman reach every flooded room via breach & hatches, blocks Air Pocket, and lets Human reach Captain Chest', () => {
       const shipwreck = LEVEL_REGISTRY.shipwreck;
-      const bounds = { width: 100, height: SHIPWRECK_SCREENS * 100 };
-      const startPt = { x: shipwreck.campPos.x, y: shipwreck.campPos.y * SHIPWRECK_SCREENS };
+      const bounds = { width: 100, height: 100 };
+      const startPt = { x: shipwreck.campPos.x, y: shipwreck.campPos.y };
+      const navOpts = { radius: 1.4, maxIters: 20000, cornerClearance: 0.9 };
 
-      const mermanSegs = getShipwreckObstacleSegments([], [1], [], SHIPWRECK_SCREENS, null, true);
-      const humanSegs = getShipwreckObstacleSegments([], [1], [], SHIPWRECK_SCREENS, null, false);
+      expect(isInShipwreckAirPocket(81, 23)).toBe(true);
+      expect(isInShipwreckAirPocket(17, 81)).toBe(false);
+      expect(isInShipwreckAirPocket(10, 20)).toBe(false);
 
-      // Every Zone 1..4 mapNode is reachable by Merman
+      const mermanSegs = getShipwreckObstacleSegments([], [1], [], SHIPWRECK_SCREENS_Y, null, true);
+      const humanSegs = getShipwreckObstacleSegments([], [1], [], SHIPWRECK_SCREENS_Y, null, false);
+
+      // Every Zone 1..4 mapNode is reachable by Merman; requiresHuman nodes only by Human
       for (const node of shipwreck.mapNodes) {
-        const endPt = { x: node.x, y: node.y * SHIPWRECK_SCREENS };
+        const endPt = { x: node.x, y: node.y };
         if (node.requiresHuman) {
-          expect(findGlobalPath(startPt, endPt, mermanSegs, bounds, [], 3, {})).toEqual([]);
-          expect(findGlobalPath(startPt, endPt, humanSegs, bounds, [], 3, {}).length).toBeGreaterThan(0);
+          expect(findGlobalPath(startPt, endPt, mermanSegs, bounds, [], 1.5, navOpts)).toEqual([]);
+          expect(findGlobalPath(startPt, endPt, humanSegs, bounds, [], 1.5, navOpts).length).toBeGreaterThan(0);
         } else {
-          expect(findGlobalPath(startPt, endPt, mermanSegs, bounds, [], 3, {}).length).toBeGreaterThan(0);
+          expect(findGlobalPath(startPt, endPt, mermanSegs, bounds, [], 1.5, navOpts).length).toBeGreaterThan(0);
         }
       }
 
-      // Hull walls prevent walking straight out through starboard solid wall
-      const outsideLeft = { x: 10, y: 49 * SHIPWRECK_SCREENS };
-      const insidePort = { x: 34, y: 49 * SHIPWRECK_SCREENS };
-      const detourPath = findGlobalPath(outsideLeft, insidePort, mermanSegs, bounds, [], 3, {});
+      // Hull walls prevent walking straight through the upper roof of the crashed galleon
+      const outsideLeft = { x: 18, y: 40 };
+      const insideStern = { x: 46, y: 56 };
+      const detourPath = findGlobalPath(outsideLeft, insideStern, mermanSegs, bounds, [], 1.5, navOpts);
       expect(detourPath.length).toBeGreaterThan(1);
-      // Detour must descend through the hull breach (y >= 65 * 3) before going up into Deck 3
-      expect(detourPath.some(p => p.y >= 62 * SHIPWRECK_SCREENS)).toBe(true);
+      // Detour must descend through the stern hull breach (y >= 62) before entering the hold
+      expect(detourPath.some(p => p.y >= 62)).toBe(true);
     });
   });
 
@@ -315,7 +322,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         inventory: reqItems,
         isTransformed: true,
         air: 16,
-        pathHistory: [{ x: 36, y: 91, zone: 1 }]
+        pathHistory: [{ x: 17, y: 81, zone: 1 }]
       });
 
       render(
@@ -331,17 +338,20 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         />
       );
 
-      // Starts transformed as Merman, AirIndicator hidden
+      // Starts transformed as Merman with underwater overlay & meniscus visible, AirIndicator hidden
       expect(screen.getByTestId('shipwreck-background')).toBeDefined();
+      expect(screen.getByTestId('shipwreck-water-overlay')).toBeDefined();
+      expect(screen.getByTestId('air-pocket-meniscus')).toBeDefined();
       expect(screen.getByText('🧜‍♂️')).toBeDefined();
       expect(screen.queryByTestId('air-indicator')).toBeNull();
 
-      // Clicking Captain's Treasure while Merman is blocked!
+      // Clicking Captain's Treasure while Merman triggers bounce splash & is blocked!
       const chestEl = screen.getByTestId('captains-treasure');
       await act(async () => {
         fireEvent.click(chestEl);
       });
       expect(screen.getByTestId('air-pocket-blocked-banner')).toBeDefined();
+      expect(screen.getByTestId('water-splash-burst')).toBeDefined();
       expect(screen.queryByText(STRINGS.en.questComplete)).toBeNull();
 
       // Select Witch's required items and pay the Sea Witch
@@ -363,13 +373,15 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
       expect(screen.getByTestId('air-count-badge').textContent).toBe('16/16');
       expect(screen.getByText('🤿')).toBeDefined();
 
-      // Now Human swims into the top Air Pocket to claim Captain's Treasure and win!
+      // Now Human swims across the waterline into the dry bow Air Pocket to claim Captain's Treasure and win!
       await act(async () => {
         fireEvent.click(screen.getByTestId('captains-treasure'));
       });
+      expect(screen.getByTestId('water-splash-burst')).toBeDefined();
       await act(async () => {
         vi.advanceTimersByTime(ACTION_ANIM_MS + 100);
       });
+      expect(screen.getByText('🤠')).toBeDefined();
       expect(screen.getByText(STRINGS.en.questComplete)).toBeDefined();
     });
 
@@ -386,7 +398,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         inventory: ['pearl', 'trident'],
         isTransformed: false,
         air: 1,
-        pathHistory: [{ x: 40, y: 69, zone: 2 }]
+        pathHistory: [{ x: 37, y: 69, zone: 2 }]
       });
 
       render(
@@ -418,9 +430,9 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         toJSON: () => {}
       });
 
-      // Move within Deck 2 (y = 69 -> y = 68, x = 60 -> valid open room spot)
+      // Move within flooded hold (x = 37 -> x = 50, y = 69)
       await act(async () => {
-        fireEvent.click(innerMap, { clientX: 240, clientY: 612 });
+        fireEvent.click(innerMap, { clientX: 200, clientY: 621 });
       });
       await act(async () => {
         vi.advanceTimersByTime(900);
@@ -448,7 +460,9 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
 
       expect(screen.getByTestId('air-count-badge').textContent).toBe('16/16');
       expect(screen.getByTestId('floating-item-trident')).toBeDefined();
-      expect(AIR_POCKET_Y).toBe(25);
+      expect(AIR_POCKET_Y).toBe(33);
+      expect(SHIPWRECK_SCREENS_X).toBe(2.2);
+      expect(SHIPWRECK_SCREENS_Y).toBe(1.25);
     });
   });
 });

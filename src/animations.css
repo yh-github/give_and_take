@@ -452,3 +452,89 @@
   animation: bridgeRopeTaut 0.45s ease-out both;
 }
 
+/* === Shipwreck: Water vs Air Distinction & Splash Effects === */
+@keyframes waterSplashDrop {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.5);
+    opacity: 0.95;
+  }
+  45% {
+    transform: translate3d(calc(var(--sx, 0px) * 0.55), var(--sy, -26px), 0) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--sx, 0px), 8px, 0) scale(0.35);
+    opacity: 0;
+  }
+}
+.animate-water-splash-drop {
+  animation: waterSplashDrop 0.72s cubic-bezier(0.22, 0.9, 0.36, 1) forwards;
+}
+
+@keyframes waterSplashRipple {
+  0% {
+    transform: translate(-50%, -50%) scaleX(0.3) scaleY(0.5);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -50%) scaleX(2.1) scaleY(1.1);
+    opacity: 0;
+  }
+}
+.animate-water-splash-ripple {
+  animation: waterSplashRipple 0.7s ease-out forwards;
+}
+
+@keyframes ceilingDrip {
+  0% {
+    transform: translate3d(0, 0, 0) scaleY(0.8);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.9;
+  }
+  88% {
+    transform: translate3d(0, 22px, 0) scaleY(1.25);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate3d(0, 26px, 0) scaleY(0.4);
+    opacity: 0;
+  }
+}
+.animate-ceiling-drip {
+  animation: ceilingDrip 3.2s ease-in infinite;
+}
+
+@keyframes ambientFishSwim {
+  0% {
+    transform: translate3d(-12%, 0px, 0) scaleX(1);
+    opacity: 0;
+  }
+  12% { opacity: 0.55; }
+  45% {
+    transform: translate3d(24%, -2px, 0) scaleX(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(24%, -2px, 0) scaleX(-1);
+    opacity: 0.55;
+  }
+  88% { opacity: 0.55; }
+  100% {
+    transform: translate3d(-12%, 1px, 0) scaleX(-1);
+    opacity: 0;
+  }
+}
+.animate-ambient-fish {
+  animation: ambientFishSwim 14s ease-in-out infinite;
+}
+
+@keyframes waterlineSlosh {
+  0%, 100% { transform: translateX(0px); }
+  50% { transform: translateX(-3px); }
+}
+.animate-waterline-slosh {
+  animation: waterlineSlosh 4.5s ease-in-out infinite;
+}
+

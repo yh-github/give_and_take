@@ -81,9 +81,9 @@ export function Hero({
               : isSubmerged 
                 ? `bg-teal-700 border-2 border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.9)] ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
                 : level.mechanics.hasAir 
-                  ? `bg-cyan-600 border-2 border-cyan-200 ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
+                  ? `bg-amber-600 border-2 border-amber-200 ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
                   : 'bg-blue-600 border-2 border-white'
-        } ${level.mechanics.heroBobs && !isDrowning ? 'animate-bob' : ''}`}
+        } ${level.mechanics.heroBobs && !isDrowning && (level.id !== 'shipwreck' || isSubmerged) ? 'animate-bob' : ''}`}
       >
         {heroFace}
         {isDrowning && (

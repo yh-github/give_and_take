@@ -1,6 +1,10 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.ts';
 import { ShipwreckBackground, ShipwreckCampIcon } from './components.tsx';
-import { getShipwreckObstacleSegments, SHIPWRECK_SCREENS } from './geometry.ts';
+import {
+  getShipwreckObstacleSegments,
+  SHIPWRECK_SCREENS_X,
+  SHIPWRECK_SCREENS_Y
+} from './geometry.ts';
 import { generateShipwreckPuzzle } from './generator.ts';
 import type { LevelDefinition } from '../../types/index.ts';
 
@@ -11,7 +15,7 @@ const shipwreck: LevelDefinition = {
   entities,
   mapNodes,
   sceneryNodes,
-  campPos: { x: 36, y: 91 },
+  campPos: { x: 17, y: 81 },
   mechanics: {
     hasAir: true,
     maxAir: 16,
@@ -23,7 +27,9 @@ const shipwreck: LevelDefinition = {
     hasWalls: true,
     heroBobs: true,
     isVertical: true,
-    screens: SHIPWRECK_SCREENS
+    screens: SHIPWRECK_SCREENS_Y,
+    screensX: SHIPWRECK_SCREENS_X,
+    yScaleOverride: 1
   },
   specialEntityTemplate: 'clam',
   BackgroundComponent: ShipwreckBackground,

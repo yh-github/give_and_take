@@ -101,7 +101,7 @@ describe('Levels Registry & Schema Regression Suite', () => {
   });
 
   describe('Shipwreck specific mechanics integrity', () => {
-    it('starts transformed on seabed with 16 maxAir, wall collision, and radial underwater visibility', () => {
+    it('starts transformed on seabed with 16 maxAir, 2D pan, wall collision, and radial underwater visibility', () => {
       expect(shipwreck.mechanics.hasAir).toBe(true);
       expect(shipwreck.mechanics.maxAir).toBe(16);
       expect(shipwreck.mechanics.hasTransformation).toBe(true);
@@ -109,6 +109,8 @@ describe('Levels Registry & Schema Regression Suite', () => {
       expect(shipwreck.mechanics.hasWalls).toBe(true);
       expect(shipwreck.mechanics.darknessType).toBe('radial');
       expect(shipwreck.mechanics.isVertical).toBe(true);
+      expect(shipwreck.mechanics.screensX).toBeGreaterThan(1);
+      expect(shipwreck.mechanics.yScaleOverride).toBe(1);
       expect(typeof shipwreck.getObstacleSegments).toBe('function');
     });
   });

@@ -2,12 +2,13 @@ import React, { useEffect, useRef, type MouseEvent, type RefObject } from 'react
 import { DROWNING_RETURN_DELAY_MS } from '../constants.ts';
 import { getSchoolFishPosition } from '../logic/underwater.ts';
 import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG } from '../levels/underwater/components.tsx';
+import { ShipwreckWaterOverlay } from '../levels/shipwreck/components.tsx';
 import { reefKelpHabitats, type ReefKelpHabitat } from '../levels/underwater/data.ts';
 import { CaveEntranceProp } from '../levels/river_crossing/components.tsx';
 import CaveVisibility from '../levels/underground/CaveVisibility.tsx';
 import Hero from './Hero.tsx';
 import GameEntity from './GameEntity.tsx';
-import { ClickIndicator, HeroBubbleBursts, FogOverlay } from './EffectsOverlay.tsx';
+import { ClickIndicator, HeroBubbleBursts, WaterSplashBursts, FogOverlay } from './EffectsOverlay.tsx';
 import DebugRays from './DebugRays.tsx';
 import type {
   AlertReason,
@@ -25,13 +26,16 @@ import type {
   PuzzleEntity,
   RoamingBoatState,
   SchoolFishState,
-  TranslationDictionary
+  TranslationDictionary,
+  WaterSplashState
 } from '../types/index.ts';
 
 export interface WorldViewportProps {
   innerMapRef: RefObject<HTMLDivElement | null>;
   level: LevelDefinition;
+  totalMapWidth?: string;
   totalMapHeight: string;
+  mapTranslateX?: string;
   mapTranslateY: string;
   unlockedZones: number[];
   isTransformed: boolean;
@@ -46,6 +50,7 @@ export interface WorldViewportProps {
   isLevelEditor: boolean;
   clickIndicator: ClickIndicatorState | null;
   heroBubbleBursts: HeroBubbleBurst[];
+  waterSplashes?: WaterSplashState[];
   envItemState: string;
   envItemCaughtPos: Point2D;
   handleCatchRiverFish: (e: MouseEvent) => void;
@@ -174,7 +179,9 @@ function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
 export function WorldViewport({
   innerMapRef,
   level,
+  totalMapWidth = '100%',
   totalMapHeight,
+  mapTranslateX = '0%',
   mapTranslateY,
   unlockedZones,
   isTransformed,
@@ -189,6 +196,7 @@ export function WorldViewport({
   isLevelEditor,
   clickIndicator,
   heroBubbleBursts,
+  waterSplashes = [],
   envItemState,
   envItemCaughtPos,
   handleCatchRiverFish,
@@ -249,31 +257,40 @@ export function WorldViewport({
       : 'transition-transform ease-out';
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords && puzzle?.geometry);
-  const worldHeight = (useIsotropic && puzzle?.geometry?.worldHeight) ? puzzle.geometry.worldHeight : (level.mechanics.screens || 1) * 100;
-  const yScale = useIsotropic ? 1 : (level.mechanics.screens || 1);
+  const worldHeight = (useIsotropic && puzzle?.geometry?.worldHeight)
+    ? puzzle.geometry.worldHeight
+    : (level.mechanics.yScaleOverride != null
+        ? 100 * level.mechanics.yScaleOverride
+        : (level.mechanics.screens || 1) * 100);
+  const yScale = useIsotropic ? 1 : (level.mechanics.yScaleOverride ?? (level.mechanics.screens || 1));
   const toCssY = (y: number): number => (useIsotropic ? (y / worldHeight) * 100 : y);
   const effectiveCampPos = puzzle?.geometry?.campPos || level.campPos;
   const effectiveCaveLighting = (!debugMode && level.id === 'shipwreck')
     ? {
         ...lightingSettings,
-        radius: 65,
-        blur: 2.0,
+        radius: 44,
+        blur: 1.8,
         darknessColor: '#020b1a',
-        darknessOpacity: 0.65,
+        darknessOpacity: 0.54,
         ambientColor: '#22d3ee',
-        ambientOpacity: 0.08,
-        flickerIntensity: 0.2
+        ambientOpacity: 0.07,
+        flickerIntensity: 0.15
       }
     : lightingSettings;
+
+  const caveVisibilityWorldHeight = level.mechanics.yScaleOverride != null
+    ? 100 * level.mechanics.yScaleOverride
+    : (useIsotropic ? worldHeight : null);
 
   return (
     <div 
       ref={innerMapRef}
       onClick={onCellClick}
-      className={`absolute inset-x-0 top-0 ${viewportTransitionClass} pointer-events-auto animate-map-appear cursor-pointer`} 
+      className={`absolute left-0 top-0 ${viewportTransitionClass} pointer-events-auto animate-map-appear cursor-pointer`} 
       style={{
+        width: totalMapWidth,
         height: totalMapHeight,
-        transform: `translateY(${mapTranslateY})`,
+        transform: `translate3d(${mapTranslateX}, ${mapTranslateY}, 0)`,
         ...(!isCameraLocked
           ? {
               transitionDuration: isDrowning
@@ -287,6 +304,8 @@ export function WorldViewport({
     >
       <Background geometry={puzzle?.geometry} isTransformed={isTransformed} />
 
+      {level.id === 'shipwreck' && <ShipwreckWaterOverlay isTransformed={isTransformed} />}
+
       <FogOverlay 
         level={level} 
         unlockedZones={unlockedZones} 
@@ -299,7 +318,7 @@ export function WorldViewport({
         polyPoints={polyPoints}
         displayPlayerPos={displayPlayerPos}
         debugSegments={debugSegments}
-        worldHeight={useIsotropic ? worldHeight : null}
+        worldHeight={caveVisibilityWorldHeight}
         yScale={yScale}
       />
 
@@ -309,7 +328,7 @@ export function WorldViewport({
           polygon={polyPoints}
           gameTime={gameTime}
           screens={level.mechanics.screens || 1}
-          worldHeight={useIsotropic ? worldHeight : null}
+          worldHeight={caveVisibilityWorldHeight}
           yScale={yScale}
           lighting={effectiveCaveLighting}
         />
@@ -318,6 +337,7 @@ export function WorldViewport({
       <ClickIndicator indicator={!isLevelEditor ? clickIndicator : null} toCssY={toCssY} />
 
       <HeroBubbleBursts bursts={heroBubbleBursts} />
+      <WaterSplashBursts splashes={waterSplashes} />
 
       {level.sceneryNodes?.map((sc, i) => {
         const sDist = level.mechanics.darknessType === 'radial' ? Math.sqrt(Math.pow(sc.x - displayPlayerPos.x, 2) + Math.pow(sc.y - displayPlayerPos.y, 2)) : 100;

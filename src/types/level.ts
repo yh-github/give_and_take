@@ -46,6 +46,8 @@ export interface LevelMechanics {
   hasMurkyWater?: boolean;
   heroBobs?: boolean;
   screens?: number;
+  screensX?: number;
+  yScaleOverride?: number;
   [key: string]: unknown;
 }
 

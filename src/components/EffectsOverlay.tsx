@@ -4,7 +4,8 @@ import type {
   ClickIndicatorState,
   HeroBubbleBurst,
   LevelDefinition,
-  TranslationDictionary
+  TranslationDictionary,
+  WaterSplashState
 } from '../types/index.ts';
 
 export interface ClickIndicatorProps {
@@ -69,6 +70,60 @@ export function HeroBubbleBursts({ bursts }: HeroBubbleBurstsProps) {
           ))}
         </div>
       ))}
+    </>
+  );
+}
+
+const SPLASH_DROPLETS = [
+  { sx: -34, sy: -26, delay: 0, size: 7 },
+  { sx: -22, sy: -36, delay: 35, size: 8 },
+  { sx: -10, sy: -42, delay: 60, size: 6 },
+  { sx: 0, sy: -46, delay: 20, size: 9 },
+  { sx: 11, sy: -40, delay: 50, size: 6 },
+  { sx: 23, sy: -34, delay: 25, size: 8 },
+  { sx: 35, sy: -24, delay: 45, size: 7 },
+  { sx: -16, sy: -28, delay: 90, size: 5 }
+];
+
+export interface WaterSplashBurstsProps {
+  splashes: WaterSplashState[];
+}
+
+export function WaterSplashBursts({ splashes }: WaterSplashBurstsProps) {
+  if (!splashes || splashes.length === 0) return null;
+
+  return (
+    <>
+      {splashes.map((splash) => {
+        const scale = splash.intensity === 'bounce' ? 1.25 : 1;
+        return (
+          <div
+            key={splash.id}
+            data-testid="water-splash-burst"
+            className="absolute pointer-events-none z-[176] -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${splash.x}%`, top: `${splash.y}%` }}
+          >
+            {/* Expanding surface foam ring */}
+            <div
+              className="absolute left-0 top-0 w-12 h-3.5 rounded-full border-2 border-cyan-100/90 bg-cyan-300/35 animate-water-splash-ripple"
+            />
+            {/* Arcing water droplets */}
+            {SPLASH_DROPLETS.map((d, idx) => (
+              <div
+                key={`drop-${idx}`}
+                className="absolute rounded-full bg-gradient-to-b from-white via-cyan-200 to-sky-400 shadow-[0_0_6px_rgba(125,211,252,0.95)] animate-water-splash-drop"
+                style={{
+                  width: `${Math.round(d.size * scale)}px`,
+                  height: `${Math.round(d.size * scale * 1.25)}px`,
+                  '--sx': `${Math.round(d.sx * scale)}px`,
+                  '--sy': `${Math.round(d.sy * scale)}px`,
+                  animationDelay: `${d.delay}ms`
+                } as CSSCustomProperties}
+              />
+            ))}
+          </div>
+        );
+      })}
     </>
   );
 }
