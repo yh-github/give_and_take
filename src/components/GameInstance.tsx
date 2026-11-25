@@ -68,6 +68,7 @@ import {
 
 import { GameMenu, GeneratingScreen, GenerationFailedScreen, DEFAULT_LIGHTING } from './GameMenu.tsx';
 import InventoryBar from './InventoryBar.tsx';
+import { SpriteIcon } from './sprites/SpriteIcon.tsx';
 import AirIndicator from './AirIndicator.tsx';
 import TopBar from './TopBar.tsx';
 import WorldViewport from './WorldViewport.tsx';
@@ -1164,7 +1165,7 @@ export function GameInstance({
         if (step.isBoatTrade) {
           currentPath.push({ x: 50, y: 18, depth: 3, zone: 1 });
           setPathHistory([...currentPath]);
-          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji || '', x: 50, y: 16 });
+          setFlyingItem({ itemId: step.itemId, emoji: level.items.find(i => i.id === step.itemId)?.emoji || '', x: 50, y: 16 });
           await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
           if (!demoRef.current) break;
           setFlyingItem(null);
@@ -1178,7 +1179,7 @@ export function GameInstance({
           if (!demoRef.current) break;
           setEnvItemState('hidden');
         } else {
-          setFlyingItem({ emoji: level.items.find(i => i.id === step.itemId)?.emoji || '', x: 50, y: 19 });
+          setFlyingItem({ itemId: step.itemId, emoji: level.items.find(i => i.id === step.itemId)?.emoji || '', x: 50, y: 19 });
           await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
           if (!demoRef.current) break;
           setFlyingItem(null);
@@ -1339,7 +1340,8 @@ export function GameInstance({
 
       if (entity.reward) {
         const entityX = entity.roamClass ? 50 : entity.x;
-        setFlyingItem({ emoji: level.items.find(i => i.id === entity.reward)?.emoji || '', x: entityX, y: entity.y });
+        const rewardDef = level.items.find(i => i.id === entity.reward);
+        setFlyingItem({ itemId: rewardDef?.spriteId || entity.reward, spriteSrc: rewardDef?.spriteSrc, emoji: rewardDef?.emoji || '', x: entityX, y: entity.y });
         await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
         if (!demoRef.current) break;
         setFlyingItem(null);
@@ -1362,7 +1364,7 @@ export function GameInstance({
       if (entity.id === puzzle.goalEntityId && (!level.mechanics.hasTransformation || level.mechanics.startsTransformed)) {
         if (level.mechanics.isCaveType) {
           const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
-          setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
+          setMassFlyingTreasures(allTreasures.map((t, idx) => ({ itemId: t.reward || t.id, spriteSrc: t.spriteSrc, emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
           currentDefeated.push(...allTreasures.map(t => t.id));
           setDefeated([...currentDefeated]);
           await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
@@ -1761,8 +1763,9 @@ export function GameInstance({
         inventoryRef.current = nextInv;
         setInventory(nextInv);
 
-        const fishEmoji = level.items.find(i => i.id === caughtFish.type)?.emoji || '🐟';
-        setFlyingItem({ emoji: fishEmoji, x: targetX, y: targetY, zIndex: 90 });
+        const fishDef = level.items.find(i => i.id === caughtFish.type);
+        const fishEmoji = fishDef?.emoji || '🐟';
+        setFlyingItem({ itemId: fishDef?.spriteId || caughtFish.type, spriteSrc: fishDef?.spriteSrc, emoji: fishEmoji, x: targetX, y: targetY, zIndex: 90 });
         scheduleTimeout(() => setFlyingItem(null), Math.round(ACTION_ANIM_MS * 0.6));
       } else {
         const missId = Date.now();
@@ -1820,7 +1823,8 @@ export function GameInstance({
       setInventory(nextInv);
 
       setRoamingBoats(prev => prev.filter(b => b.id !== boat.id));
-      setFlyingItem({ emoji: level.items.find(i => i.id === boat.offeredItem)?.emoji || '', x: clampedBoatX, y: 19 });
+      const offeredDef = level.items.find(i => i.id === boat.offeredItem);
+      setFlyingItem({ itemId: offeredDef?.spriteId || boat.offeredItem, spriteSrc: offeredDef?.spriteSrc, emoji: offeredDef?.emoji || '', x: clampedBoatX, y: 19 });
       scheduleTimeout(() => {
         setFlyingItem(null);
         setIsAnimatingLoot(false);
@@ -2325,8 +2329,9 @@ export function GameInstance({
       if (entity.reward) {
         const rewardId = entity.reward;
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
-        const rewardEmoji = entity.emoji || level.items.find(i => i.id === rewardId)?.emoji || '';
-        setFlyingItem({ emoji: rewardEmoji, x: entityX, y: targetY, zIndex: 60 });
+        const rewardDef = level.items.find(i => i.id === rewardId);
+        const rewardEmoji = entity.emoji || rewardDef?.emoji || '';
+        setFlyingItem({ itemId: rewardDef?.spriteId || rewardId, spriteSrc: rewardDef?.spriteSrc, emoji: rewardEmoji, x: entityX, y: targetY, zIndex: 60 });
         scheduleTimeout(() => {
           const nextInv = [...inventoryRef.current, rewardId];
           inventoryRef.current = nextInv;
@@ -2474,7 +2479,8 @@ export function GameInstance({
       if (entity.reward) {
         const rewardId = entity.reward;
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
-        setFlyingItem({ emoji: level.items.find(i => i.id === rewardId)?.emoji || '', x: entityX, y: targetY, zIndex: 60 });
+        const rewardDef = level.items.find(i => i.id === rewardId);
+        setFlyingItem({ itemId: rewardDef?.spriteId || rewardId, spriteSrc: rewardDef?.spriteSrc, emoji: rewardDef?.emoji || '', x: entityX, y: targetY, zIndex: 60 });
         scheduleTimeout(() => {
           const nextInv = [...inventoryRef.current, rewardId];
           inventoryRef.current = nextInv;
@@ -2498,7 +2504,7 @@ export function GameInstance({
           handlePostActionAir(targetY, false, { nextInventory: postConsumeInv, wasFullBeforeMove, dropPos: finalPos });
         }
         if (level.id === 'shipwreck' && entity.id === puzzle.goalEntityId) {
-          setFlyingItem({ emoji: '👑', x: entity.x, y: targetY, zIndex: 120 });
+          setFlyingItem({ itemId: 'crown', emoji: '👑', x: entity.x, y: targetY, zIndex: 120 });
           scheduleTimeout(() => setFlyingItem(null), ACTION_ANIM_MS);
         }
         if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
@@ -2856,7 +2862,10 @@ export function GameInstance({
               dir={lang === 'he' ? 'rtl' : 'ltr'}
               className="absolute top-16 inset-x-4 z-[245] mx-auto max-w-xs bg-sky-950/95 border-2 border-cyan-300 text-cyan-100 px-3 py-2 rounded-2xl shadow-2xl text-center font-sans animate-bounce flex flex-col items-center gap-0.5"
             >
-              <span className="text-base tracking-widest">🧜‍♂️ 💦 🚫 ➔ 😈</span>
+              <span className="text-base tracking-widest inline-flex items-center gap-1">
+                <span>🧜‍♂️ 💦 🚫 ➔</span>
+                <SpriteIcon id="sea_witch" emoji="😈" />
+              </span>
               <span className="text-xs sm:text-sm font-bold">{dict.airPocketBlocked}</span>
             </div>
           )}

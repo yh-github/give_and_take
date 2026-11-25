@@ -1,4 +1,5 @@
 import React from 'react';
+import { SpriteIcon } from './sprites/SpriteIcon.tsx';
 import type { ItemDefinition, LevelDefinition, TranslationDictionary } from '../types/index.ts';
 
 export interface InventoryBarProps {
@@ -128,7 +129,16 @@ export function InventoryBar({
                     : 'bg-stone-700/50 border-[0.8cqw] border-stone-700 border-dashed cursor-default'
               } ${isDemonstrating || isAnimatingLoot ? 'cursor-default' : ''}`}
             >
-              <span className="text-[7cqw] drop-shadow-md emoji-shadow">{item ? item.emoji : ''}</span>
+              <span className="text-[7cqw] drop-shadow-md emoji-shadow flex items-center justify-center">
+                {item ? (
+                  <SpriteIcon
+                    id={item.spriteId || item.id}
+                    spriteSrc={item.spriteSrc}
+                    emoji={item.emoji}
+                    alt={dict.items?.[item.id] || item.name || item.id}
+                  />
+                ) : ''}
+              </span>
               {count > 1 && (
                 <div className="absolute -bottom-[1cqw] -right-[1cqw] bg-blue-700 text-white text-[3cqw] font-black rounded-full px-[1.5cqw] py-0 border-[0.4cqw] border-blue-400 shadow-md">
                   {count}

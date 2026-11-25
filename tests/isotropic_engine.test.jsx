@@ -263,17 +263,17 @@ describe('Phase 1: Isotropic Engine & Decoupled Cave Primitives', () => {
 
       // Clicking chasm without selecting rope inspects its requirement rather than auto-consuming
       await act(async () => { fireEvent.click(chasmEl); });
-      expect(container.textContent).toContain('🪢');
+      expect(chasmEl.querySelector('[data-sprite-id="rope"]')).toBeTruthy();
 
       // Select rope in inventory bar, then click chasm to walk up and bridge it
       const ropeSlot = Array.from(container.querySelectorAll('button')).find(
-        b => b.textContent.includes('🪢')
+        b => Boolean(b.querySelector('[data-sprite-id="rope"]'))
       );
       expect(ropeSlot).toBeDefined();
       await act(async () => { fireEvent.click(ropeSlot); });
       await act(async () => { fireEvent.click(chasmEl); });
       await act(async () => { vi.advanceTimersByTime(1200); });
-      expect(container.textContent).not.toContain('🪢'); // Rope consumed from inventory
+      expect(container.querySelector('button [data-sprite-id="rope"]')).toBeNull(); // Rope consumed from inventory
     });
   });
 });

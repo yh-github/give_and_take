@@ -700,9 +700,9 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         fireEvent.click(kelpBed);
       });
 
-      // Flushing kelp costs 0 air and spawns a blowfish '🐡'
+      // Flushing kelp costs 0 air and spawns a special Lanternfish (id: 'blowfish')
       expect(airPill.querySelectorAll('.opacity-25').length).toBe(0);
-      const pufferSprites = screen.getAllByText('🐡');
+      const pufferSprites = document.querySelectorAll('[data-sprite-id="blowfish"]');
       expect(pufferSprites.length).toBeGreaterThanOrEqual(2);
 
       const heroContainer = screen.getByText('🤠').closest('[class*="transform"]');
@@ -719,8 +719,8 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         toJSON: () => {}
       });
 
-      // Direct click on distant flushed blowfish at (11, 52) from hero at (50, 14) -> spooks it & costs air!
-      const swimmingPuffers = pufferSprites.filter(el => !el.closest('[data-testid^="kelp-habitat"]'));
+      // Direct click on distant flushed deep fish at (11, 52) from hero at (50, 14) -> spooks it & costs air!
+      const swimmingPuffers = screen.getAllByTestId('school-fish-blowfish');
       const flushedPuffer = swimmingPuffers[swimmingPuffers.length - 1];
       expect(flushedPuffer).toBeDefined();
 
@@ -790,7 +790,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       await act(async () => {
         fireEvent.click(screen.getByTestId('kelp-habitat-kelp_deep'));
       });
-      const timingPuffer = screen.getAllByText('🐡').find(el => !el.closest('[data-testid^="kelp-habitat"]'));
+      const timingPuffer = screen.getAllByTestId('school-fish-blowfish')[0];
       await act(async () => {
         fireEvent.click(timingPuffer, { clientX: 80, clientY: 530 });
       });

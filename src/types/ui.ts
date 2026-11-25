@@ -83,6 +83,8 @@ export interface FlyingItemState {
   x: number;
   y: number;
   emoji: string;
+  itemId?: string;
+  spriteSrc?: string;
   zIndex?: number;
   delay?: number;
 }

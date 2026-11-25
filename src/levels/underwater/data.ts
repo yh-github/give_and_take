@@ -13,7 +13,7 @@ import type {
 export const items: ItemDefinition[] = [
   { id: 'fish', name: 'Fish', emoji: '🐟' },
   { id: 'gold_fish', name: 'Goldfish', emoji: '🐠' },
-  { id: 'blowfish', name: 'Pufferfish', emoji: '🐡' },
+  { id: 'blowfish', name: 'Lanternfish', emoji: '🐡' },
 
   { id: 'comb', name: 'Dinglehopper', emoji: '🍴' },
   { id: 'boot', name: 'Old Boot', emoji: '🥾' },

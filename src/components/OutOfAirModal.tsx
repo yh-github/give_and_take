@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { isFishItem } from '../logic/underwater.ts';
+import { SpriteIcon } from './sprites/SpriteIcon.tsx';
 import type { LanguageCode, LevelDefinition, TranslationDictionary } from '../types/index.ts';
 
 export interface OutOfAirModalProps {
@@ -153,7 +154,9 @@ export function OutOfAirModal({
                         x{entry.count}
                       </span>
                     )}
-                    <span className="text-3xl sm:text-4xl drop-shadow-md emoji-shadow">{entry.emoji}</span>
+                    <span className="text-3xl sm:text-4xl drop-shadow-md emoji-shadow flex items-center justify-center">
+                      <SpriteIcon id={entry.itemId} emoji={entry.emoji} alt={entry.name} />
+                    </span>
                     <span className="text-xs sm:text-sm font-bold text-white leading-tight">{entry.name}</span>
 
                     {selectedKeepId !== null && (
@@ -183,7 +186,7 @@ export function OutOfAirModal({
             {singleEntry ? (
               <>
                 <div className="w-16 h-16 rounded-2xl bg-sky-900/60 border-2 border-cyan-400/60 flex items-center justify-center text-4xl shadow-lg">
-                  {singleEntry.emoji}
+                  <SpriteIcon id={singleEntry.itemId} emoji={singleEntry.emoji} alt={singleEntry.name} />
                 </div>
                 <p className="text-xs sm:text-sm text-sky-100">{singleItemText}</p>
               </>

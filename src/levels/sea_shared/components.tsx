@@ -1,4 +1,5 @@
 import React from 'react';
+import { SpriteIcon, SvgEmbeddedSprite } from '../../components/sprites/SpriteIcon.tsx';
 import {
   AIR_POCKET_LEFT_X,
   AIR_POCKET_POLYGON,
@@ -12,9 +13,11 @@ export interface SeaWitchSVGProps {
   variant?: 'underwater' | 'shipwreck';
   isTransformed: boolean;
   hasDeepTreasure?: boolean;
+  returnRelicId?: string | null;
   returnRelicEmoji?: string | null;
   reqEmojis?: string[];
   emoji?: string | null;
+  spriteSrc?: string | null;
 }
 
 /**
@@ -25,9 +28,11 @@ export const SeaWitchSVG = ({
   variant = 'underwater',
   isTransformed,
   hasDeepTreasure = false,
+  returnRelicId = null,
   returnRelicEmoji = '🔮',
   reqEmojis = [],
-  emoji = '😈'
+  emoji = '😈',
+  spriteSrc = null
 }: SeaWitchSVGProps) => {
   const isEmeraldReady =
     variant === 'shipwreck' ? !isTransformed : Boolean(isTransformed && hasDeepTreasure);
@@ -40,7 +45,12 @@ export const SeaWitchSVG = ({
       : !isTransformed
         ? '3×🎵 ➔ 🧜‍♂️'
         : hasDeepTreasure
-          ? `${returnRelicEmoji || '🔮'} ➔ 🤠`
+          ? (
+            <span className="inline-flex items-center gap-1">
+              <SpriteIcon id={returnRelicId} emoji={returnRelicEmoji || '🔮'} />
+              <span>➔ 🤠</span>
+            </span>
+          )
           : '👑 ⬇️';
 
   const badgeStyle = isEmeraldReady
@@ -50,7 +60,7 @@ export const SeaWitchSVG = ({
       : 'bg-purple-950/95 border-purple-400 text-purple-100 shadow-[0_0_12px_rgba(168,85,247,0.85)]';
 
   const sizeClass = variant === 'shipwreck' ? 'w-[32cqw] h-[25cqw]' : 'w-[36cqw] h-[28cqw]';
-  const emojiSizeClass = variant === 'shipwreck' ? 'text-[10.5cqw]' : 'text-[11cqw]';
+  const emojiSizeClass = variant === 'shipwreck' ? 'text-[11cqw]' : 'text-[12cqw]';
   const badgeTextClass = variant === 'shipwreck' ? 'px-2 text-[2.5cqw]' : 'px-2.5 text-[2.8cqw]';
   const bounceClass = variant === 'underwater' && isEmeraldReady ? 'animate-bounce' : '';
   const glowId = `seaWitchGlow-${variant}`;
@@ -88,11 +98,17 @@ export const SeaWitchSVG = ({
           fill={isEmeraldReady ? '#34d399' : '#c084fc'}
           opacity="0.75"
         />
+        <circle cx="62" cy="76" r="2.2" fill={isEmeraldReady ? '#6ee7b7' : '#e9d5ff'} opacity="0.8" />
+        <circle cx="76" cy="73" r="1.7" fill={isEmeraldReady ? '#6ee7b7' : '#e9d5ff'} opacity="0.7" />
       </svg>
 
-      <span className={`${emojiSizeClass} z-10 drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]`}>
-        {emoji}
-      </span>
+      <SpriteIcon
+        id="sea_witch"
+        spriteSrc={spriteSrc}
+        emoji={emoji}
+        alt="Sea Witch"
+        className={`${emojiSizeClass} z-10 drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]`}
+      />
 
       <div
         className={`mt-1 rounded-full ${badgeTextClass} py-0.5 whitespace-nowrap font-black border-2 z-20 transition-all ${badgeStyle} ${bounceClass}`}
@@ -105,13 +121,17 @@ export const SeaWitchSVG = ({
 
 export interface InteractiveKelpSVGProps {
   variant?: 'harvest' | 'habitat';
+  fishId?: string;
   fishEmoji?: string;
+  fishSpriteSrc?: string | null;
   isRustling?: boolean;
 }
 
 export const InteractiveKelpSVG = ({
   variant = 'habitat',
+  fishId = 'fish',
   fishEmoji = '🐟',
+  fishSpriteSrc = null,
   isRustling = false
 }: InteractiveKelpSVGProps) => {
   const isHarvest = variant === 'harvest';
@@ -159,11 +179,11 @@ export const InteractiveKelpSVG = ({
 
       {variant === 'habitat' ? (
         <div className=" -mt-6 bg-sky-950/85 border border-emerald-400/70 rounded-full px-1.5 py-0.5 text-sm shadow-md flex items-center gap-0.5">
-          <span>{fishEmoji}</span>
+          <SpriteIcon id={fishId} spriteSrc={fishSpriteSrc} emoji={fishEmoji} />
         </div>
       ) : (
         <div className="-mt-5 bg-emerald-950/90 border border-emerald-300 rounded-full px-1.5 py-0.5 text-base shadow-[0_0_8px_rgba(52,211,153,0.7)]">
-          🌿
+          <SpriteIcon id="sea_kelp" emoji="🌿" />
         </div>
       )}
     </div>
@@ -176,7 +196,9 @@ export interface GiantClamSVGProps {
   isDigger?: boolean;
   isGoal?: boolean;
   isAlerting?: boolean;
+  rewardId?: string | null;
   rewardEmoji?: string | null;
+  rewardSpriteSrc?: string | null;
   isMurkyFar?: boolean;
 }
 
@@ -186,7 +208,9 @@ export const GiantClamSVG = ({
   isDigger = false,
   isGoal = false,
   isAlerting = false,
+  rewardId = null,
   rewardEmoji,
+  rewardSpriteSrc = null,
   isMurkyFar = false
 }: GiantClamSVGProps) => {
   const isOpen = isDefeated || !isBuried;
@@ -255,9 +279,15 @@ export const GiantClamSVG = ({
                     fill={isGoal ? '#fde047' : '#ffffff'}
                     opacity="0.5"
                   />
-                  <text x="55" y="62" textAnchor="middle" fontSize="28" className="drop-shadow-md">
-                    {rewardEmoji}
-                  </text>
+                  <SvgEmbeddedSprite
+                    id={rewardId}
+                    spriteSrc={rewardSpriteSrc}
+                    emoji={rewardEmoji}
+                    x={55}
+                    y={52}
+                    size={28}
+                    className="drop-shadow-md"
+                  />
                 </>
               )}
             </g>

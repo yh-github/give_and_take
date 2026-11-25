@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FISHING_CATCH_CONFIG } from '../constants.ts';
 import { evaluateFishingCatch } from '../logic/underwater.ts';
+import { SpriteIcon } from './sprites/SpriteIcon.tsx';
 import type { LanguageCode, TranslationDictionary } from '../types/index.ts';
 
 export interface FishingCatchOverlayProps {
@@ -153,7 +154,9 @@ export function FishingCatchOverlay({
             />
           </svg>
 
-          <span className="absolute text-5xl drop-shadow-lg pointer-events-none">{fishEmoji}</span>
+          <span className="absolute text-5xl drop-shadow-lg pointer-events-none flex items-center justify-center">
+            <SpriteIcon id={fishType} emoji={fishEmoji} alt={fishName} />
+          </span>
         </div>
 
         <div

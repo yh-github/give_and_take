@@ -9,6 +9,7 @@ import { CaveBrazierProp } from '../levels/deep_cave/components.tsx';
 import CaveVisibility from '../levels/underground/CaveVisibility.tsx';
 import Hero from './Hero.tsx';
 import GameEntity from './GameEntity.tsx';
+import { SpriteIcon } from './sprites/SpriteIcon.tsx';
 import { ClickIndicator, HeroBubbleBursts, WaterSplashBursts, FogOverlay } from './EffectsOverlay.tsx';
 import DebugRays from './DebugRays.tsx';
 import type {
@@ -168,8 +169,8 @@ function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
           <span className="w-1 h-1 rounded-full bg-white/70" />
         </div>
 
-        <span className={`text-4xl inline-block ${fish.isRight ? 'scale-x-[-1]' : ''}`}>
-          {emoji}
+        <span className={`text-4xl inline-flex items-center justify-center ${fish.isRight ? 'scale-x-[-1]' : ''}`}>
+          <SpriteIcon id={fish.type} emoji={emoji} />
         </span>
 
         {fish.isSpooked && (
@@ -378,7 +379,8 @@ export function WorldViewport({
       })}
 
       {level.id === 'underwater' && !isLevelEditor && reefKelpHabitats.map((habitat) => {
-        const fishEmoji = level.items.find(i => i.id === habitat.fishType)?.emoji || '🐟';
+        const fishItem = level.items.find(i => i.id === habitat.fishType);
+        const fishEmoji = fishItem?.emoji || '🐟';
         return (
           <div
             key={habitat.id}
@@ -386,11 +388,13 @@ export function WorldViewport({
             onClick={(e) => onFlushKelp && onFlushKelp(habitat, e)}
             className="absolute transform -translate-x-1/2 -translate-y-1/2 z-[42] cursor-pointer hover:scale-110 transition-transform"
             style={{ left: `${habitat.x}%`, top: `${habitat.y}%` }}
-            title={fishEmoji}
+            title={fishItem?.name || fishEmoji}
           >
             <InteractiveKelpSVG
               variant="habitat"
+              fishId={habitat.fishType}
               fishEmoji={fishEmoji}
+              fishSpriteSrc={fishItem?.spriteSrc}
               isRustling={rustlingKelpId === habitat.id}
             />
           </div>
@@ -398,10 +402,14 @@ export function WorldViewport({
       })}
 
       {level.mechanics.hasFish && envItemState === 'active' && (
-        <div className="absolute cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform" style={{ zIndex: 25 }} onClick={handleCatchRiverFish}>🐟</div>
+        <div className="absolute cursor-pointer text-3xl animate-fish-swim hover:scale-125 transition-transform" style={{ zIndex: 25 }} onClick={handleCatchRiverFish}>
+          <SpriteIcon id="fish" emoji="🐟" />
+        </div>
       )}
       {level.mechanics.hasFish && envItemState === 'caught' && (
-        <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}><span className="text-3xl">🐟</span></div>
+        <div className="absolute flex flex-col items-center animate-loot-fly pointer-events-none drop-shadow-xl" style={{ left: `${envItemCaughtPos.x}%`, top: `${envItemCaughtPos.y}%`, zIndex: 90 }}>
+          <span className="text-3xl"><SpriteIcon id="fish" emoji="🐟" /></span>
+        </div>
       )}
 
       {schoolsOfFish.map(f => (
@@ -418,6 +426,8 @@ export function WorldViewport({
         const laneTop = lane === 'far' ? '10.8%' : '13.6%';
         const laneZ = lane === 'far' ? 104 : 122;
         const laneScaleClass = lane === 'far' ? 'scale-[0.78]' : 'scale-[0.96]';
+        const reqItemDef = level.items.find(i => i.id === (b.reqItem || 'fish'));
+        const offeredItemDef = level.items.find(i => i.id === b.offeredItem);
         return (
           <div
             key={b.id}
@@ -437,9 +447,21 @@ export function WorldViewport({
               </div>
 
               <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-white/95 border-2 border-amber-600 rounded-full px-2.5 py-1 flex items-center gap-1 shadow-lg animate-bounce whitespace-nowrap z-20">
-                <span className="text-lg sm:text-xl">{level.items.find(i => i.id === (b.reqItem || 'fish'))?.emoji || '🐟'}</span>
+                <span className="text-lg sm:text-xl flex items-center">
+                  <SpriteIcon
+                    id={reqItemDef?.spriteId || b.reqItem || 'fish'}
+                    spriteSrc={reqItemDef?.spriteSrc}
+                    emoji={reqItemDef?.emoji || '🐟'}
+                  />
+                </span>
                 <span className="text-xs font-black text-stone-700">➔</span>
-                <span className="text-lg sm:text-xl">{level.items.find(i => i.id === b.offeredItem)?.emoji}</span>
+                <span className="text-lg sm:text-xl flex items-center">
+                  <SpriteIcon
+                    id={offeredItemDef?.spriteId || b.offeredItem}
+                    spriteSrc={offeredItemDef?.spriteSrc}
+                    emoji={offeredItemDef?.emoji}
+                  />
+                </span>
               </div>
               {alertEntityId === b.id && (
                 <div className="absolute inset-0 flex items-center justify-center text-4xl animate-troll-mad z-30">
@@ -470,10 +492,16 @@ export function WorldViewport({
                 data-testid={`floating-item-${item.id}`}
                 className="animate-bob bg-sky-950/60 border border-cyan-300/70 rounded-full w-11 h-11 flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.55)] text-2xl"
               >
-                {isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}
+                {isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : (
+                  <SpriteIcon id={itemData.spriteId || itemData.id} spriteSrc={itemData.spriteSrc} emoji={itemData.emoji} />
+                )}
               </div>
             ) : (
-              <div className="text-3xl drop-shadow-md">{isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : itemData.emoji}</div>
+              <div className="text-3xl drop-shadow-md flex items-center justify-center">
+                {isAlerting ? (alertReason === 'inventory_full' ? '🎒' : '🚫') : (
+                  <SpriteIcon id={itemData.spriteId || itemData.id} spriteSrc={itemData.spriteSrc} emoji={itemData.emoji} />
+                )}
+              </div>
             )}
           </div>
         );
@@ -512,11 +540,15 @@ export function WorldViewport({
       )}
 
       {!isLevelEditor && flyingItem && (
-        <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${toCssX(flyingItem.x)}%`, top: `${toCssY(flyingItem.y)}%`, zIndex: flyingItem.zIndex || 90 }}>{flyingItem.emoji}</div>
+        <div className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${toCssX(flyingItem.x)}%`, top: `${toCssY(flyingItem.y)}%`, zIndex: flyingItem.zIndex || 90 }}>
+          <SpriteIcon id={flyingItem.itemId} spriteSrc={flyingItem.spriteSrc} emoji={flyingItem.emoji} />
+        </div>
       )}
 
       {!isLevelEditor && massFlyingTreasures.map((item, idx) => (
-        <div key={`mass-treas-${idx}`} className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${toCssX(item.x)}%`, top: `${toCssY(item.y)}%`, zIndex: 110, animationDelay: `${item.delay}ms` }}>{item.emoji}</div>
+        <div key={`mass-treas-${idx}`} className="absolute animate-loot-fly drop-shadow-2xl text-6xl pointer-events-none" style={{ left: `${toCssX(item.x)}%`, top: `${toCssY(item.y)}%`, zIndex: 110, animationDelay: `${item.delay}ms` }}>
+          <SpriteIcon id={item.itemId} spriteSrc={item.spriteSrc} emoji={item.emoji} />
+        </div>
       ))}
 
       {level.id === 'river_crossing' && puzzle?.puzzleEntities.some(e => e.id === puzzle.goalEntityId) && (

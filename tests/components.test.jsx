@@ -7,6 +7,7 @@ import STRINGS from '../src/strings.js';
 import LEVEL_REGISTRY from '../src/levels/index.js';
 import InventoryBar from '../src/components/InventoryBar.jsx';
 import GameEntity from '../src/components/GameEntity.jsx';
+import { SpriteIcon, SvgEmbeddedSprite } from '../src/components/sprites/SpriteIcon.tsx';
 
 describe('GUI Component & Integration Tests', () => {
   beforeEach(() => {
@@ -320,5 +321,40 @@ describe('GUI Component & Integration Tests', () => {
 
     // Nearby clam reveals pearl '⚪' inside its shell
     expect(screen.getByText('⚪')).toBeDefined();
+  });
+
+  it('SpriteIcon renders registered SVG sprites, quality image assets via spriteSrc, and emoji fallbacks', () => {
+    const { container } = render(
+      <div>
+        <SpriteIcon id="rope" emoji="🪢" alt="Rope" testId="sprite-rope" />
+        <SpriteIcon id="blowfish" emoji="🐡" alt="Lanternfish" testId="sprite-fish" />
+        <SpriteIcon id="sea_witch" emoji="😈" alt="Sea Witch" testId="sprite-witch" />
+        <SpriteIcon
+          id="custom_goblin"
+          spriteSrc="/sprites/goblin.webp"
+          emoji="👺"
+          alt="Custom Goblin"
+          testId="sprite-img"
+        />
+        <SpriteIcon id="unregistered_item" emoji="💎" testId="sprite-fallback" />
+        <svg viewBox="0 0 100 100">
+          <SvgEmbeddedSprite id="rope" emoji="🪢" x={50} y={50} size={24} />
+          <SvgEmbeddedSprite id="img_item" spriteSrc="/sprites/gem.png" emoji="💎" x={20} y={20} size={20} />
+          <SvgEmbeddedSprite id="plain_item" emoji="⭐" x={80} y={80} size={20} />
+        </svg>
+      </div>
+    );
+
+    expect(screen.getByTestId('sprite-rope').querySelector('svg')).toBeTruthy();
+    expect(screen.getByTestId('sprite-fish').querySelector('svg')).toBeTruthy();
+    expect(screen.getByTestId('sprite-witch').querySelector('svg')).toBeTruthy();
+
+    const imgEl = screen.getByTestId('sprite-img').querySelector('img');
+    expect(imgEl).toBeTruthy();
+    expect(imgEl.getAttribute('src')).toBe('/sprites/goblin.webp');
+
+    expect(screen.getByTestId('sprite-fallback').textContent).toBe('💎');
+    expect(container.querySelector('svg image[href="/sprites/gem.png"]')).toBeTruthy();
+    expect(container.querySelector('svg text').textContent).toBe('⭐');
   });
 });

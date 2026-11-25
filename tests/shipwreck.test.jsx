@@ -380,7 +380,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         });
       }
       await act(async () => {
-        fireEvent.click(screen.getByText('😈'));
+        fireEvent.click(screen.getByTestId('sea-witch-grotto'));
       });
       await act(async () => {
         vi.advanceTimersByTime(ACTION_ANIM_MS + 1600);

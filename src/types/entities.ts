@@ -23,6 +23,8 @@ export interface ItemDefinition {
   id: string;
   name?: string;
   emoji?: string;
+  spriteId?: string;
+  spriteSrc?: string;
   [key: string]: unknown;
 }
 
@@ -30,6 +32,8 @@ export interface EntityTemplate {
   id: string;
   name?: string;
   emoji?: string;
+  spriteId?: string;
+  spriteSrc?: string;
   color?: string;
   allowedReqs?: string[];
   [key: string]: unknown;
@@ -72,6 +76,8 @@ export interface AbstractPuzzleEntity {
   id: string;
   name?: string;
   emoji?: string;
+  spriteId?: string;
+  spriteSrc?: string;
   color?: string;
   x?: number;
   y?: number;

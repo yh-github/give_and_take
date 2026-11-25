@@ -350,7 +350,7 @@ describe('Deep Cave Phase 4 UI, Worker, Persistence & Hydration', () => {
           dict={STRINGS.en}
         />
       );
-      expect(presetContainer.textContent).toContain('🪢');
+      expect(presetContainer.querySelector('[data-sprite-id="rope"]')).toBeTruthy();
 
       const { container: chasmSelected } = render(
         <GameEntity
@@ -512,7 +512,7 @@ describe('Deep Cave Phase 4 UI, Worker, Persistence & Hydration', () => {
       );
 
       // Both the preset rope and the spider visible across the unbridged chasm render cleanly
-      expect(container.textContent).toContain('🪢');
+      expect(container.querySelector('[data-sprite-id="rope"]')).toBeTruthy();
       const spiderEl = screen.getByText('🕷️');
       expect(spiderEl).toBeDefined();
 

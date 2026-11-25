@@ -1,5 +1,6 @@
 import React, { Fragment, type CSSProperties, type MouseEvent } from 'react';
 import { isEntityMurkyFar } from '../logic/underwater.ts';
+import { SpriteIcon } from './sprites/SpriteIcon.tsx';
 import {
   GiantClamSVG,
   SeaWitchGrottoSVG,
@@ -174,10 +175,12 @@ export function GameEntity({
   const isElevator = ent.roamClass?.includes('elevator');
   const isMermaid = Boolean(level.id === 'underwater' && ent.id.startsWith('mermaid'));
   const isWitch = ent.id === 'sea_witch';
-  const returnRelicEmoji =
-    (ent.returnRequires && ent.returnRequires[0]
-      ? level.items.find(i => i.id === ent.returnRequires![0])?.emoji
-      : null) || '🔮';
+  const returnRelicId = ent.returnRequires?.[0] || null;
+  const returnRelicItem = returnRelicId ? level.items.find(i => i.id === returnRelicId) : null;
+  const returnRelicEmoji = returnRelicItem?.emoji || '🔮';
+  const presetItemId = rewardItem?.spriteId || rewardItem?.id || (typeof ent.isPreset === 'string' ? ent.isPreset : ent.reward || ent.id);
+  const entitySpriteId = ent.isPreset ? presetItemId : (ent.spriteId || ent.id);
+  const entitySpriteSrc = ent.spriteSrc || (ent.isPreset ? rewardItem?.spriteSrc : undefined);
   const vaultReqEmojis = (ent.requires || []).map(
     id => level.items.find(i => i.id === id)?.emoji || '❓'
   );
@@ -227,17 +230,17 @@ export function GameEntity({
             <div dir="ltr" className="relative bg-white border-2 border-stone-800 rounded-2xl px-3 py-1.5 flex items-center shadow-xl text-lg font-bold whitespace-nowrap animate-bounce gap-1">
               {ent.id === 'final_gate' ? (
                 <>
-                  <span className="emoji-shadow">🔑</span>
+                  <SpriteIcon id="key" emoji="🔑" className="emoji-shadow" />
                   <span className="text-sm font-black text-amber-600 shadow-none ml-1">x3</span>
                 </>
               ) : isRock ? (
                 <>
-                  <span className="emoji-shadow">⛏️</span>
+                  <SpriteIcon id="pickaxe" emoji="⛏️" className="emoji-shadow" />
                   <span className="text-sm font-black text-amber-600 shadow-none ml-1">x1</span>
                 </>
               ) : isChasm ? (
                 <>
-                  <span className="emoji-shadow">🪢</span>
+                  <SpriteIcon id="rope" emoji="🪢" className="emoji-shadow" />
                   <span className="text-sm font-black text-amber-600 shadow-none ml-1">x1</span>
                 </>
               ) : isMurkyFar ? (
@@ -248,17 +251,28 @@ export function GameEntity({
               ) : (
                 <>
                   {level.id === 'underwater' && isWitch && isTransformed && !hasDeepTreasure && (
-                    <span className="emoji-shadow mr-1" title={dict.items?.crown || 'Sunken Crown'}>👑 +</span>
+                    <span className="emoji-shadow mr-1 inline-flex items-center gap-1" title={dict.items?.crown || 'Sunken Crown'}>
+                      <SpriteIcon id="crown" emoji="👑" />
+                      <span>+</span>
+                    </span>
                   )}
-                  {Object.entries(groupedReqs).map(([reqId, count], i, arr) => (
-                    <Fragment key={reqId}>
-                      <span className="flex items-center gap-1 emoji-shadow" title={dict.items?.[reqId] || reqId}>
-                        {count > 1 && <span className="text-sm font-black text-amber-600" style={{ textShadow: 'none' }}>{count}x</span>}
-                        {level.items.find(item => item.id === reqId)?.emoji || '❓'}
-                      </span>
-                      {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{effectiveTooltipReqType === 'AND' ? '&' : dict.or}</span>}
-                    </Fragment>
-                  ))}
+                  {Object.entries(groupedReqs).map(([reqId, count], i, arr) => {
+                    const reqItem = level.items.find(item => item.id === reqId);
+                    return (
+                      <Fragment key={reqId}>
+                        <span className="flex items-center gap-1 emoji-shadow" title={dict.items?.[reqId] || reqId}>
+                          {count > 1 && <span className="text-sm font-black text-amber-600" style={{ textShadow: 'none' }}>{count}x</span>}
+                          <SpriteIcon
+                            id={reqItem?.spriteId || reqId}
+                            spriteSrc={reqItem?.spriteSrc}
+                            emoji={reqItem?.emoji || '❓'}
+                            alt={dict.items?.[reqId] || reqId}
+                          />
+                        </span>
+                        {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{effectiveTooltipReqType === 'AND' ? '&' : dict.or}</span>}
+                      </Fragment>
+                    );
+                  })}
                   {isWitch && !isTransformed && level.id === 'underwater' && (
                     <span className="text-sm font-black text-purple-700 ml-1" style={{ textShadow: 'none' }}>➔ 🧜‍♂️</span>
                   )}
@@ -274,7 +288,16 @@ export function GameEntity({
                   {isAquaticLevel && !isGoal && !isWitch && rewardItem && (
                     <span className="flex items-center gap-1 ml-1 text-sm font-black text-sky-900" style={{ textShadow: 'none' }}>
                       <span>➔</span>
-                      <span className="emoji-shadow text-lg">{isBuried ? '❓' : rewardItem.emoji}</span>
+                      <span className="emoji-shadow text-lg flex items-center">
+                        {isBuried ? '❓' : (
+                          <SpriteIcon
+                            id={rewardItem.spriteId || rewardItem.id}
+                            spriteSrc={rewardItem.spriteSrc}
+                            emoji={rewardItem.emoji}
+                            alt={dict.items?.[rewardItem.id] || rewardItem.name}
+                          />
+                        )}
+                      </span>
                     </span>
                   )}
                 </>
@@ -322,7 +345,14 @@ export function GameEntity({
                       ❓
                     </div>
                   ) : (
-                    <span className="text-[8.5cqw]">{rewardItem.emoji}</span>
+                    <span className="text-[8.5cqw] flex items-center justify-center">
+                      <SpriteIcon
+                        id={rewardItem.spriteId || rewardItem.id}
+                        spriteSrc={rewardItem.spriteSrc}
+                        emoji={rewardItem.emoji}
+                        alt={dict.items?.[rewardItem.id] || rewardItem.name}
+                      />
+                    </span>
                   )}
                 </div>
               ) : null
@@ -394,8 +424,10 @@ export function GameEntity({
                       <SeaWitchGrottoSVG
                         isTransformed={isTransformed}
                         hasDeepTreasure={hasDeepTreasure}
+                        returnRelicId={returnRelicItem?.spriteId || returnRelicId}
                         returnRelicEmoji={returnRelicEmoji}
                         emoji={ent.emoji}
+                        spriteSrc={ent.spriteSrc}
                       />
                     ) : ent.id === 'sunken_vault' ? (
                       <SunkenVaultSVG
@@ -408,7 +440,11 @@ export function GameEntity({
                       <InteractiveKelpSVG variant="harvest" />
                     ) : ent.isPreset ? (
                       <div className="w-11 h-11 rounded-full bg-amber-950/75 border-2 border-amber-300/70 flex items-center justify-center text-2xl shadow-[0_0_12px_rgba(251,191,36,0.5)] animate-bob">
-                        {ent.emoji || rewardItem?.emoji}
+                        <SpriteIcon
+                          id={entitySpriteId}
+                          spriteSrc={entitySpriteSrc}
+                          emoji={ent.emoji || rewardItem?.emoji}
+                        />
                       </div>
                     ) : isElevator ? (
                       <div className="relative flex flex-col items-center">
@@ -422,11 +458,11 @@ export function GameEntity({
                           } ${isAlerting ? 'animate-troll-mad' : ''}`}
                         >
                           <span className={!isCustomEntity ? 'inline-block scale-x-[-1]' : 'inline-block'}>
-                            {ent.emoji}
+                            <SpriteIcon id="dolphin" spriteSrc={ent.spriteSrc} emoji={ent.emoji} />
                           </span>
                         </div>
                         <div className="-mt-2 bg-sky-950/90 border border-cyan-300 text-cyan-100 rounded-full px-2 py-0.5 text-[2.4cqw] font-black shadow-md pointer-events-none flex items-center gap-1">
-                          <span>🐟</span>
+                          <SpriteIcon id="fish" emoji="🐟" />
                           <span>➔</span>
                           <span>{visualY > 40 ? '⬆️' : '⬇️'}</span>
                         </div>
@@ -452,7 +488,7 @@ export function GameEntity({
                           } as CSSCustomProperties}
                         >
                           <div className={`flex items-center justify-center text-[11cqw] drop-shadow-xl ${!isAnimating ? 'animate-mermaid-swim' : ''}`}>
-                            {ent.emoji}
+                            <SpriteIcon id={entitySpriteId} spriteSrc={entitySpriteSrc} emoji={ent.emoji} />
                           </div>
                         </div>
                       </div>
@@ -463,11 +499,13 @@ export function GameEntity({
                         isDigger={isDigger}
                         isGoal={isGoal}
                         isAlerting={isAlerting}
+                        rewardId={!isDefeated && !isBuried ? (rewardItem?.spriteId || rewardItem?.id) : null}
+                        rewardSpriteSrc={!isDefeated && !isBuried ? rewardItem?.spriteSrc : null}
                         rewardEmoji={!isDefeated && !isBuried ? rewardItem?.emoji : null}
                         isMurkyFar={isMurkyFar}
                       />
                     ) : (
-                      ent.emoji
+                      <SpriteIcon id={entitySpriteId} spriteSrc={entitySpriteSrc} emoji={ent.emoji} />
                     )
                   ) : level.id === 'shipwreck' ? (
                     ent.id === 'sea_witch' ? (
@@ -475,6 +513,7 @@ export function GameEntity({
                         isTransformed={isTransformed}
                         reqEmojis={vaultReqEmojis}
                         emoji={ent.emoji}
+                        spriteSrc={ent.spriteSrc}
                       />
                     ) : ent.id === 'captains_chest' ? (
                       <CaptainsTreasureSVG
@@ -487,7 +526,11 @@ export function GameEntity({
                       <InteractiveKelpSVG variant="harvest" />
                     ) : ent.isPreset ? (
                       <div className="w-11 h-11 rounded-full bg-amber-950/75 border-2 border-amber-300/70 flex items-center justify-center text-2xl shadow-[0_0_12px_rgba(251,191,36,0.5)] animate-bob">
-                        {ent.emoji || rewardItem?.emoji}
+                        <SpriteIcon
+                          id={entitySpriteId}
+                          spriteSrc={entitySpriteSrc}
+                          emoji={ent.emoji || rewardItem?.emoji}
+                        />
                       </div>
                     ) : isClam ? (
                       <GiantClamSVG
@@ -496,14 +539,20 @@ export function GameEntity({
                         isDigger={isDigger}
                         isGoal={isGoal}
                         isAlerting={isAlerting}
+                        rewardId={!isDefeated && !isBuried ? (rewardItem?.spriteId || rewardItem?.id) : null}
+                        rewardSpriteSrc={!isDefeated && !isBuried ? rewardItem?.spriteSrc : null}
                         rewardEmoji={!isDefeated && !isBuried ? rewardItem?.emoji : null}
                         isMurkyFar={isMurkyFar}
                       />
                     ) : (
-                      ent.emoji
+                      <SpriteIcon id={entitySpriteId} spriteSrc={entitySpriteSrc} emoji={ent.emoji} />
                     )
                   ) : (
-                    ent.emoji || rewardItem?.emoji
+                    <SpriteIcon
+                      id={entitySpriteId}
+                      spriteSrc={entitySpriteSrc}
+                      emoji={ent.emoji || rewardItem?.emoji}
+                    />
                   )}
                 </div>
               )}

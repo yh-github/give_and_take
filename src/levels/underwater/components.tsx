@@ -312,22 +312,28 @@ export const UnderwaterBackground = () => (
 export interface SeaWitchGrottoSVGProps {
   isTransformed: boolean;
   hasDeepTreasure: boolean;
+  returnRelicId?: string | null;
   returnRelicEmoji?: string | null;
   emoji?: string | null;
+  spriteSrc?: string | null;
 }
 
 export const SeaWitchGrottoSVG = ({
   isTransformed,
   hasDeepTreasure,
+  returnRelicId = null,
   returnRelicEmoji = '🔮',
-  emoji = '😈'
+  emoji = '😈',
+  spriteSrc = null
 }: SeaWitchGrottoSVGProps) => (
   <SeaWitchSVG
     variant="underwater"
     isTransformed={isTransformed}
     hasDeepTreasure={hasDeepTreasure}
+    returnRelicId={returnRelicId}
     returnRelicEmoji={returnRelicEmoji}
     emoji={emoji}
+    spriteSrc={spriteSrc}
   />
 );
 
