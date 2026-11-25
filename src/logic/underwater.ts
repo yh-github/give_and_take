@@ -7,13 +7,22 @@ import {
   UNDERWATER_AIR_COST_FULL_BAG,
   UNDERWATER_AIR_COST_NORMAL,
   UNDERWATER_FISH_ITEM_IDS,
-  UNDERWATER_FULL_BAG_SPEED_MULTIPLIER
+  UNDERWATER_FULL_BAG_SPEED_MULTIPLIER,
+  UNDERWATER_INSPECT_RADIUS,
+  UNDERWATER_SURFACE_Y
 } from '../constants.ts';
+import {
+  AIR_POCKET_Y,
+  SHIPWRECK_AIR_POCKET_RETURN_POS,
+  isInShipwreckAirPocket,
+  isInsideShipwreckHull
+} from '../levels/shipwreck/geometry.ts';
 import type {
   CampItemState,
   LevelDefinition,
   Point2D,
   PuzzleData,
+  PuzzleEntity,
   SchoolFishState
 } from '../types/index.ts';
 import { uniqueCount } from './navigation.ts';
@@ -74,6 +83,175 @@ export function getUnderwaterMoveDurationMs(baseDurationMs: number, isHeavy: boo
   return isHeavy
     ? Math.round(baseDurationMs * UNDERWATER_FULL_BAG_SPEED_MULTIPLIER)
     : baseDurationMs;
+}
+
+export function isDivingLevel(level: Pick<LevelDefinition, 'mechanics'> | null | undefined): boolean {
+  return Boolean(level?.mechanics?.hasAir);
+}
+
+export function getMaxAir(level: Pick<LevelDefinition, 'mechanics'> | null | undefined): number {
+  return level?.mechanics?.maxAir ?? MAX_AIR;
+}
+
+export function isHeroSubmerged(
+  level: Pick<LevelDefinition, 'id' | 'campPos' | 'mechanics'> | null | undefined,
+  pos: Point2D
+): boolean {
+  if (!level?.mechanics?.hasAir) return false;
+  if (level.id === 'shipwreck') {
+    return !isInShipwreckAirPocket(pos.x, pos.y);
+  }
+  return pos.y > ((level.campPos?.y ?? 14) + 2);
+}
+
+export function isAtAirRefillZone(
+  level: Pick<LevelDefinition, 'id' | 'campPos' | 'mechanics'> | null | undefined,
+  pos: Point2D,
+  campPos?: Point2D | null
+): boolean {
+  if (!level?.mechanics?.hasAir) return false;
+  if (level.id === 'shipwreck') {
+    const anchor = campPos || level.campPos;
+    return isInShipwreckAirPocket(pos.x, pos.y) || Math.hypot(pos.x - anchor.x, pos.y - anchor.y) <= 10;
+  }
+  return pos.y <= 20;
+}
+
+export function isHeavyDivingLoad(
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  inventory: readonly string[],
+  isTransformed: boolean
+): boolean {
+  return Boolean(level?.mechanics?.hasAir && !isTransformed && isUnderwaterBackpackFull(inventory));
+}
+
+export function getDivingAirCost(
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  inventory: readonly string[],
+  isTransformed: boolean,
+  wasFullBeforeMove?: boolean
+): number {
+  if (!level?.mechanics?.hasAir || isTransformed) return 0;
+  const isHeavy = wasFullBeforeMove !== undefined ? wasFullBeforeMove : isUnderwaterBackpackFull(inventory);
+  return isHeavy ? UNDERWATER_AIR_COST_FULL_BAG : UNDERWATER_AIR_COST_NORMAL;
+}
+
+export function getDivingMoveDurationMs(
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  baseDurationMs: number,
+  inventory: readonly string[],
+  isTransformed: boolean,
+  wasFullBeforeMove?: boolean
+): number {
+  if (!level?.mechanics?.hasAir || isTransformed) return baseDurationMs;
+  const isHeavy = wasFullBeforeMove !== undefined ? wasFullBeforeMove : isUnderwaterBackpackFull(inventory);
+  return getUnderwaterMoveDurationMs(baseDurationMs, isHeavy);
+}
+
+export function getOutOfAirDropBounds(
+  level: Pick<LevelDefinition, 'id'> | null | undefined
+): { min: number; max: number } {
+  return level?.id === 'shipwreck' ? { min: 36, max: 92 } : { min: 22, max: 68 };
+}
+
+export interface ShipwreckDrowningResolution {
+  mode: 'air_pocket' | 'lost_at_sea';
+  targetPos?: Point2D & { zone: number };
+}
+
+export function resolveShipwreckDrowningTarget(dropPos: Point2D): ShipwreckDrowningResolution {
+  if (isInsideShipwreckHull(dropPos.x, dropPos.y)) {
+    return {
+      mode: 'air_pocket',
+      targetPos: { ...SHIPWRECK_AIR_POCKET_RETURN_POS }
+    };
+  }
+  return { mode: 'lost_at_sea' };
+}
+
+export function getWaterlineSplashPoint(
+  level: Pick<LevelDefinition, 'id' | 'campPos' | 'mechanics'> | null | undefined,
+  fromPos: Point2D | null | undefined,
+  toPos: Point2D | null | undefined
+): Point2D | null {
+  if (!level?.mechanics?.hasAir || !fromPos || !toPos) return null;
+  if (level.id === 'shipwreck') {
+    if (isInShipwreckAirPocket(fromPos.x, fromPos.y) !== isInShipwreckAirPocket(toPos.x, toPos.y)) {
+      return {
+        x: Math.max(68, Math.min(91, (fromPos.x + toPos.x) / 2)),
+        y: AIR_POCKET_Y
+      };
+    }
+    return null;
+  }
+  if (level.id === 'underwater') {
+    if (isHeroSubmerged(level, fromPos) !== isHeroSubmerged(level, toPos)) {
+      return {
+        x: Math.max(12, Math.min(88, (fromPos.x + toPos.x) / 2)),
+        y: UNDERWATER_SURFACE_Y
+      };
+    }
+  }
+  return null;
+}
+
+export function isCampItemFloating(
+  level: Pick<LevelDefinition, 'id'> | null | undefined,
+  item: Pick<CampItemState, 'x' | 'y' | 'isFloating'>,
+  campPos: Point2D
+): boolean {
+  if (item.isFloating) return true;
+  if (level?.id === 'underwater') {
+    return item.y > campPos.y + 4;
+  }
+  if (level?.id === 'shipwreck') {
+    return !isInShipwreckAirPocket(item.x, item.y);
+  }
+  return false;
+}
+
+export function isEntityMurkyFar(
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  ent: Pick<PuzzleEntity, 'id' | 'isPreset' | 'isGatekeeper'>,
+  visualPos: Point2D,
+  heroPos: Point2D | null | undefined
+): boolean {
+  if (!level?.mechanics?.hasMurkyWater || !heroPos) return false;
+  if (
+    ent.isPreset ||
+    ent.isGatekeeper ||
+    ent.id === 'sea_witch' ||
+    ent.id === 'dolphin_1' ||
+    ent.id === 'captains_chest'
+  ) {
+    return false;
+  }
+  return Math.hypot(visualPos.x - heroPos.x, visualPos.y - heroPos.y) > UNDERWATER_INSPECT_RADIUS;
+}
+
+export function shouldRefillAirOnTrade(
+  entity: Pick<PuzzleEntity, 'id'>,
+  transformedJustEnded: boolean
+): boolean {
+  return transformedJustEnded || entity.id.startsWith('mermaid');
+}
+
+export function getAquaticHeroFace({
+  isDrowning,
+  isTransformed,
+  isInventoryFullAlert,
+  isSubmerged
+}: {
+  isDrowning: boolean;
+  isTransformed: boolean;
+  isInventoryFullAlert: boolean;
+  isSubmerged: boolean;
+}): string {
+  if (isDrowning) return '😵';
+  if (isTransformed) return '🧜‍♂️';
+  if (isInventoryFullAlert) return '😥';
+  if (isSubmerged) return '🤿';
+  return '🤠';
 }
 
 /**
@@ -333,7 +511,8 @@ export function verifyUnderwaterAirSolvability(
   level: Pick<LevelDefinition, 'campPos' | 'mechanics'>,
   puzzle: Pick<PuzzleData, 'puzzleEntities'> | null | undefined
 ): UnderwaterAirSolvabilityResult {
-  const maxMovesBetweenRefills = Math.floor(MAX_AIR / UNDERWATER_AIR_COST_FULL_BAG);
+  const effectiveMaxAir = getMaxAir(level);
+  const maxMovesBetweenRefills = Math.floor(effectiveMaxAir / UNDERWATER_AIR_COST_FULL_BAG);
   if (!puzzle || !Array.isArray(puzzle.puzzleEntities)) {
     return { solvable: false, maxMovesBetweenRefills, unreachableEntities: [] };
   }
@@ -447,7 +626,7 @@ export function verifyUnderwaterAirSolvability(
     const minBack = Math.min(...nodes.map((n, idx) => (n.isSurface ? distFromNode[idx] : Infinity)));
 
     const reachableOnFullBagOneWay = minOut <= maxMovesBetweenRefills;
-    const roundTripOnNormalAir = minOut + minBack <= MAX_AIR;
+    const roundTripOnNormalAir = minOut + minBack <= effectiveMaxAir;
     if (!reachableOnFullBagOneWay || !roundTripOnNormalAir) {
       unreachableEntities.push(node.id);
     }

@@ -1,5 +1,5 @@
 import React, { Fragment, type CSSProperties, type MouseEvent } from 'react';
-import { UNDERWATER_INSPECT_RADIUS } from '../constants.ts';
+import { isEntityMurkyFar } from '../logic/underwater.ts';
 import {
   GiantClamSVG,
   SeaWitchGrottoSVG,
@@ -155,17 +155,11 @@ export function GameEntity({
     isFlipped = Boolean(customMove.flip);
   }
 
-  const heroDist = displayPlayerPos
-    ? Math.hypot(visualX - displayPlayerPos.x, visualY - displayPlayerPos.y)
-    : 0;
-  const isMurkyFar = Boolean(
-    level.mechanics.hasMurkyWater &&
-    !ent.isPreset &&
-    !ent.isGatekeeper &&
-    ent.id !== 'sea_witch' &&
-    ent.id !== 'dolphin_1' &&
-    ent.id !== 'captains_chest' &&
-    heroDist > UNDERWATER_INSPECT_RADIUS
+  const isMurkyFar = isEntityMurkyFar(
+    level,
+    ent,
+    { x: visualX, y: visualY },
+    displayPlayerPos
   );
 
   const worldWidth = puzzle?.geometry?.worldWidth || 100;
@@ -265,7 +259,10 @@ export function GameEntity({
                       {i < arr.length - 1 && <span className="text-sm mx-1 text-stone-500 font-black">{effectiveTooltipReqType === 'AND' ? '&' : dict.or}</span>}
                     </Fragment>
                   ))}
-                  {level.id === 'underwater' && isWitch && isTransformed && (
+                  {isWitch && !isTransformed && level.id === 'underwater' && (
+                    <span className="text-sm font-black text-purple-700 ml-1" style={{ textShadow: 'none' }}>➔ 🧜‍♂️</span>
+                  )}
+                  {isWitch && isTransformed && (
                     <span className="text-sm font-black text-emerald-700 ml-1" style={{ textShadow: 'none' }}>➔ 🤠</span>
                   )}
                   {level.id === 'underwater' && !isGoal && !isWitch && ent.id === 'dolphin_1' && (

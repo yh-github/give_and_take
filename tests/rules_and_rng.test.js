@@ -155,8 +155,8 @@ describe('Deterministic Level Generation & Underwater Fixes', () => {
     }
   });
 
-  it('scales quest chain length with targetSteps (3, 5, 8) and respects numDiggers (0..3) across all 3 levels', () => {
-    for (const levelId of ['river_crossing', 'underground', 'underwater']) {
+  it('scales quest chain length with targetSteps (3, 5, 8) and respects numDiggers (0..3) across all 4 levels', () => {
+    for (const levelId of ['river_crossing', 'underground', 'underwater', 'shipwreck']) {
       const level = LEVEL_REGISTRY[levelId];
       const easy = generateLevelPuzzle(level, 3, 0, 'scale-seed');
       const medium = generateLevelPuzzle(level, 5, 2, 'scale-seed');

@@ -53,9 +53,9 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
     it('keeps Giant Clams open over time (no timer), closes any clam on inspect-click, and reopens on Undo & trade', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const underwater = LEVEL_REGISTRY.underwater;
-      const basePuzzle = generateUnderwaterPuzzle(underwater, 5, 1, 'clam-click-close-seed');
+      const basePuzzle = generateUnderwaterPuzzle(underwater, 5, 2, 'clam-click-close-seed');
 
-      // Ensure predictable test clams (one clam_0 and one giant_clam_1) with distinct rewards
+      // Ensure predictable test clams (clam_0 and clam_1) with distinct rewards
       let clamSeen = 0;
       const patchedEntities = basePuzzle.puzzleEntities.map((ent) => {
         if (ent.id.startsWith('clam') || ent.id.startsWith('giant_clam')) {
@@ -75,7 +75,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
       const savedState = createSavePayload({
         levelId: 'underwater',
         targetSteps: 5,
-        numDiggers: 1,
+        numDiggers: 2,
         puzzle: testPuzzle,
         inventory: ['sea_kelp'],
         isTransformed: true,
@@ -323,7 +323,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
   });
 
   describe('Ship Wreck Gameplay UI Integration', () => {
-    it('starts as Merman with AirIndicator hidden, blocks Air Pocket until Witch transformation, then lets Human win with 16 air', async () => {
+    it('starts as Merman with AirIndicator hidden, blocks Air Pocket until Witch transformation, then lets Human win with 10 air', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const shipwreck = LEVEL_REGISTRY.shipwreck;
       const basePuzzle = generateShipwreckPuzzle(shipwreck, 4, 0, 'sw-ui-win');
@@ -339,7 +339,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         puzzle: basePuzzle,
         inventory: [...reqItems, ...chestReqs],
         isTransformed: true,
-        air: 16,
+        air: 10,
         pathHistory: [{ x: 17, y: 81, zone: 1 }]
       });
 
@@ -386,9 +386,9 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         vi.advanceTimersByTime(ACTION_ANIM_MS + 1600);
       });
 
-      // Transformed to Human with 16/16 AirIndicator
+      // Transformed to Human with 10/10 AirIndicator
       expect(screen.getByTestId('air-indicator')).toBeDefined();
-      expect(screen.getByTestId('air-count-badge').textContent).toBe('16/16');
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('10/10');
       expect(screen.getByText('🤿')).toBeDefined();
 
       // Select chest lock key(s), then Human swims across the waterline into the dry bow Air Pocket to claim Captain's Treasure and win!
@@ -409,7 +409,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
       expect(screen.getByText(STRINGS.en.questComplete)).toBeDefined();
     });
 
-    it('opens OutOfAirModal with Sea Witch return button when Human runs out of air, drops floating items in wreck, and refills to 16', async () => {
+    it('opens OutOfAirModal to float up into the Air Pocket when Human runs out of air inside ship, drops floating items, and refills to 10', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const shipwreck = LEVEL_REGISTRY.shipwreck;
       const basePuzzle = generateShipwreckPuzzle(shipwreck, 5, 1, 'sw-out-of-air');
@@ -438,7 +438,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         />
       );
 
-      expect(screen.getByTestId('air-count-badge').textContent).toBe('1/16');
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('1/10');
       const heroContainer = screen.getByText('🤿').closest('[class*="transform"]');
       const innerMap = heroContainer.parentElement;
 
@@ -466,7 +466,7 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
       });
 
       expect(screen.getByTestId('out-of-air-modal')).toBeDefined();
-      expect(screen.getByTestId('out-of-air-confirm').textContent).toBe(STRINGS.en.outOfAirWitchBtn);
+      expect(screen.getByTestId('out-of-air-confirm').textContent).toBe(STRINGS.en.outOfAirAirPocketBtn);
 
       await act(async () => {
         fireEvent.click(screen.getByTestId('out-of-air-item-pearl'));
@@ -479,14 +479,110 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
         vi.advanceTimersByTime(DROWNING_RETURN_DELAY_MS + 100);
       });
       await act(async () => {
-        vi.advanceTimersByTime(16 * AIR_REFILL_INTERVAL_MS + 200);
+        vi.advanceTimersByTime(10 * AIR_REFILL_INTERVAL_MS + 200);
       });
 
-      expect(screen.getByTestId('air-count-badge').textContent).toBe('16/16');
+      // Hero floated up into the dry Air Pocket (🤠) with 10/10 air and dropped trident floating inside wreck
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('10/10');
+      expect(screen.getByText('🤠')).toBeDefined();
       expect(screen.getByTestId('floating-item-trident')).toBeDefined();
       expect(AIR_POCKET_Y).toBe(33);
       expect(SHIPWRECK_SCREENS_X).toBe(2.2);
       expect(SHIPWRECK_SCREENS_Y).toBe(1.25);
+    });
+
+    it('shows Lost-at-Sea restart popup and resets level when Human runs out of air outside the ship, and enforces 4/4 heavy penalty & floating anchor drops', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const shipwreck = LEVEL_REGISTRY.shipwreck;
+      const basePuzzle = generateShipwreckPuzzle(shipwreck, 5, 1, 'sw-outside-drown');
+
+      const savedState = createSavePayload({
+        levelId: 'shipwreck',
+        targetSteps: 5,
+        numDiggers: 1,
+        puzzle: basePuzzle,
+        inventory: ['pearl', 'trident', 'shell', 'gem'],
+        isTransformed: false,
+        air: 2,
+        pathHistory: [{ x: 17, y: 81, zone: 1 }]
+      });
+
+      render(
+        <GameInstance
+          level={shipwreck}
+          targetSteps={5}
+          numDiggers={1}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={savedState}
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+
+      // Unified heavy diving penalty active in shipwreck (4/4 bag)
+      expect(screen.getByTestId('heavy-air-badge')).toBeDefined();
+      expect(screen.getByTestId('hero-heavy-badge')).toBeDefined();
+
+      const heroContainer = screen.getByText('🤿').closest('[class*="transform"]');
+      const innerMap = heroContainer.parentElement;
+      vi.spyOn(innerMap, 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 900,
+        right: 400,
+        bottom: 900,
+        x: 0,
+        y: 0,
+        toJSON: () => {}
+      });
+
+      // Move outside hull on 2 air with 4/4 heavy bag -> costs 2 air -> 0 air outside ship!
+      await act(async () => {
+        fireEvent.click(innerMap, { clientX: 60, clientY: 585 }); // (15, 65) outside hull
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(1500);
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(DROWNING_ALERT_DELAY_MS + 100);
+      });
+
+      expect(screen.getByTestId('out-of-air-restart-modal')).toBeDefined();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('out-of-air-restart-btn'));
+      });
+
+      // Level restarts back to initial Merman state at camp with empty inventory
+      expect(screen.queryByTestId('out-of-air-restart-modal')).toBeNull();
+      expect(screen.getByText('🧜‍♂️')).toBeDefined();
+      expect(screen.getByText('0/4')).toBeDefined();
+
+      // Separately verify manual drop at shipwreck seabed anchor renders inside cyan floating bubble
+      cleanup();
+      render(
+        <GameInstance
+          level={shipwreck}
+          targetSteps={5}
+          numDiggers={1}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={savedState}
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /💎/ }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('shipwreck-anchor-camp'));
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(screen.getByTestId('floating-item-gem')).toBeDefined();
     });
   });
 });

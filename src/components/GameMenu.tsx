@@ -6,6 +6,13 @@ import {
   detectDeepCavePresetId,
   normalizeDeepCaveSettings
 } from '../levels/deep_cave/presets.ts';
+import {
+  SEA_PRESETS,
+  SEA_KNOB_DEFS,
+  detectSeaPresetId,
+  normalizeSeaSettings,
+  type SeaKnobKey
+} from '../levels/sea_shared/presets.ts';
 import type {
   ActiveGameSettings,
   DeepCaveKnobKey,
@@ -79,13 +86,6 @@ export function GeneratingScreen({ dict, isDeepCave = false }: GeneratingScreenP
   );
 }
 
-const SHIPWRECK_PRESETS: Record<'easy' | 'normal' | 'hard' | 'expert', { steps: number; diggers: number }> = {
-  easy: { steps: 4, diggers: 0 },
-  normal: { steps: 6, diggers: 1 },
-  hard: { steps: 7, diggers: 2 },
-  expert: { steps: 8, diggers: 3 }
-};
-
 export interface GameMenuProps {
   isOpen: boolean;
   onClose: () => void;
@@ -142,18 +142,18 @@ export function GameMenu({
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [showAdvancedDeepCave, setShowAdvancedDeepCave] = useState(false);
+  const [showAdvancedSea, setShowAdvancedSea] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const resolvedDeepCaveSettings: DeepCaveSettings = normalizeDeepCaveSettings(
     menuSettings.deepCaveSettings || DEFAULT_DEEP_CAVE_SETTINGS
   );
   const activePresetId = detectDeepCavePresetId(resolvedDeepCaveSettings);
-  const activeShipwreckPresetId = (
-    (Object.keys(SHIPWRECK_PRESETS) as Array<keyof typeof SHIPWRECK_PRESETS>).find(
-      (id) => SHIPWRECK_PRESETS[id].steps === menuSettings.steps && SHIPWRECK_PRESETS[id].diggers === menuSettings.diggers
-    ) ||
-    (menuSettings.steps <= 4 ? 'easy' : menuSettings.steps <= 6 ? 'normal' : menuSettings.steps === 7 ? 'hard' : 'expert')
-  );
+  const resolvedSeaSettings = normalizeSeaSettings({
+    targetSteps: menuSettings.steps,
+    numDiggers: menuSettings.diggers
+  });
+  const activeSeaPresetId = detectSeaPresetId(resolvedSeaSettings);
 
   const handleSelectLevel = (newLevelId: string) => {
     if (newLevelId === 'deep_cave') {
@@ -167,13 +167,16 @@ export function GameMenu({
         diggers: nextDeep.numDiggers,
         deepCaveSettings: nextDeep
       });
-    } else if (newLevelId === 'shipwreck') {
-      const preset = SHIPWRECK_PRESETS[activeShipwreckPresetId];
+    } else if (newLevelId === 'underwater' || newLevelId === 'shipwreck') {
+      const nextSea = normalizeSeaSettings({
+        targetSteps: menuSettings.steps,
+        numDiggers: menuSettings.diggers
+      });
       setMenuSettings({
         ...menuSettings,
         levelId: newLevelId,
-        steps: preset.steps,
-        diggers: preset.diggers
+        steps: nextSea.targetSteps,
+        diggers: nextSea.numDiggers
       });
     } else {
       const clampedSteps = Math.max(3, Math.min(8, Number(menuSettings.steps) || 5));
@@ -209,6 +212,18 @@ export function GameMenu({
       steps: nextDeep.targetSteps,
       diggers: nextDeep.numDiggers,
       deepCaveSettings: nextDeep
+    });
+  };
+
+  const handleUpdateSeaKnob = (key: SeaKnobKey, rawValue: string) => {
+    const nextSea = normalizeSeaSettings({
+      ...resolvedSeaSettings,
+      [key]: Number(rawValue)
+    });
+    setMenuSettings({
+      ...menuSettings,
+      steps: nextSea.targetSteps,
+      diggers: nextSea.numDiggers
     });
   };
 
@@ -410,28 +425,33 @@ export function GameMenu({
                     )}
                   </div>
                 </div>
-              ) : menuSettings.levelId === 'shipwreck' ? (
-                <div className="space-y-3 pt-1">
+              ) : (menuSettings.levelId === 'underwater' || menuSettings.levelId === 'shipwreck') ? (
+                <div className="space-y-4 pt-1">
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between font-bold text-base">
                       <span>{dict.difficultyPreset || 'Difficulty Preset:'}</span>
-                      <span className="text-xs font-mono text-amber-300">
-                        {menuSettings.steps} {lang === 'he' ? 'שלבים' : 'steps'}
-                      </span>
+                      {activeSeaPresetId === 'custom' && (
+                        <span
+                          data-testid="sea-custom-badge"
+                          className="text-xs font-sans font-bold px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500 text-amber-300"
+                        >
+                          {dict.presets?.custom || 'Custom'}
+                        </span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {(Object.keys(SHIPWRECK_PRESETS) as Array<keyof typeof SHIPWRECK_PRESETS>).map((presetId) => {
-                        const isSelected = activeShipwreckPresetId === presetId;
+                      {(Object.keys(SEA_PRESETS) as Array<Exclude<keyof typeof SEA_PRESETS, never>>).map((presetId) => {
+                        const isSelected = activeSeaPresetId === presetId;
                         const label = dict.presets?.[presetId] || presetId;
                         return (
                           <button
                             key={presetId}
                             type="button"
-                            data-testid={`shipwreck-preset-${presetId}`}
+                            data-testid={`sea-preset-${presetId}`}
                             onClick={() => setMenuSettings({
                               ...menuSettings,
-                              steps: SHIPWRECK_PRESETS[presetId].steps,
-                              diggers: SHIPWRECK_PRESETS[presetId].diggers
+                              steps: SEA_PRESETS[presetId].targetSteps,
+                              diggers: SEA_PRESETS[presetId].numDiggers
                             })}
                             className={`py-2 px-2 rounded-lg font-bold text-sm border-2 transition-all ${
                               isSelected
@@ -444,6 +464,41 @@ export function GameMenu({
                         );
                       })}
                     </div>
+                  </div>
+
+                  <div className="border-t border-stone-700 pt-2">
+                    <button
+                      type="button"
+                      data-testid="toggle-sea-advanced-settings"
+                      onClick={() => setShowAdvancedSea(prev => !prev)}
+                      className="w-full flex items-center justify-between text-sm font-bold text-amber-300 hover:text-amber-200 py-1.5"
+                    >
+                      <span>{dict.advancedSettings || 'Advanced Settings'}</span>
+                      <span className="font-mono">{showAdvancedSea ? '▾' : '▸'}</span>
+                    </button>
+
+                    {showAdvancedSea && (
+                      <div className="mt-2 space-y-3 bg-stone-900/70 border border-stone-700 rounded-xl p-3">
+                        {(Object.entries(SEA_KNOB_DEFS) as Array<[SeaKnobKey, { min: number; max: number; step: number }]>).map(([knobKey, def]) => (
+                          <label key={knobKey} className="flex flex-col gap-1 text-sm font-bold">
+                            <span className="flex justify-between text-stone-300">
+                              <span>{knobKey === 'numDiggers' ? (dict.diggersMemory || dict.knobs?.[knobKey] || knobKey) : (dict.knobs?.[knobKey] || knobKey)}</span>
+                              <span className="text-amber-400 font-mono">{resolvedSeaSettings[knobKey]}</span>
+                            </span>
+                            <input
+                              type="range"
+                              min={def.min}
+                              max={def.max}
+                              step={def.step}
+                              data-testid={`sea-knob-${knobKey}`}
+                              value={resolvedSeaSettings[knobKey]}
+                              onChange={(e) => handleUpdateSeaKnob(knobKey, e.target.value)}
+                              className="w-full accent-amber-500 h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

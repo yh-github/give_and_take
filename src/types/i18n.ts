@@ -58,6 +58,11 @@ export interface TranslationDictionary {
   outOfAirWitchSingle: string;
   outOfAirWitchEmpty: string;
   outOfAirWitchBtn: string;
+  outOfAirAirPocketSingle: string;
+  outOfAirAirPocketEmpty: string;
+  outOfAirAirPocketBtn: string;
+  outOfAirLostAtSea: string;
+  outOfAirRestartBtn: string;
   outOfAirKeepBadge: string;
   outOfAirDropFloat: string;
   outOfAirFishGone: string;

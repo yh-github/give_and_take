@@ -93,17 +93,18 @@ describe('Levels Registry & Schema Regression Suite', () => {
   });
 
   describe('Underwater specific mechanics integrity', () => {
-    it('has air mechanic enabled and vertical screens configured', () => {
+    it('has 10 maxAir, air mechanic enabled and vertical screens configured', () => {
       expect(underwater.mechanics.hasAir).toBe(true);
+      expect(underwater.mechanics.maxAir).toBe(10);
       expect(underwater.mechanics.isVertical).toBe(true);
       expect(underwater.mechanics.hasTransformation).toBe(true);
     });
   });
 
   describe('Shipwreck specific mechanics integrity', () => {
-    it('starts transformed on seabed with 16 maxAir, 2D pan, wall collision, and radial underwater visibility', () => {
+    it('starts transformed on seabed with 10 maxAir, 2D pan, wall collision, and radial underwater visibility', () => {
       expect(shipwreck.mechanics.hasAir).toBe(true);
-      expect(shipwreck.mechanics.maxAir).toBe(16);
+      expect(shipwreck.mechanics.maxAir).toBe(10);
       expect(shipwreck.mechanics.hasTransformation).toBe(true);
       expect(shipwreck.mechanics.startsTransformed).toBe(true);
       expect(shipwreck.mechanics.hasWalls).toBe(true);

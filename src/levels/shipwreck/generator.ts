@@ -79,7 +79,7 @@ export function generateShipwreckPuzzle(
 
   const difficultySteps = Math.max(3, Number(targetSteps) || 5);
   const misdirectionLevel = Math.max(0, Math.min(3, Number.isFinite(Number(numDiggers)) ? Number(numDiggers) : 1));
-  const useTwoLockChest = difficultySteps >= 7 || misdirectionLevel >= 2;
+  const useTwoLockChest = difficultySteps >= 7;
 
   for (let attempt = 0; attempt < GENERATOR_MAX_ATTEMPTS; attempt++) {
     if (Date.now() - startTime > SOLVER_TIME_LIMIT_MS) break;
@@ -106,12 +106,20 @@ export function generateShipwreckPuzzle(
       });
     });
 
-    // 2. Build candidate Giant Clams & Crab/Octopus traders
+    // 2. Build candidate Giant Clams (exact count = numDiggers) & Crab/Octopus traders
+    const rawDiggers = numDiggers === undefined || numDiggers === null ? 1 : Number(numDiggers);
+    const clampedClams = Math.max(0, Math.min(3, Number.isFinite(rawDiggers) ? Math.round(rawDiggers) : 1));
     const shuffledClamNodes = shuffle(clamNodes, rng);
     const shuffledCreatureNodes = shuffle(creatureNodes, rng);
     const creatureRoster: EntityTemplate[] = shuffle([crabTpl, octopusTpl, crabTpl, octopusTpl], rng);
 
-    const clamTraders: PuzzleEntity[] = shuffledClamNodes.map((node, idx) => ({
+    const activeClamNodes = shuffledClamNodes.slice(0, clampedClams);
+    const remainingNodesForCreatures = [
+      ...shuffledCreatureNodes,
+      ...shuffledClamNodes.slice(clampedClams)
+    ];
+
+    const clamTraders: PuzzleEntity[] = activeClamNodes.map((node, idx) => ({
       ...clamTpl,
       id: `clam_${idx}`,
       emoji: '🐚',
@@ -124,7 +132,7 @@ export function generateShipwreckPuzzle(
       isGatekeeper: false
     }));
 
-    const creatureTraders: PuzzleEntity[] = shuffledCreatureNodes.map((node, idx) => {
+    const creatureTraders: PuzzleEntity[] = remainingNodesForCreatures.map((node, idx) => {
       const tpl = creatureRoster[idx % creatureRoster.length];
       return {
         ...tpl,
@@ -140,7 +148,7 @@ export function generateShipwreckPuzzle(
       };
     });
 
-    // Determine how many traders are active: required chain traders + difficulty-scaled misdirections (clams first!)
+    // Ensure all `clampedClams` Giant Clams are included in the puzzle (either in core chain or active decoys)
     const chestReqs = useTwoLockChest ? ['anchor_key', 'compass'] : ['anchor_key'];
     const availableWitchTreasures = shuffle(
       WITCH_TREASURE_POOL.filter((id) => !chestReqs.includes(id)),
@@ -160,12 +168,13 @@ export function generateShipwreckPuzzle(
     const decoyReward = availableIntermediates[2] || 'shell';
 
     const coreTraders = shuffle(
-      [...clamTraders.slice(0, 3), ...creatureTraders.slice(0, 3)],
+      [...clamTraders, ...creatureTraders.slice(0, Math.max(0, 7 - clamTraders.length))],
       rng
     );
+    const coreIds = new Set(coreTraders.map((t) => t.id));
     const extraDecoyPool = [
-      ...clamTraders.slice(3),
-      ...creatureTraders.slice(3)
+      ...clamTraders.filter((t) => !coreIds.has(t.id)),
+      ...creatureTraders.filter((t) => !coreIds.has(t.id))
     ];
 
     let requiredCount: number;
@@ -308,14 +317,17 @@ export function generateShipwreckPuzzle(
       ...extraDecoyPool.filter((t) => !t.id.startsWith('clam'))
     ];
 
-    // Scale number of misdirection traders with both difficultySteps and numDiggers
-    const targetExtraDecoys =
+    // Scale number of misdirection traders with both difficultySteps and numDiggers, ensuring all clampedClams appear
+    const unusedClamsCount = orderedDecoys.filter((t) => t.id.startsWith('clam')).length;
+    const targetExtraDecoys = Math.max(
+      unusedClamsCount,
       difficultySteps >= 8 || misdirectionLevel >= 3
         ? orderedDecoys.length
         : Math.min(
             orderedDecoys.length,
             Math.max(1, (difficultySteps >= 7 ? 3 : difficultySteps >= 5 ? 2 : 1) + misdirectionLevel)
-          );
+          )
+    );
 
     const decoyInputs = shuffle([...DECOY_INPUT_POOL], rng);
     for (let i = 0; i < targetExtraDecoys; i++) {

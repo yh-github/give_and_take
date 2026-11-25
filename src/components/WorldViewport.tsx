@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, type MouseEvent, type RefObject } from 'react';
 import { DROWNING_RETURN_DELAY_MS } from '../constants.ts';
-import { getSchoolFishPosition } from '../logic/underwater.ts';
-import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG } from '../levels/underwater/components.tsx';
+import { getSchoolFishPosition, isCampItemFloating } from '../logic/underwater.ts';
+import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG, UnderwaterWaterOverlay } from '../levels/underwater/components.tsx';
 import { ShipwreckWaterOverlay } from '../levels/shipwreck/components.tsx';
 import { reefKelpHabitats, type ReefKelpHabitat } from '../levels/underwater/data.ts';
 import { CaveEntranceProp } from '../levels/river_crossing/components.tsx';
@@ -320,6 +320,7 @@ export function WorldViewport({
     >
       <Background geometry={puzzle?.geometry} isTransformed={isTransformed} />
 
+      {level.id === 'underwater' && <UnderwaterWaterOverlay />}
       {level.id === 'shipwreck' && <ShipwreckWaterOverlay isTransformed={isTransformed} />}
 
       <FogOverlay 
@@ -461,9 +462,7 @@ export function WorldViewport({
         const itemData = level.items.find(i => i.id === item.id);
         if (!itemData) return null;
         const isAlerting = alertEntityId === item.uid;
-        const isUnderwaterFloating =
-          (level.id === 'underwater' && (Boolean(item.isFloating) || item.y > effectiveCampPos.y + 4)) ||
-          (level.id === 'shipwreck' && Boolean(item.isFloating));
+        const isUnderwaterFloating = isCampItemFloating(level, item, effectiveCampPos);
         return (
           <div key={item.uid} onClick={(e) => handleCampItemClick(e, item)} className={`absolute transform -translate-x-1/2 -translate-y-1/2 z-[115] cursor-pointer hover:scale-125 transition-transform ${isAlerting ? 'animate-troll-mad' : ''}`} style={{ left: `${toCssX(item.x)}%`, top: `${toCssY(item.y)}%` }}>
             {isUnderwaterFloating ? (
@@ -487,11 +486,13 @@ export function WorldViewport({
           style={{
             left: `${toCssX(effectiveCampPos.x)}%`,
             top: `${toCssY(effectiveCampPos.y)}%`,
-            zIndex: (level.id === 'underwater' || level.id === 'shipwreck')
-              ? 112
-              : (Math.hypot(effectiveCampPos.x - displayPlayerPos.x, effectiveCampPos.y - displayPlayerPos.y) < 28)
-                ? 110
-                : 30
+            zIndex: level.id === 'underwater'
+              ? 115
+              : level.id === 'shipwreck'
+                ? 112
+                : (Math.hypot(effectiveCampPos.x - displayPlayerPos.x, effectiveCampPos.y - displayPlayerPos.y) < 28)
+                  ? 110
+                  : 30
           }}
         >
           <div className="relative">

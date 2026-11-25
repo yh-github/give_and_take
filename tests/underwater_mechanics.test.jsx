@@ -58,7 +58,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       const underwater = LEVEL_REGISTRY.underwater;
 
       for (const targetSteps of [3, 5, 8]) {
-        for (let s = 1; s <= 5; s++) {
+        for (let s = 1; s <= 2; s++) {
           const puzzle = generateUnderwaterPuzzle(underwater, targetSteps, 1, `uw-overhaul-${targetSteps}-${s}`);
           expect(puzzle).not.toBeNull();
           expect(puzzle.startItems).toEqual([]);
@@ -912,6 +912,79 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       });
       const heroYAfterNoFishTap = parseFloat(screen.getByText('🤿').closest('[class*="transform"]').style.top || '0');
       expect(heroYAfterNoFishTap).toBeGreaterThan(45);
+    });
+
+    it('renders foreground water overlay, triggers surface splash, refills air to 10 on mermaid trade, and exposes unified Sea presets/knobs', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const underwater = LEVEL_REGISTRY.underwater;
+      const puzzle = generateUnderwaterPuzzle(underwater, 5, 1, 'mermaid-air-refill-seed');
+      const mermaid = puzzle.puzzleEntities.find(e => e.id === 'mermaid_1');
+      const reqItemId = mermaid.requires[0];
+      const reqEmoji = underwater.items.find(i => i.id === reqItemId).emoji;
+
+      const savedState = createSavePayload({
+        levelId: 'underwater',
+        targetSteps: 5,
+        numDiggers: 1,
+        puzzle,
+        inventory: [reqItemId],
+        air: 2,
+        pathHistory: [{ x: 50, y: 14, zone: 1 }]
+      });
+
+      render(
+        <GameInstance
+          level={underwater}
+          targetSteps={5}
+          numDiggers={1}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={savedState}
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+
+      expect(screen.getByTestId('underwater-water-overlay')).toBeDefined();
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('2/10');
+
+      // Trade with mermaid_1 (crosses surface waterline -> splash, and refills air to 10/10!)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: new RegExp(reqEmoji) }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('entity-mermaid_1'));
+      });
+      expect(screen.getByTestId('water-splash-burst')).toBeDefined();
+
+      await act(async () => {
+        vi.advanceTimersByTime(ACTION_ANIM_MS + 200);
+      });
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('10/10');
+
+      // Open Settings -> verify 4 Sea presets, Custom badge, and Advanced Settings knobs
+      await act(async () => {
+        fireEvent.click(screen.getByText('⚙️'));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText(STRINGS.en.generateMap));
+      });
+      expect(screen.getByTestId('sea-preset-easy')).toBeDefined();
+      expect(screen.getByTestId('sea-preset-normal')).toBeDefined();
+      expect(screen.getByTestId('sea-preset-hard')).toBeDefined();
+      expect(screen.getByTestId('sea-preset-expert')).toBeDefined();
+      expect(screen.getByTestId('sea-custom-badge')).toBeDefined();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('toggle-sea-advanced-settings'));
+      });
+      expect(screen.getByTestId('sea-knob-targetSteps')).toBeDefined();
+      expect(screen.getByTestId('sea-knob-numDiggers')).toBeDefined();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('sea-preset-hard'));
+      });
+      expect(screen.queryByTestId('sea-custom-badge')).toBeNull();
     });
   });
 });

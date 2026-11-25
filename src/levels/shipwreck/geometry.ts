@@ -13,6 +13,11 @@ export const SHIPWRECK_WORLD_HEIGHT = 100;
 export const AIR_POCKET_Y = 33;
 export const AIR_POCKET_LEFT_X = 65;
 export const AIR_POCKET_RIGHT_X = 94;
+export const SHIPWRECK_AIR_POCKET_RETURN_POS: Readonly<Point2D & { zone: number }> = {
+  x: 80,
+  y: 27,
+  zone: 5
+};
 
 /**
  * Outer upper hull polyline from the shattered stern upper edge to the unbroken bow waterline.
@@ -56,6 +61,14 @@ export const AIR_POCKET_POLYGON: readonly Point2D[] = [
 ];
 
 /**
+ * Closed polygon of the entire crashed Ship Wreck hull (flooded rooms + bow Air Pocket).
+ */
+export const SHIPWRECK_HULL_POLYGON: readonly Point2D[] = [
+  ...HULL_UPPER_ROOF,
+  ...HULL_LOWER_KEEL.slice(0, -1).reverse()
+];
+
+/**
  * Interior tilted bulkheads and broken deck beams (1:1 shared with SVG artwork).
  */
 export const SHIPWRECK_BULKHEAD_SEGMENTS: readonly { a: Point2D; b: Point2D }[] = [
@@ -77,6 +90,11 @@ export const SHIPWRECK_WALL_POLYLINES: readonly WallPolylineObject[] = [
 export function isInShipwreckAirPocket(x: number, y: number): boolean {
   if (y > AIR_POCKET_Y || x < 63 || x > 96) return false;
   return isPointInPolygon({ x, y }, AIR_POCKET_POLYGON);
+}
+
+export function isInsideShipwreckHull(x: number, y: number): boolean {
+  if (x < 22 || x > 96 || y < 10 || y > 82) return false;
+  return isPointInPolygon({ x, y }, SHIPWRECK_HULL_POLYGON);
 }
 
 /**

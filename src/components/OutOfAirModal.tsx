@@ -7,7 +7,9 @@ export interface OutOfAirModalProps {
   level: LevelDefinition;
   dict: TranslationDictionary;
   lang: LanguageCode;
+  lostAtSea?: boolean;
   onConfirmKeep: (keepItemId: string | null) => void;
+  onRestartLevel?: () => void;
 }
 
 interface OutOfAirItemEntry {
@@ -23,7 +25,9 @@ export function OutOfAirModal({
   level,
   dict,
   lang,
-  onConfirmKeep
+  lostAtSea = false,
+  onConfirmKeep,
+  onRestartLevel
 }: OutOfAirModalProps) {
   const uniqueEntries = useMemo<OutOfAirItemEntry[]>(() => {
     const counts = new Map<string, number>();
@@ -58,9 +62,43 @@ export function OutOfAirModal({
   const singleEntry = items.length === 1 ? uniqueEntries[0] : null;
   const canConfirm = !needsChoice || selectedKeepId !== null;
   const isShipwreck = level.id === 'shipwreck';
-  const singleItemText = isShipwreck ? (dict.outOfAirWitchSingle || dict.outOfAirSingleItem) : dict.outOfAirSingleItem;
-  const emptyText = isShipwreck ? (dict.outOfAirWitchEmpty || dict.outOfAirEmpty) : dict.outOfAirEmpty;
-  const returnBtnText = isShipwreck ? (dict.outOfAirWitchBtn || dict.outOfAirSurfaceBtn) : dict.outOfAirSurfaceBtn;
+  const singleItemText = isShipwreck ? (dict.outOfAirAirPocketSingle || dict.outOfAirSingleItem) : dict.outOfAirSingleItem;
+  const emptyText = isShipwreck ? (dict.outOfAirAirPocketEmpty || dict.outOfAirEmpty) : dict.outOfAirEmpty;
+  const returnBtnText = isShipwreck ? (dict.outOfAirAirPocketBtn || dict.outOfAirSurfaceBtn) : dict.outOfAirSurfaceBtn;
+
+  if (lostAtSea) {
+    return (
+      <div
+        data-testid="out-of-air-restart-modal"
+        role="dialog"
+        aria-modal="true"
+        dir={lang === 'he' ? 'rtl' : 'ltr'}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-0 z-[260] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans"
+      >
+        <div className="w-full max-w-sm rounded-3xl bg-gradient-to-b from-rose-950 to-slate-900 border-2 border-rose-400/85 shadow-[0_0_40px_rgba(244,63,94,0.45)] p-5 text-center text-white">
+          <div className="text-4xl mb-1 flex items-center justify-center gap-2 select-none">
+            <span>😵</span>
+            <span>🌊</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-rose-200 tracking-wide">
+            {dict.outOfAirTitle}
+          </h2>
+          <p className="mt-2.5 text-xs sm:text-sm text-rose-100 leading-snug">
+            {dict.outOfAirLostAtSea}
+          </p>
+          <button
+            type="button"
+            data-testid="out-of-air-restart-btn"
+            onClick={() => (onRestartLevel ? onRestartLevel() : onConfirmKeep(null))}
+            className="mt-4 w-full py-2.5 px-4 rounded-2xl font-black text-sm sm:text-base transition-all bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 shadow-lg cursor-pointer"
+          >
+            {dict.outOfAirRestartBtn || dict.restart}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

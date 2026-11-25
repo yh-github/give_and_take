@@ -187,16 +187,17 @@ export function generateUnderwaterPuzzle(
       });
     }
 
-    const clampedDiggers = Math.max(0, Math.min(3, numDiggers ?? 1));
+    const rawDiggers = numDiggers === undefined || numDiggers === null ? 1 : Number(numDiggers);
+    const clampedDiggers = Math.max(0, Math.min(3, Number.isFinite(rawDiggers) ? Math.round(rawDiggers) : 1));
     const shuffledClamNodes = shuffle(z3ClamNodes, rng);
     const deepTraders: PuzzleEntity[] = [];
+    const creatureTemplates: EntityTemplate[] = shuffle([octopusTpl, crabTpl], rng);
 
-    for (let i = 0; i < Math.min(3, shuffledClamNodes.length); i++) {
+    for (let i = 0; i < Math.min(clampedDiggers, shuffledClamNodes.length); i++) {
       const node = shuffledClamNodes[i];
-      const isMemoryClam = i < clampedDiggers;
       deepTraders.push({
         ...clamTpl,
-        id: isMemoryClam ? `clam_${i}` : `giant_clam_${i}`,
+        id: `clam_${i}`,
         emoji: '🐚',
         requires: ['sea_kelp'],
         reqType: 'OR',
@@ -208,8 +209,11 @@ export function generateUnderwaterPuzzle(
       });
     }
 
-    const creatureTemplates: EntityTemplate[] = shuffle([octopusTpl, crabTpl], rng);
-    z3CreatureNodes.slice(0, 2).forEach((node, idx) => {
+    const fallbackCreatureNodes = [
+      ...shuffledClamNodes.slice(Math.min(clampedDiggers, shuffledClamNodes.length)),
+      ...z3CreatureNodes
+    ];
+    fallbackCreatureNodes.slice(0, 5 - deepTraders.length).forEach((node, idx) => {
       const tpl = creatureTemplates[idx % creatureTemplates.length];
       deepTraders.push({
         ...tpl,

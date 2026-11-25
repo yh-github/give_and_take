@@ -13,8 +13,6 @@ import {
   DROWNING_RETURN_DELAY_MS,
   UNDERWATER_FISHING_MODE,
   UNDERWATER_INSPECT_RADIUS,
-  UNDERWATER_AIR_COST_NORMAL,
-  UNDERWATER_AIR_COST_FULL_BAG,
   UNDERWATER_ABYSS_DROWNING_Y,
   CANONICAL_SCREEN_HEIGHT,
   DEEP_CAVE_HERO_RADIUS
@@ -38,11 +36,23 @@ import {
   canDirectGrabFish,
   createSpookedFishState,
   findInterceptedFish,
+  getAquaticHeroFace,
   getBoatReqFishForTrinket,
+  getDivingAirCost,
+  getDivingMoveDurationMs,
+  getMaxAir,
+  getOutOfAirDropBounds,
   getSchoolFishPosition,
-  isUnderwaterBackpackFull,
   getUnderwaterMoveDurationMs,
+  getWaterlineSplashPoint,
+  isAtAirRefillZone,
+  isDivingLevel,
+  isHeavyDivingLoad,
+  isHeroSubmerged,
+  isUnderwaterBackpackFull,
   resolveOutOfAirDrop,
+  resolveShipwreckDrowningTarget,
+  shouldRefillAirOnTrade,
   shouldSpookFishFromPoint
 } from '../logic/underwater.ts';
 import type { ReefKelpHabitat } from '../levels/underwater/data.ts';
@@ -151,7 +161,7 @@ export function GameInstance({
   lang,
   setLang
 }: GameInstanceProps) {
-  const maxAir = level.mechanics.maxAir ?? MAX_AIR;
+  const maxAir = getMaxAir(level);
   const defaultTransformed = Boolean(level.mechanics.startsTransformed);
 
   const [puzzle, setPuzzle] = useState<PuzzleData | null>(() => savedState?.puzzle || null);
@@ -226,7 +236,7 @@ export function GameInstance({
   const [hasDeepTreasure, setHasDeepTreasure] = useState(() => Boolean(savedState?.hasDeepTreasure));
   const [inkFogEntities, setInkFogEntities] = useState<Set<string>>(() => new Set(savedState?.inkFogEntities || []));
   const [roamingBoats, setRoamingBoats] = useState<RoamingBoatState[]>([]);
-  const [outOfAirModal, setOutOfAirModal] = useState<{ items: string[]; dropPos: Point2D } | null>(null);
+  const [outOfAirModal, setOutOfAirModal] = useState<{ items: string[]; dropPos: Point2D; lostAtSea?: boolean } | null>(null);
   const [drowningFloatPos, setDrowningFloatPos] = useState<Point2D | null>(null);
   const [fishingCatch, setFishingCatch] = useState<{
     fish: SchoolFishState;
@@ -624,8 +634,8 @@ export function GameInstance({
   }, [puzzle, pathHistory, level.mechanics.isCaveType, level.mechanics.hasWalls, obstacleSegments, obstaclePolygons, useIsotropic, worldHeight, yScale]);
 
   const triggerAirLossBubbles = useCallback((x: number, y: number, isHeavy = false, countOverride?: number) => {
-    if (!level.mechanics.hasAir || isTransformedRef.current) return;
-    if (level.id === 'shipwreck' && isInShipwreckAirPocket(x, y)) return;
+    if (!isDivingLevel(level) || isTransformedRef.current) return;
+    if (!isHeroSubmerged(level, { x, y })) return;
     const burstId = Date.now() + Math.random();
     const bubbleCount = countOverride ?? (isHeavy ? 12 : 6);
     const bubbles = Array.from({ length: bubbleCount }, (_, i) => ({
@@ -640,7 +650,7 @@ export function GameInstance({
     scheduleTimeout(() => {
       setHeroBubbleBursts(prev => prev.filter(b => b.id !== burstId));
     }, 1600);
-  }, [level.mechanics.hasAir, scheduleTimeout]);
+  }, [level, scheduleTimeout]);
 
   const triggerWaterSplash = useCallback((x: number, y: number, intensity: 'normal' | 'bounce' = 'normal') => {
     const splashId = Date.now() + Math.random();
@@ -650,21 +660,26 @@ export function GameInstance({
     }, 850);
   }, [scheduleTimeout]);
 
+  const maybeTriggerWaterSplash = useCallback((fromPos: Point2D | null | undefined, toPos: Point2D | null | undefined) => {
+    if (level.id === 'shipwreck' && isTransformedRef.current) return;
+    const splashPt = getWaterlineSplashPoint(level, fromPos, toPos);
+    if (splashPt) {
+      triggerWaterSplash(splashPt.x, splashPt.y, 'normal');
+    }
+  }, [level, triggerWaterSplash]);
+
   const handlePostActionAir = useCallback((
     finalY: number,
     isVentAction = false,
     options?: { nextInventory?: string[]; wasFullBeforeMove?: boolean; dropPos?: Point2D }
   ) => {
-    if (!level.mechanics.hasAir || isTransformedRef.current) return;
+    if (!isDivingLevel(level) || isTransformedRef.current) return;
     const effectiveInv = options?.nextInventory ?? inventoryRef.current;
 
     const checkX = options?.dropPos?.x ?? effectiveCampPos.x;
-    const isAtShipwreckRefill =
-      level.id === 'shipwreck' &&
-      (isInShipwreckAirPocket(checkX, finalY) || Math.hypot(checkX - effectiveCampPos.x, finalY - effectiveCampPos.y) <= 10);
-    const isAtUnderwaterSurface = level.id !== 'shipwreck' && finalY <= 20;
+    const isAtRefill = isAtAirRefillZone(level, { x: checkX, y: finalY }, effectiveCampPos);
 
-    if (isAtShipwreckRefill || isAtUnderwaterSurface || isVentAction) {
+    if (isAtRefill || isVentAction) {
       airRef.current = maxAir;
       setAir(maxAir);
       if (level.id === 'underwater' && finalY <= 20 && hasDeepTreasure && !isTransformedRef.current && effectiveInv.includes('crown')) {
@@ -673,12 +688,7 @@ export function GameInstance({
       return;
     }
 
-    const isHeavyCost = level.id === 'underwater' && (
-      options?.wasFullBeforeMove !== undefined
-        ? options.wasFullBeforeMove
-        : isUnderwaterBackpackFull(effectiveInv)
-    );
-    const airCost = isHeavyCost ? UNDERWATER_AIR_COST_FULL_BAG : UNDERWATER_AIR_COST_NORMAL;
+    const airCost = getDivingAirCost(level, effectiveInv, isTransformedRef.current, options?.wasFullBeforeMove);
     const nextAir = Math.max(0, airRef.current - airCost);
 
     if (nextAir <= 0) {
@@ -686,19 +696,21 @@ export function GameInstance({
       setAir(0);
       const fallbackPos = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1] || level.campPos;
       const dropPos = options?.dropPos || { x: fallbackPos.x, y: fallbackPos.y };
+      const lostAtSea = level.id === 'shipwreck' && resolveShipwreckDrowningTarget(dropPos).mode === 'lost_at_sea';
       triggerAirLossBubbles(dropPos.x, dropPos.y, true, 18);
       setAlertEntityId('out_of_air');
       scheduleTimeout(() => {
         setOutOfAirModal({
           items: [...effectiveInv],
-          dropPos
+          dropPos,
+          lostAtSea
         });
       }, DROWNING_ALERT_DELAY_MS);
     } else {
       airRef.current = nextAir;
       setAir(nextAir);
     }
-  }, [level.id, level.mechanics.hasAir, level.campPos, effectiveCampPos, maxAir, hasDeepTreasure, triggerVictory, scheduleTimeout, triggerAirLossBubbles]);
+  }, [level, effectiveCampPos, maxAir, hasDeepTreasure, triggerVictory, scheduleTimeout, triggerAirLossBubbles]);
 
   const startDolphinDive = useCallback(() => {
     setAttachedEntityId('dolphin_1');
@@ -1387,12 +1399,17 @@ export function GameInstance({
 
   const handleConfirmOutOfAir = useCallback((keepItemId: string | null) => {
     if (!outOfAirModal) return;
+    if (outOfAirModal.lostAtSea) {
+      setOutOfAirModal(null);
+      resetGameState();
+      return;
+    }
     const { nextInventory, droppedFloatingItems } = resolveOutOfAirDrop(
       outOfAirModal.items,
       keepItemId,
       outOfAirModal.dropPos,
       Date.now(),
-      level.id === 'shipwreck' ? { min: 36, max: 92 } : undefined
+      getOutOfAirDropBounds(level)
     );
 
     inventoryRef.current = nextInventory;
@@ -1411,9 +1428,26 @@ export function GameInstance({
 
     const curPos = stateRefs.current.pathHistory[stateRefs.current.pathHistory.length - 1] || level.campPos;
     const startPos: Point2D = { x: curPos.x, y: curPos.y };
-    const targetPos: Point2D = { x: level.campPos.x, y: level.campPos.y };
+    const shipwreckResolution = level.id === 'shipwreck'
+      ? resolveShipwreckDrowningTarget(outOfAirModal.dropPos)
+      : null;
+    const targetNode = shipwreckResolution?.targetPos || { ...level.campPos, zone: 1 };
+    const precomputedReturnPath = level.id === 'shipwreck'
+      ? navigateTo(targetNode.x, targetNode.y, targetNode.zone, 3, false)
+      : [];
+    const floatWaypoints: Point2D[] = [
+      startPos,
+      ...(precomputedReturnPath.length > 0 ? precomputedReturnPath : [targetNode])
+    ];
+    const segLengths = floatWaypoints.slice(1).map((pt, idx) =>
+      Math.hypot(pt.x - floatWaypoints[idx].x, pt.y - floatWaypoints[idx].y)
+    );
+    const totalLen = segLengths.reduce((sum, d) => sum + d, 0);
+
     const startTime = performance.now();
+    let lastRenderTime = 0;
     let lastBubbleStep = -1;
+    let splashFired = false;
 
     if (drowningRafRef.current) {
       cancelAnimationFrame(drowningRafRef.current);
@@ -1422,18 +1456,50 @@ export function GameInstance({
     setDrowningFloatPos(startPos);
 
     const stepAscent = () => {
-      const elapsed = performance.now() - startTime;
+      const now = performance.now();
+      const elapsed = now - startTime;
       const progress = Math.min(1, Math.max(0, elapsed / DROWNING_RETURN_DELAY_MS));
       const ease = 0.5 - Math.cos(Math.PI * progress) / 2;
-      const swayX = Math.sin(progress * Math.PI * 3.5) * 4.5 * Math.sin(progress * Math.PI);
-      const curX = Math.max(10, Math.min(90, startPos.x + (targetPos.x - startPos.x) * ease + swayX));
-      const curY = startPos.y + (targetPos.y - startPos.y) * ease;
-      setDrowningFloatPos({ x: curX, y: curY });
 
-      const bubbleStep = Math.floor(progress * 5);
-      if (bubbleStep > lastBubbleStep && progress < 0.92) {
-        lastBubbleStep = bubbleStep;
-        triggerAirLossBubbles(curX, curY, true, 6);
+      const shouldCommitFrame = now - lastRenderTime >= 40 || progress >= 1;
+      if (shouldCommitFrame) {
+        lastRenderTime = now;
+        let curX: number;
+        let curY: number;
+        if (level.id === 'shipwreck' && totalLen > 0) {
+          let remaining = ease * totalLen;
+          let segIdx = 0;
+          while (segIdx < segLengths.length - 1 && remaining > segLengths[segIdx]) {
+            remaining -= segLengths[segIdx];
+            segIdx++;
+          }
+          const segD = Math.max(0.0001, segLengths[segIdx] || 1);
+          const t = Math.min(1, Math.max(0, remaining / segD));
+          const a = floatWaypoints[segIdx];
+          const b = floatWaypoints[segIdx + 1] || a;
+          curX = a.x + (b.x - a.x) * t;
+          curY = a.y + (b.y - a.y) * t;
+          if (!splashFired && isInShipwreckAirPocket(curX, curY)) {
+            splashFired = true;
+            triggerWaterSplash(Math.max(68, Math.min(91, curX)), AIR_POCKET_Y, 'normal');
+          }
+        } else {
+          const swayX = Math.sin(progress * Math.PI * 3.5) * 4.5 * Math.sin(progress * Math.PI);
+          curX = Math.max(10, Math.min(90, startPos.x + (targetNode.x - startPos.x) * ease + swayX));
+          curY = startPos.y + (targetNode.y - startPos.y) * ease;
+          if (!splashFired && !isHeroSubmerged(level, { x: curX, y: curY })) {
+            splashFired = true;
+            maybeTriggerWaterSplash(startPos, { x: curX, y: curY });
+          }
+        }
+
+        setDrowningFloatPos({ x: curX, y: curY });
+
+        const bubbleStep = Math.floor(progress * 5);
+        if (bubbleStep > lastBubbleStep && progress < 0.92) {
+          lastBubbleStep = bubbleStep;
+          triggerAirLossBubbles(curX, curY, true, 6);
+        }
       }
 
       if (progress < 1) {
@@ -1454,17 +1520,17 @@ export function GameInstance({
       }
       setDrowningFloatPos(null);
       const returnPath = level.id === 'shipwreck'
-        ? []
-        : navigateTo(level.campPos.x, level.campPos.y, 1, 3, false);
+        ? precomputedReturnPath
+        : navigateTo(targetNode.x, targetNode.y, targetNode.zone, 3, false);
       const nextCampPoint = returnPath.length > 0
         ? returnPath
-        : [{ x: level.campPos.x, y: level.campPos.y, depth: 3, zone: 1 }];
+        : [{ x: targetNode.x, y: targetNode.y, depth: 3, zone: targetNode.zone }];
       setPathHistory(prev => [...prev, ...nextCampPoint]);
       setIsAnimatingLoot(false);
       setAlertEntityId(null);
       setIsRefillingAir(true);
     }, DROWNING_RETURN_DELAY_MS);
-  }, [outOfAirModal, startDolphinReturn, navigateTo, level.id, level.campPos, scheduleTimeout, triggerAirLossBubbles]);
+  }, [outOfAirModal, startDolphinReturn, navigateTo, level, scheduleTimeout, triggerAirLossBubbles, triggerWaterSplash, maybeTriggerWaterSplash]);
 
   const triggerAbyssalDrowning = useCallback((
     targetX: number,
@@ -1633,8 +1699,10 @@ export function GameInstance({
 
     if (fishingMode === 'timing_ring') {
       const rect = mapRef.current.getBoundingClientRect();
-      const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
-      const swimDuration = level.id === 'underwater' ? getUnderwaterMoveDurationMs(650, wasFullBeforeMove) : 700;
+      const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
+      const swimDuration = isDivingLevel(level)
+        ? getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove)
+        : 700;
       setMoveDurationMs(swimDuration);
 
       saveHistory(); setIsAnimatingLoot(true);
@@ -1644,6 +1712,7 @@ export function GameInstance({
       const rawTargetX = ((e.clientX - rect.left) / rect.width) * 100;
       const targetX = Math.max(10, Math.min(90, rawTargetX));
       const targetY = fishObj.y;
+      maybeTriggerWaterSplash(startPos, { x: targetX, y: targetY });
       setPathHistory(prev => [...prev, { x: targetX, y: targetY, depth: fishObj.depth, zone: currentZone }]);
       scheduleTimeout(() => {
         setFishingCatch({
@@ -1659,7 +1728,7 @@ export function GameInstance({
     // Clicking a distant fish startles it into a guaranteed miss; swim ahead into its path and grab it up close!
     const clickRefEl = innerMapRef.current || mapRef.current;
     const rect = clickRefEl.getBoundingClientRect();
-    const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
+    const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
     const startPos = pathHistory[pathHistory.length - 1];
     const currentZone = startPos.zone || 1;
     const now = Date.now();
@@ -1672,9 +1741,7 @@ export function GameInstance({
 
     const dist = Math.hypot(targetX - startPos.x, targetY - startPos.y);
     const baseDuration = Math.min(800, Math.max(250, Math.round(dist * 35)));
-    const swimDuration = level.id === 'underwater' && !isTransformedRef.current
-      ? getUnderwaterMoveDurationMs(baseDuration, wasFullBeforeMove)
-      : baseDuration;
+    const swimDuration = getDivingMoveDurationMs(level, baseDuration, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove);
     setMoveDurationMs(swimDuration);
 
     const targetPos = { x: targetX, y: targetY };
@@ -1687,6 +1754,7 @@ export function GameInstance({
     saveHistory();
     setIsAnimatingLoot(true);
     triggerAirLossBubbles(startPos.x, startPos.y, wasFullBeforeMove);
+    maybeTriggerWaterSplash(startPos, targetPos);
     setPathHistory(prev => [...prev, { x: targetX, y: targetY, depth: fishObj.depth || 3, zone: currentZone }]);
 
     scheduleTimeout(() => {
@@ -1754,8 +1822,10 @@ export function GameInstance({
       scheduleTimeout(() => setAlertEntityId(null), ALERT_DURATION_MS);
       return;
     }
-    const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
-    const swimDuration = level.id === 'underwater' ? getUnderwaterMoveDurationMs(650, wasFullBeforeMove) : 700;
+    const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
+    const swimDuration = isDivingLevel(level)
+      ? getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove)
+      : 700;
     setMoveDurationMs(swimDuration);
 
     saveHistory(); setIsAnimatingLoot(true);
@@ -1765,6 +1835,7 @@ export function GameInstance({
     const progress = Math.min(1, Math.max(0, elapsed / 20000));
     const boatX = boat.isRight ? (-20 + progress * 140) : (120 - progress * 140);
     const clampedBoatX = Math.max(10, Math.min(90, boatX));
+    maybeTriggerWaterSplash(startPos, { x: clampedBoatX, y: 19 });
     setPathHistory(prev => [...prev, { x: clampedBoatX, y: 19, depth: 3, zone: 1 }]);
 
     scheduleTimeout(() => {
@@ -1793,9 +1864,11 @@ export function GameInstance({
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir) return;
 
-    const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
-    const swimDuration = level.id === 'underwater' ? getUnderwaterMoveDurationMs(650, wasFullBeforeMove) : ACTION_ANIM_MS;
-    if (level.id === 'underwater') setMoveDurationMs(swimDuration);
+    const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
+    const swimDuration = isDivingLevel(level)
+      ? getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove)
+      : ACTION_ANIM_MS;
+    if (isDivingLevel(level)) setMoveDurationMs(swimDuration);
 
     if (dolphinStateRef.current === 'idle_deep') {
       startDolphinReturn(false);
@@ -1813,14 +1886,7 @@ export function GameInstance({
 
     if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
       triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
-      if (
-        level.id === 'shipwreck' &&
-        !isTransformedRef.current &&
-        isInShipwreckAirPocket(lastPos.x, lastPos.y) !== isInShipwreckAirPocket(finalPos.x, finalPos.y)
-      ) {
-        const crossX = Math.max(68, Math.min(91, finalPos.x));
-        triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
-      }
+      maybeTriggerWaterSplash(lastPos, finalPos);
     }
 
     setPathHistory(prev => {
@@ -1862,9 +1928,11 @@ export function GameInstance({
       return;
     }
 
-    const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
-    const swimDuration = level.id === 'underwater' ? getUnderwaterMoveDurationMs(650, wasFullBeforeMove) : ACTION_ANIM_MS;
-    if (level.id === 'underwater') setMoveDurationMs(swimDuration);
+    const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
+    const swimDuration = isDivingLevel(level)
+      ? getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove)
+      : ACTION_ANIM_MS;
+    if (isDivingLevel(level)) setMoveDurationMs(swimDuration);
 
     if (dolphinStateRef.current === 'idle_deep') {
       startDolphinReturn(false);
@@ -1884,14 +1952,7 @@ export function GameInstance({
 
     if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
       triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
-      if (
-        level.id === 'shipwreck' &&
-        !isTransformedRef.current &&
-        isInShipwreckAirPocket(lastPos.x, lastPos.y) !== isInShipwreckAirPocket(finalPos.x, finalPos.y)
-      ) {
-        const crossX = Math.max(68, Math.min(91, finalPos.x));
-        triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
-      }
+      maybeTriggerWaterSplash(lastPos, finalPos);
     }
 
     setPathHistory(prev => {
@@ -1962,7 +2023,7 @@ export function GameInstance({
         return;
       }
 
-      const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
+      const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
 
       if (level.id === 'underwater' && !isTransformedRef.current && targetY > UNDERWATER_ABYSS_DROWNING_Y) {
         triggerAbyssalDrowning(targetX, targetY, wasFullBeforeMove);
@@ -2001,18 +2062,9 @@ export function GameInstance({
         const dy = wp.y - lastP.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const baseDuration = Math.min(800, Math.max(useIsotropic ? 180 : 250, Math.round(dist * (useIsotropic ? 14 : 35))));
-        const duration = (level.id === 'underwater' && !isTransformedRef.current)
-          ? getUnderwaterMoveDurationMs(baseDuration, wasFullBeforeMove)
-          : baseDuration;
+        const duration = getDivingMoveDurationMs(level, baseDuration, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove);
 
-        if (
-          level.id === 'shipwreck' &&
-          !isTransformedRef.current &&
-          isInShipwreckAirPocket(lastP.x, lastP.y) !== isInShipwreckAirPocket(wp.x, wp.y)
-        ) {
-          const crossX = Math.max(68, Math.min(91, (lastP.x + wp.x) / 2));
-          triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
-        }
+        maybeTriggerWaterSplash(lastP, wp);
 
         setMoveDurationMs(duration);
         setPathHistory(prev => [...prev, wp]);
@@ -2116,8 +2168,10 @@ export function GameInstance({
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
     if (!puzzle) return;
 
-    const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
-    const interactSwimDuration = level.id === 'underwater' ? getUnderwaterMoveDurationMs(500, wasFullBeforeMove) : ACTION_ANIM_MS;
+    const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
+    const interactSwimDuration = isDivingLevel(level)
+      ? getDivingMoveDurationMs(level, 500, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove)
+      : ACTION_ANIM_MS;
 
     if (attachedEntityId && attachedEntityId !== entity.id) setAttachedEntityId(null);
     if (dolphinStateRef.current === 'idle_deep' && entity.id !== 'dolphin_1') {
@@ -2233,20 +2287,13 @@ export function GameInstance({
     if (!newPath || newPath.length === 0) return;
     const finalPos = newPath[newPath.length - 1];
 
-    if (level.id === 'underwater' && entity.id !== 'dolphin_1') {
+    if (isDivingLevel(level) && entity.id !== 'dolphin_1') {
       setMoveDurationMs(interactSwimDuration);
     }
 
     if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
       triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
-      if (
-        level.id === 'shipwreck' &&
-        !isTransformedRef.current &&
-        isInShipwreckAirPocket(lastPos.x, lastPos.y) !== isInShipwreckAirPocket(finalPos.x, finalPos.y)
-      ) {
-        const crossX = Math.max(68, Math.min(91, finalPos.x));
-        triggerWaterSplash(crossX, AIR_POCKET_Y, 'normal');
-      }
+      maybeTriggerWaterSplash(lastPos, finalPos);
     }
 
     setPathHistory(prev => {
@@ -2344,7 +2391,7 @@ export function GameInstance({
       if (isClamEntity(entity) && !buriedEntities.includes(entity.id)) {
         setBuriedEntities(prev => (prev.includes(entity.id) ? prev : [...prev, entity.id]));
       }
-      if (level.id === 'underwater') {
+      if (isDivingLevel(level)) {
         setIsAnimatingLoot(true);
         scheduleTimeout(() => {
           setIsAnimatingLoot(false);
@@ -2378,8 +2425,8 @@ export function GameInstance({
             scheduleTimeout(() => setIsMagicAnimating(false), 1500);
             isTransformedRef.current = false;
             setIsTransformed(false);
-            airRef.current = MAX_AIR;
-            setAir(MAX_AIR);
+            airRef.current = maxAir;
+            setAir(maxAir);
             transformedJustEnded = true;
           } else {
             setAlertEntityId(entity.id);
@@ -2459,7 +2506,8 @@ export function GameInstance({
 
       setSelectedItemTypes([]); setSelectedEntityId(null);
 
-      const postActionDelay = level.id === 'underwater' ? Math.max(ACTION_ANIM_MS, interactSwimDuration) : ACTION_ANIM_MS;
+      const postActionDelay = isDivingLevel(level) ? Math.max(ACTION_ANIM_MS, interactSwimDuration) : ACTION_ANIM_MS;
+      const refillsMaxAir = shouldRefillAirOnTrade(entity, transformedJustEnded);
 
       if (entity.reward) {
         const rewardId = entity.reward;
@@ -2470,7 +2518,10 @@ export function GameInstance({
           inventoryRef.current = nextInv;
           setInventory(nextInv);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
-          if (!transformedJustEnded) {
+          if (refillsMaxAir && isDivingLevel(level)) {
+            airRef.current = maxAir;
+            setAir(maxAir);
+          } else {
             handlePostActionAir(targetY, false, { nextInventory: nextInv, wasFullBeforeMove, dropPos: finalPos });
           }
           if (level.id !== 'underwater' && (!level.mechanics.isVertical || !level.mechanics.hasPickaxe) && entity.id === puzzle.goalEntityId) triggerVictory();
@@ -2478,7 +2529,10 @@ export function GameInstance({
       } else {
         setIsAnimatingLoot(false);
         scheduleTimeout(() => setAnimatingEntities(prev => prev.filter(id => id !== entity.id)), ACTION_ANIM_MS);
-        if (!transformedJustEnded) {
+        if (refillsMaxAir && isDivingLevel(level)) {
+          airRef.current = maxAir;
+          setAir(maxAir);
+        } else {
           handlePostActionAir(targetY, false, { nextInventory: postConsumeInv, wasFullBeforeMove, dropPos: finalPos });
         }
         if (level.id === 'shipwreck' && entity.id === puzzle.goalEntityId) {
@@ -2625,11 +2679,14 @@ export function GameInstance({
     }
   }
 
-  const isHeavyUnderwater = level.id === 'underwater' && !isTransformed && isUnderwaterBackpackFull(inventory);
-  const isSubmerged =
-    (level.id === 'underwater' && playerVisualY > (level.campPos.y + 2)) ||
-    (level.id === 'shipwreck' && !isInShipwreckAirPocket(playerVisualX, playerVisualY));
-  const heroFace = isDrowning ? '😵' : (isTransformed ? '🧜‍♂️' : (isInventoryFullAlert ? '😥' : (isSubmerged ? '🤿' : '🤠')));
+  const isHeavyUnderwater = isHeavyDivingLoad(level, inventory, isTransformed);
+  const isSubmerged = isHeroSubmerged(level, { x: playerVisualX, y: playerVisualY });
+  const heroFace = getAquaticHeroFace({
+    isDrowning,
+    isTransformed,
+    isInventoryFullAlert,
+    isSubmerged
+  });
 
   const handleSwimToSurface = (e?: MouseEvent) => {
     e?.stopPropagation();
@@ -2640,8 +2697,8 @@ export function GameInstance({
     } else if (curPos.y <= level.campPos.y + 2) {
       return;
     }
-    const wasFullBeforeMove = level.id === 'underwater' && !isTransformedRef.current && isUnderwaterBackpackFull(inventoryRef.current);
-    const swimDuration = getUnderwaterMoveDurationMs(650, wasFullBeforeMove);
+    const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
+    const swimDuration = getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove);
     setMoveDurationMs(swimDuration);
     if (dolphinStateRef.current === 'idle_deep') {
       startDolphinReturn(false);
@@ -2654,6 +2711,7 @@ export function GameInstance({
     const resolvedReturnPath = returnPath.length > 0
       ? returnPath
       : [{ x: level.campPos.x, y: level.campPos.y, depth: level.campPos.depth || 3, zone: 1 }];
+    maybeTriggerWaterSplash(curPos, resolvedReturnPath[resolvedReturnPath.length - 1]);
     setPathHistory(prev => [...prev, ...resolvedReturnPath]);
     scheduleTimeout(() => {
       setIsAnimatingLoot(false);
@@ -2868,7 +2926,9 @@ export function GameInstance({
               level={level}
               dict={dict}
               lang={lang}
+              lostAtSea={Boolean(outOfAirModal.lostAtSea)}
               onConfirmKeep={handleConfirmOutOfAir}
+              onRestartLevel={handleReplay}
             />
           )}
 

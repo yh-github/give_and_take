@@ -1,3 +1,4 @@
+import { MAX_AIR } from '../../constants.ts';
 import { items, entities, mapNodes, sceneryNodes } from './data.ts';
 import { ShipwreckBackground, ShipwreckCampIcon } from './components.tsx';
 import {
@@ -18,7 +19,7 @@ const shipwreck: LevelDefinition = {
   campPos: { x: 17, y: 81 },
   mechanics: {
     hasAir: true,
-    maxAir: 16,
+    maxAir: MAX_AIR,
     hasTransformation: true,
     startsTransformed: true,
     hasMurkyWater: true,

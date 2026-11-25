@@ -1,6 +1,7 @@
 // === Game Balance Constants ===
 export const MAX_UNIQUE_ITEMS = 4;
-export const MAX_AIR = 8;
+export const MAX_AIR = 10;
+export const UNDERWATER_SURFACE_Y = 15.5;
 export const RESERVED_TOOL_ITEMS = ['pickaxe', 'key'] as const;
 export const NON_STANDARD_START_ITEMS = ['fish', 'pickaxe', 'key'] as const;
 

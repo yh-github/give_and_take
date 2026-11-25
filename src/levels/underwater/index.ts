@@ -1,3 +1,4 @@
+import { MAX_AIR } from '../../constants.ts';
 import { items, entities, mapNodes, sceneryNodes } from './data.ts';
 import { UnderwaterBackground, CampIcon } from './components.tsx';
 import { generateUnderwaterPuzzle } from './generator.ts';
@@ -14,6 +15,7 @@ const underwater: LevelDefinition = {
   mechanics: {
     hasSchoolsOfFish: true,
     hasAir: true,
+    maxAir: MAX_AIR,
     hasTransformation: true,
     hasMurkyWater: true,
     heroBobs: true,

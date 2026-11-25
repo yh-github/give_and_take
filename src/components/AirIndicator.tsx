@@ -1,5 +1,5 @@
 import React from 'react';
-import { MAX_AIR } from '../constants.ts';
+import { getMaxAir } from '../logic/underwater.ts';
 import type { LevelDefinition } from '../types/index.ts';
 
 export interface AirIndicatorProps {
@@ -19,8 +19,9 @@ export function AirIndicator({
 }: AirIndicatorProps) {
   if (!level.mechanics.hasAir || isTransformed) return null;
 
-  const maxAir = level.mechanics.maxAir ?? MAX_AIR;
+  const maxAir = getMaxAir(level);
   const isCompactGrid = maxAir > 8;
+  const gridColsClass = maxAir <= 10 ? 'grid-cols-5' : 'grid-cols-8';
 
   return (
     <div
@@ -33,7 +34,7 @@ export function AirIndicator({
           : 'border-cyan-300/80 shadow-[0_4px_15px_rgba(0,0,0,0.45)] hover:border-cyan-200'
       }`}
     >
-      <div className={isCompactGrid ? 'grid grid-cols-8 gap-x-0.5 gap-y-0' : 'flex items-center gap-0.5'}>
+      <div className={isCompactGrid ? `grid ${gridColsClass} gap-x-0.5 gap-y-0` : 'flex items-center gap-0.5'}>
         {[...Array(maxAir)].map((_, i) => (
           <div
             key={i}

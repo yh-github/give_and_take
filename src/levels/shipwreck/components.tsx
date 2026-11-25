@@ -1,13 +1,14 @@
 import React from 'react';
 import {
-  AIR_POCKET_LEFT_X,
   AIR_POCKET_POLYGON,
-  AIR_POCKET_RIGHT_X,
   AIR_POCKET_Y,
   HULL_LOWER_KEEL,
   HULL_UPPER_ROOF,
   SHIPWRECK_BULKHEAD_SEGMENTS
 } from './geometry.ts';
+import { SeaWitchSVG, ShipwreckWaterOverlay } from '../sea_shared/components.tsx';
+
+export { ShipwreckWaterOverlay };
 
 const buildPolylinePath = (pts: ReadonlyArray<{ x: number; y: number }>): string =>
   pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
@@ -302,141 +303,6 @@ export const ShipwreckBackground = ({ isTransformed = true }: ShipwreckBackgroun
   </div>
 );
 
-/**
- * Foreground Translucent Water Overlay rendered IN FRONT of the flooded interior (`z-[112]`),
- * masked cleanly out of `AIR_POCKET_POLYGON` so the dry pocket stays crisp and golden while
- * everything submerged has cool teal refraction, tiny ambient fish, bubbles that pop at the
- * surface, and a sloshing white-cyan meniscus wave.
- */
-export const ShipwreckWaterOverlay = ({ isTransformed = true }: ShipwreckBackgroundProps) => (
-  <div
-    data-testid="shipwreck-water-overlay"
-    className="absolute inset-0 pointer-events-none z-[112] overflow-hidden"
-  >
-    <svg
-      className="absolute inset-0 w-full h-full"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-    >
-      <defs>
-        <mask id="swWaterOnlyMask">
-          <rect x="0" y="0" width="100" height="100" fill="white" />
-          <polygon points={AIR_POCKET_POINTS} fill="black" />
-        </mask>
-
-        <linearGradient id="swWaterSheet" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.14" />
-          <stop offset="45%" stopColor="#0e7490" stopOpacity="0.21" />
-          <stop offset="100%" stopColor="#075985" stopOpacity="0.30" />
-        </linearGradient>
-
-        <linearGradient id="swCausticBand" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
-        </linearGradient>
-
-        <clipPath id="swBelowWaterlineClip">
-          <rect x="0" y={AIR_POCKET_Y + 0.6} width="100" height={100 - AIR_POCKET_Y} />
-        </clipPath>
-      </defs>
-
-      {/* Water Tint & Ambient Life Masked Strictly Outside Air Pocket */}
-      <g mask="url(#swWaterOnlyMask)">
-        <rect x="0" y="0" width="100" height="100" fill="url(#swWaterSheet)" />
-        <polygon points="15,0 32,0 56,95 28,95" fill="url(#swCausticBand)" />
-        <polygon points="52,0 64,0 82,90 60,90" fill="url(#swCausticBand)" />
-
-        {/* Tiny Decorative Silhouette Fish Gliding Strictly Inside Water */}
-        {[
-          { x: 37, y: 63, dur: '13s', delay: '0s', scale: 1 },
-          { x: 58, y: 49, dur: '16s', delay: '-4s', scale: 0.9 },
-          { x: 74, y: 48, dur: '14s', delay: '-7s', scale: 0.95 },
-          { x: 24, y: 85, dur: '17s', delay: '-2s', scale: 1.1 },
-          { x: 64, y: 74, dur: '15s', delay: '-9s', scale: 0.85 }
-        ].map((f, idx) => (
-          <g
-            key={`amb-fish-${idx}`}
-            className="animate-ambient-fish"
-            style={{ animationDuration: f.dur, animationDelay: f.delay }}
-          >
-            <path
-              d={`M ${f.x} ${f.y} q ${1.3 * f.scale} ${-0.7 * f.scale} ${2.4 * f.scale} 0 q ${-1.1 * f.scale} ${0.7 * f.scale} ${-2.4 * f.scale} 0 l ${-0.8 * f.scale} ${-0.55 * f.scale} l 0 ${1.1 * f.scale} z`}
-              fill="#67e8f9"
-              opacity="0.45"
-            />
-          </g>
-        ))}
-      </g>
-
-      {/* Living Multi-Wave Meniscus Across the Air Pocket Waterline (x: 65..94, y: 33) */}
-      <g data-testid="air-pocket-meniscus">
-        {/* Soft Turquoise Underside Refraction Band */}
-        <rect
-          x={AIR_POCKET_LEFT_X}
-          y={AIR_POCKET_Y}
-          width={AIR_POCKET_RIGHT_X - AIR_POCKET_LEFT_X}
-          height="2.1"
-          fill="#06b6d4"
-          opacity="0.34"
-        />
-        {/* Animated Sloshing Water Crest */}
-        <g className="animate-waterline-slosh">
-          <path
-            d={`M ${AIR_POCKET_LEFT_X} ${AIR_POCKET_Y} Q 68.5 ${AIR_POCKET_Y - 1.0} 72 ${AIR_POCKET_Y} T 79 ${AIR_POCKET_Y} T 86 ${AIR_POCKET_Y} T ${AIR_POCKET_RIGHT_X} ${AIR_POCKET_Y}`}
-            fill="none"
-            stroke={isTransformed ? '#38bdf8' : '#7dd3fc'}
-            strokeWidth="1.25"
-            strokeLinecap="round"
-          />
-          <path
-            d={`M ${AIR_POCKET_LEFT_X} ${AIR_POCKET_Y} Q 68.5 ${AIR_POCKET_Y - 1.0} 72 ${AIR_POCKET_Y} T 79 ${AIR_POCKET_Y} T 86 ${AIR_POCKET_Y} T ${AIR_POCKET_RIGHT_X} ${AIR_POCKET_Y}`}
-            fill="none"
-            stroke={isTransformed ? '#e0f2fe' : '#fef08a'}
-            strokeWidth="0.55"
-            strokeLinecap="round"
-          />
-        </g>
-      </g>
-
-      {/* Surface Drip Ripples Where Ceiling Droplets Hit the Waterline */}
-      {[73, 81, 88].map((rx, idx) => (
-        <ellipse
-          key={`drip-ring-${idx}`}
-          cx={rx}
-          cy={AIR_POCKET_Y + 0.2}
-          rx="1.6"
-          ry="0.35"
-          fill="none"
-          stroke="#e0f2fe"
-          strokeWidth="0.25"
-          opacity="0.55"
-        />
-      ))}
-    </svg>
-
-    {/* True-Circle Rising Bubbles Clipped Strictly Below the Waterline (`top >= 33.5%`) */}
-    <div
-      className="absolute inset-x-0 bottom-0 overflow-hidden pointer-events-none"
-      style={{ top: `${AIR_POCKET_Y + 0.5}%` }}
-    >
-      {[14, 34, 48, 61, 71, 79, 86].map((leftPct, i) => (
-        <div
-          key={`sw-water-bub-${i}`}
-          className="absolute rounded-full border border-cyan-200/45 bg-white/15 animate-bubble"
-          style={{
-            left: `${leftPct}%`,
-            top: `${16 + ((i * 17) % 68)}%`,
-            width: `${5 + (i % 3) * 3}px`,
-            height: `${5 + (i % 3) * 3}px`,
-            animationDelay: `${i * 1.15}s`,
-            animationDuration: `${8 + (i % 3) * 2.5}s`
-          }}
-        />
-      ))}
-    </div>
-  </div>
-);
-
 export interface ShipwreckWitchSVGProps {
   isTransformed: boolean;
   reqEmojis?: string[];
@@ -447,50 +313,14 @@ export const ShipwreckWitchSVG = ({
   isTransformed,
   reqEmojis = [],
   emoji = '😈'
-}: ShipwreckWitchSVGProps) => {
-  const badgeContent = isTransformed
-    ? `${reqEmojis.join(' + ') || '🔮'} ➔ 🤠`
-    : '🤠 ⬆️ 🫧';
-
-  const badgeStyle = isTransformed
-    ? 'bg-purple-950/95 border-purple-400 text-purple-100 shadow-[0_0_12px_rgba(168,85,247,0.85)]'
-    : 'bg-emerald-950/95 border-amber-300 text-amber-200 shadow-[0_0_14px_rgba(52,211,153,0.9)]';
-
-  return (
-    <div className="relative flex flex-col items-center justify-center">
-      <svg
-        viewBox="0 0 140 110"
-        className="absolute -top-6 left-1/2 -translate-x-1/2 w-[32cqw] h-[25cqw] pointer-events-none -z-10 overflow-visible"
-      >
-        <defs>
-          <radialGradient id="swWitchGlow" cx="50%" cy="55%" r="50%">
-            <stop offset="0%" stopColor={isTransformed ? '#9333ea' : '#10b981'} stopOpacity="0.68" />
-            <stop offset="65%" stopColor={isTransformed ? '#581c87' : '#059669'} stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="70" cy="58" r="56" fill="url(#swWitchGlow)" />
-        <path
-          d="M 22 92 Q 18 46 42 26 Q 70 12 98 26 Q 122 46 118 92 Z"
-          fill="#1e1b4b"
-          opacity="0.72"
-          stroke={isTransformed ? '#6b21a8' : '#34d399'}
-          strokeWidth="2"
-        />
-        <ellipse cx="70" cy="84" rx="22" ry="7" fill="#0f172a" stroke="#a855f7" strokeWidth="1.6" />
-        <ellipse cx="70" cy="83" rx="15" ry="4" fill={isTransformed ? '#c084fc' : '#34d399'} opacity="0.75" />
-      </svg>
-
-      <span className="text-[10.5cqw] z-10 drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]">{emoji}</span>
-
-      <div
-        className={`mt-1 rounded-full px-2 py-0.5 whitespace-nowrap text-[2.5cqw] font-black border-2 z-20 transition-all ${badgeStyle}`}
-      >
-        {badgeContent}
-      </div>
-    </div>
-  );
-};
+}: ShipwreckWitchSVGProps) => (
+  <SeaWitchSVG
+    variant="shipwreck"
+    isTransformed={isTransformed}
+    reqEmojis={reqEmojis}
+    emoji={emoji}
+  />
+);
 
 export interface CaptainsTreasureSVGProps {
   isDefeated?: boolean;

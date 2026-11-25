@@ -1,4 +1,15 @@
 import React from 'react';
+import {
+  SeaWitchSVG,
+  InteractiveKelpSVG,
+  GiantClamSVG,
+  InkCloudSVG,
+  UnderwaterWaterOverlay
+} from '../sea_shared/components.tsx';
+import type { SeaWitchSVGProps } from '../sea_shared/components.tsx';
+
+export { InteractiveKelpSVG, GiantClamSVG, InkCloudSVG, UnderwaterWaterOverlay };
+export type { InteractiveKelpSVGProps, GiantClamSVGProps } from '../sea_shared/components.tsx';
 
 export const UnderwaterBackground = () => (
   <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden bg-[#050814]">
@@ -54,39 +65,6 @@ export const UnderwaterBackground = () => (
         <ellipse cx="26" cy="44" rx="18" ry="2.2" fill="#e0f2fe" opacity="0.48" />
         <ellipse cx="108" cy="46" rx="20" ry="2.3" fill="#e0f2fe" opacity="0.45" />
         <ellipse cx="176" cy="43" rx="15" ry="2.0" fill="#e0f2fe" opacity="0.45" />
-      </svg>
-    </div>
-
-    {/* === 2b. Animated Cutaway Waterline Meniscus (y: 13.8% - 16.0%) === */}
-    <div className="absolute top-[13.8%] left-0 w-full h-[2.2%] z-20 overflow-hidden pointer-events-none">
-      <svg
-        className="absolute inset-0 w-[200%] h-full animate-surface-wave-slow"
-        viewBox="0 0 400 32"
-        preserveAspectRatio="none"
-      >
-        <path
-          d="M 0 13 Q 25 4 50 13 T 100 13 T 150 13 T 200 13 T 250 13 T 300 13 T 350 13 T 400 13 L 400 32 L 0 32 Z"
-          fill="#0284c7"
-          opacity="0.72"
-        />
-      </svg>
-      <svg
-        className="absolute inset-0 w-[200%] h-full animate-surface-wave-fast"
-        viewBox="0 0 400 32"
-        preserveAspectRatio="none"
-      >
-        <path
-          d="M 0 16 Q 25 8 50 16 T 100 16 T 150 16 T 200 16 T 250 16 T 300 16 T 350 16 T 400 16 L 400 32 L 0 32 Z"
-          fill="#06b6d4"
-          opacity="0.92"
-        />
-        <path
-          d="M 0 16 Q 25 8 50 16 T 100 16 T 150 16 T 200 16 T 250 16 T 300 16 T 350 16 T 400 16"
-          fill="none"
-          stroke="#e0f2fe"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-        />
       </svg>
     </div>
 
@@ -343,60 +321,15 @@ export const SeaWitchGrottoSVG = ({
   hasDeepTreasure,
   returnRelicEmoji = '🔮',
   emoji = '😈'
-}: SeaWitchGrottoSVGProps) => {
-  const badgeContent = !isTransformed
-    ? '3×🎵 ➔ 🧜‍♂️'
-    : hasDeepTreasure
-      ? `${returnRelicEmoji || '🔮'} ➔ 🤠`
-      : '👑 ⬇️';
-
-  const badgeStyle = !isTransformed
-    ? 'bg-purple-950/90 border-purple-400 text-purple-100 shadow-[0_0_12px_rgba(168,85,247,0.8)]'
-    : hasDeepTreasure
-      ? 'bg-emerald-950/95 border-amber-300 text-amber-200 shadow-[0_0_16px_rgba(52,211,153,0.95)] animate-bounce'
-      : 'bg-indigo-950/90 border-cyan-400/70 text-cyan-100 shadow-[0_0_10px_rgba(34,211,238,0.5)]';
-
-  return (
-    <div className="relative flex flex-col items-center justify-center">
-      {/* Glowing Grotto Alcove & Spell Cauldron (No Barrier!) */}
-      <svg
-        viewBox="0 0 140 110"
-        className="absolute -top-6 left-1/2 -translate-x-1/2 w-[36cqw] h-[28cqw] pointer-events-none -z-10 overflow-visible"
-      >
-        <defs>
-          <radialGradient id="witchGrottoGlow" cx="50%" cy="55%" r="50%">
-            <stop offset="0%" stopColor={hasDeepTreasure ? '#10b981' : '#9333ea'} stopOpacity="0.65" />
-            <stop offset="65%" stopColor={hasDeepTreasure ? '#059669' : '#581c87'} stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-
-        <circle cx="70" cy="58" r="56" fill="url(#witchGrottoGlow)" />
-
-        {/* Dark Rocky Grotto Frame behind the Witch */}
-        <path
-          d="M 22 92 Q 18 46 42 26 Q 70 12 98 26 Q 122 46 118 92 Z"
-          fill="#1e1b4b"
-          opacity="0.72"
-          stroke="#6b21a8"
-          strokeWidth="2"
-        />
-
-        {/* Swirling Purple Spell Cauldron */}
-        <ellipse cx="70" cy="84" rx="22" ry="7" fill="#0f172a" stroke="#a855f7" strokeWidth="1.6" />
-        <ellipse cx="70" cy="83" rx="15" ry="4" fill={hasDeepTreasure ? '#34d399' : '#c084fc'} opacity="0.75" />
-      </svg>
-
-      <span className="text-[11cqw] z-10 drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]">{emoji}</span>
-
-      <div
-        className={`mt-1 rounded-full px-2.5 py-0.5 whitespace-nowrap text-[2.8cqw] font-black border-2 z-20 transition-all ${badgeStyle}`}
-      >
-        {badgeContent}
-      </div>
-    </div>
-  );
-};
+}: SeaWitchGrottoSVGProps) => (
+  <SeaWitchSVG
+    variant="underwater"
+    isTransformed={isTransformed}
+    hasDeepTreasure={hasDeepTreasure}
+    returnRelicEmoji={returnRelicEmoji}
+    emoji={emoji}
+  />
+);
 
 export const SeaWitchGateSVG = SeaWitchGrottoSVG;
 
@@ -494,205 +427,6 @@ export const SunkenVaultSVG = ({
         )}
       </svg>
     </div>
-  );
-};
-
-export interface InteractiveKelpSVGProps {
-  variant?: 'harvest' | 'habitat';
-  fishEmoji?: string;
-  isRustling?: boolean;
-}
-
-export const InteractiveKelpSVG = ({
-  variant = 'habitat',
-  fishEmoji = '🐟',
-  isRustling = false
-}: InteractiveKelpSVGProps) => {
-  const isHarvest = variant === 'harvest';
-  return (
-    <div
-      className={`relative flex flex-col items-center justify-center ${
-        isRustling ? 'animate-kelp-rustle' : ''
-      }`}
-    >
-      <svg
-        viewBox="0 0 80 96"
-        className={`${isHarvest ? 'w-14 h-16' : 'w-16 h-20'} overflow-visible drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]`}
-      >
-        <defs>
-          <radialGradient id={isHarvest ? 'kelpHarvestGlow' : 'kelpHabGlow'} cx="50%" cy="65%" r="48%">
-            <stop offset="0%" stopColor={isHarvest ? '#4ade80' : '#2dd4bf'} stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-
-        <circle cx="40" cy="60" r="34" fill={`url(#${isHarvest ? 'kelpHarvestGlow' : 'kelpHabGlow'})`} />
-
-        <g className="animate-kelp-sway">
-          <path
-            d="M 32 88 Q 20 64 28 42 Q 36 22 24 8 Q 34 20 38 40 Q 32 62 36 88 Z"
-            fill={isHarvest ? '#22c55e' : '#10b981'}
-            stroke="#a7f3d0"
-            strokeWidth="1.2"
-          />
-          <path
-            d="M 44 88 Q 56 64 48 40 Q 40 22 52 10 Q 46 28 54 48 Q 50 68 48 88 Z"
-            fill={isHarvest ? '#16a34a' : '#059669'}
-            stroke="#6ee7b7"
-            strokeWidth="1.2"
-          />
-          <path
-            d="M 38 88 Q 34 60 40 34 Q 44 18 40 6 Q 48 22 44 46 Q 42 68 42 88 Z"
-            fill="#34d399"
-            opacity="0.85"
-          />
-        </g>
-
-        {/* Seabed anchor pebbles */}
-        <ellipse cx="40" cy="88" rx="18" ry="5" fill="#1e293b" stroke="#0f172a" strokeWidth="1.2" />
-      </svg>
-
-      {variant === 'habitat' ? (
-        <div className=" -mt-6 bg-sky-950/85 border border-emerald-400/70 rounded-full px-1.5 py-0.5 text-sm shadow-md flex items-center gap-0.5">
-          <span>{fishEmoji}</span>
-        </div>
-      ) : (
-        <div className="-mt-5 bg-emerald-950/90 border border-emerald-300 rounded-full px-1.5 py-0.5 text-base shadow-[0_0_8px_rgba(52,211,153,0.7)]">
-          🌿
-        </div>
-      )}
-    </div>
-  );
-};
-
-export interface GiantClamSVGProps {
-  isDefeated?: boolean;
-  isBuried?: boolean;
-  isDigger?: boolean;
-  isGoal?: boolean;
-  isAlerting?: boolean;
-  rewardEmoji?: string | null;
-  isMurkyFar?: boolean;
-}
-
-export const GiantClamSVG = ({
-  isDefeated = false,
-  isBuried = false,
-  isDigger = false,
-  isGoal = false,
-  isAlerting = false,
-  rewardEmoji,
-  isMurkyFar = false,
-}: GiantClamSVGProps) => {
-  const isOpen = isDefeated || !isBuried;
-  const topShellFill = isGoal ? '#f59e0b' : isDigger ? '#9333ea' : '#e11d48';
-  const botShellFill = isGoal ? '#d97706' : isDigger ? '#7e22ce' : '#be123c';
-  const strokeColor = isGoal ? '#fef08a' : isDigger ? '#d8b4fe' : '#fda4af';
-  const innerFill = isGoal ? '#fef3c7' : isDigger ? '#f3e8ff' : '#ffe4e6';
-
-  return (
-    <svg
-      viewBox="0 0 110 105"
-      className={`w-16 h-16 sm:w-20 sm:h-20 drop-shadow-[0_6px_10px_rgba(0,0,0,0.7)] overflow-visible ${
-        isAlerting ? 'animate-troll-mad' : ''
-      }`}
-    >
-      <ellipse cx="55" cy="90" rx="44" ry="10" fill="#090d16" opacity="0.55" />
-      <path d="M 14 88 Q 55 78 96 88 Q 78 96 55 96 Q 32 96 14 88 Z" fill="#78350f" opacity="0.75" />
-
-      {isOpen ? (
-        <>
-          <path
-            d="M 16 68 C 12 36 28 14 38 18 C 44 10 55 8 55 8 C 55 8 66 10 72 18 C 82 14 98 36 94 68 Z"
-            fill={topShellFill}
-            stroke={strokeColor}
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-          />
-          <ellipse cx="55" cy="64" rx="34" ry="15" fill={innerFill} stroke={strokeColor} strokeWidth="1.5" />
-          {[32, 43, 55, 67, 78].map((x, idx) => (
-            <line
-              key={idx}
-              x1={x}
-              y1={16 + Math.abs(idx - 2) * 3}
-              x2={55 + (x - 55) * 0.65}
-              y2="56"
-              stroke={strokeColor}
-              strokeWidth="1.4"
-              opacity="0.55"
-              strokeLinecap="round"
-            />
-          ))}
-
-          {!isDefeated && rewardEmoji && (
-            <g>
-              {isMurkyFar && !isGoal ? (
-                <>
-                  <circle
-                    cx="55"
-                    cy="52"
-                    r="16"
-                    fill="#0f172a"
-                    fillOpacity="0.88"
-                    stroke="#38bdf8"
-                    strokeWidth="2.2"
-                  />
-                  <text x="55" y="59" textAnchor="middle" fontSize="20" fill="#7dd3fc" fontWeight="bold">
-                    ❓
-                  </text>
-                </>
-              ) : (
-                <>
-                  <circle
-                    cx="55"
-                    cy="54"
-                    r="16"
-                    fill={isGoal ? '#fde047' : '#ffffff'}
-                    opacity="0.5"
-                  />
-                  <text x="55" y="62" textAnchor="middle" fontSize="28" className="drop-shadow-md">
-                    {rewardEmoji}
-                  </text>
-                </>
-              )}
-            </g>
-          )}
-        </>
-      ) : (
-        <>
-          <path
-            d="M 14 70 C 16 42 32 34 55 34 C 78 34 94 42 96 70 Z"
-            fill={topShellFill}
-            stroke={strokeColor}
-            strokeWidth="2.5"
-          />
-          {[30, 42, 55, 68, 80].map((x, idx) => (
-            <path
-              key={idx}
-              d={`M ${x} 38 Q 55 52 ${x} 68`}
-              stroke={strokeColor}
-              strokeWidth="1.5"
-              fill="none"
-              opacity="0.6"
-            />
-          ))}
-          <path
-            d="M 16 70 L 26 66 L 36 71 L 46 66 L 55 71 L 64 66 L 74 71 L 84 66 L 94 70"
-            fill="none"
-            stroke="#fef08a"
-            strokeWidth="2.2"
-            strokeLinejoin="round"
-          />
-        </>
-      )}
-
-      <path
-        d="M 14 68 C 18 86 35 92 55 92 C 75 92 92 86 96 68 Q 75 76 55 76 Q 35 76 14 68 Z"
-        fill={botShellFill}
-        stroke={strokeColor}
-        strokeWidth="2.5"
-      />
-    </svg>
   );
 };
 
@@ -824,19 +558,6 @@ export const RaftCampSVG = () => (
       <polygon points="82,8 93,11.5 82,15" fill="#ef4444" />
     </svg>
   </div>
-);
-
-export const InkCloudSVG = () => (
-  <svg viewBox="0 0 100 100" className="w-20 h-20 sm:w-24 sm:h-24 animate-pulse drop-shadow-[0_0_14px_rgba(15,23,42,0.95)]">
-    <circle cx="50" cy="52" r="28" fill="#0f172a" opacity="0.92" />
-    <circle cx="32" cy="48" r="20" fill="#1e1b4b" opacity="0.9" />
-    <circle cx="68" cy="46" r="22" fill="#1e1b4b" opacity="0.9" />
-    <circle cx="44" cy="34" r="18" fill="#311042" opacity="0.85" />
-    <circle cx="60" cy="66" r="18" fill="#090d16" opacity="0.9" />
-    <text x="50" y="58" textAnchor="middle" fontSize="22">
-      🦑
-    </text>
-  </svg>
 );
 
 export const CampIcon = () => (
