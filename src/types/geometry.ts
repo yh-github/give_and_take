@@ -77,9 +77,6 @@ export interface NormalizedWallPolyline {
 
 export type CaveLandmarkKind =
   | 'mushroom_grove'
-  | 'crystal_vein'
-  | 'mine_rails'
-  | 'glow_pool'
   | 'ruined_arch'
   | 'vault_sanctum';
 

@@ -199,11 +199,16 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
     expect(checkedGrottos).toBeGreaterThanOrEqual(1);
   });
 
-  it('generates procedural landmarks (including Vault Sanctum) and safely spaced lightable braziers', () => {
+  it('generates kept cave landmarks, safely spaced braziers, and keeps bats reserved (snails instead)', () => {
     const p = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.normal, null, 'landmarks-check-1');
     expect(Array.isArray(p.geometry.landmarks)).toBe(true);
-    expect(p.geometry.landmarks.length).toBeGreaterThanOrEqual(3);
+    expect(p.geometry.landmarks.length).toBeGreaterThanOrEqual(2);
     expect(p.geometry.landmarks.some(l => l.kind === 'vault_sanctum')).toBe(true);
+    for (const lm of p.geometry.landmarks) {
+      expect(['mushroom_grove', 'ruined_arch', 'vault_sanctum']).toContain(lm.kind);
+    }
+
+    expect(p.puzzleEntities.some(e => e.id?.startsWith('bat_'))).toBe(false);
 
     expect(Array.isArray(p.geometry.braziers)).toBe(true);
     expect(p.geometry.braziers.length).toBeGreaterThanOrEqual(2);

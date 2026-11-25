@@ -152,51 +152,6 @@ function renderLandmarkSVG(lm: CaveLandmark) {
           </g>
         </g>
       );
-    case 'crystal_vein':
-      return (
-        <g key={lm.id} transform={tf}>
-          <circle cx="0" cy="0" r="9.5" fill="url(#deepCaveCrystalGlow)" />
-          <polygon points="-4.2,2.8 -2.8,-3.5 -0.8,2.2" fill="#22d3ee" stroke="#083344" strokeWidth="0.35" opacity="0.85" />
-          <polygon points="-2.8,-3.5 -1.6,-2.2 -0.8,2.2" fill="#a5f3fc" opacity="0.65" />
-          <polygon points="-0.8,3.0 1.4,-4.6 3.5,2.4" fill="#38bdf8" stroke="#0c4a6e" strokeWidth="0.35" opacity="0.9" />
-          <polygon points="1.4,-4.6 2.7,-2.4 3.5,2.4" fill="#e0f2fe" opacity="0.65" />
-          <polygon points="2.2,3.4 4.8,-1.5 6.0,3.2" fill="#818cf8" stroke="#1e1b4b" strokeWidth="0.3" opacity="0.78" />
-        </g>
-      );
-    case 'glow_pool':
-      return (
-        <g key={lm.id} transform={tf}>
-          <ellipse cx="0" cy="0" rx="8.8" ry="5.6" fill="#082f49" stroke="#1e3a5f" strokeWidth="0.55" opacity="0.88" />
-          <ellipse cx="-0.6" cy="-0.4" rx="6.4" ry="3.8" fill="#0e4a6f" opacity="0.72" />
-          <ellipse cx="-1.5" cy="-1.1" rx="3.4" ry="1.6" fill="#38bdf8" opacity="0.22" />
-          <path d="M -3.8 1.2 Q 0 2.5 3.6 0.9" fill="none" stroke="#7dd3fc" strokeWidth="0.3" opacity="0.45" />
-        </g>
-      );
-    case 'mine_rails':
-      return (
-        <g key={lm.id} transform={tf} opacity="0.82">
-          {/* Wooden sleepers */}
-          {[-6, -3, 0, 3, 6].map((rx, idx) => (
-            <rect
-              key={idx}
-              x={rx - 0.55}
-              y="-4.2"
-              width="1.1"
-              height="8.4"
-              rx="0.25"
-              fill="#4a3121"
-              stroke="#1f140d"
-              strokeWidth="0.25"
-            />
-          ))}
-          {/* Twin iron rails */}
-          <line x1="-8.2" y1="-2.2" x2="8.2" y2="-2.2" stroke="#78716c" strokeWidth="0.7" strokeLinecap="round" />
-          <line x1="-8.2" y1="2.2" x2="8.2" y2="2.2" stroke="#78716c" strokeWidth="0.7" strokeLinecap="round" />
-          <line x1="-8.2" y1="-2.3" x2="8.2" y2="-2.3" stroke="#d6d3d1" strokeWidth="0.2" opacity="0.5" />
-          <circle cx="6.2" cy="4.2" r="1.2" fill="#57534e" stroke="#1c1917" strokeWidth="0.3" />
-          <circle cx="7.4" cy="4.8" r="0.85" fill="#d97706" opacity="0.75" />
-        </g>
-      );
     case 'ruined_arch':
       return (
         <g key={lm.id} transform={tf} opacity="0.8">
@@ -284,11 +239,6 @@ export const DeepCaveBackground = memo(({ geometry }: DeepCaveBackgroundProps) =
             <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.26" />
             <stop offset="60%" stopColor="#0f766e" stopOpacity="0.1" />
             <stop offset="100%" stopColor="#042f2e" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="deepCaveCrystalGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.24" />
-            <stop offset="65%" stopColor="#1e3a8a" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
           </radialGradient>
           <radialGradient id="deepCaveVaultGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.22" />

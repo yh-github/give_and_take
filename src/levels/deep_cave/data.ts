@@ -22,12 +22,14 @@ export const items: ItemDefinition[] = [
   { id: 'pickaxe', name: 'Pickaxe', emoji: '⛏️' }
 ];
 
+// Reserved special creatures (not spawned as standard barter traders):
+// - bat (`🦇`): reserved for upcoming special moving creature mechanics.
 export const entities: EntityTemplate[] = [
   { id: 'troll', name: 'Cave Troll', emoji: '🧌', allowedReqs: ['crystal', 'gold_nugget', 'mushroom', 'emerald', 'relic', 'bone', 'gem'] },
   { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
   { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'rope'] },
   { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['rope', 'bone', 'emerald', 'relic', 'mushroom'] },
-  { id: 'bat', name: 'Vampire Bat', emoji: '🦇', allowedReqs: ['relic', 'mushroom', 'bone', 'crystal', 'rope', 'gold_nugget'] },
+  { id: 'snail', name: 'Giant Snail', emoji: '🐌', allowedReqs: ['relic', 'mushroom', 'bone', 'crystal', 'rope', 'gold_nugget'] },
   { id: 'slime', name: 'Acid Slime', emoji: '🦠', allowedReqs: ['crystal', 'bone', 'mushroom', 'gem', 'relic'] },
   { id: 'ghost', name: 'Miner Ghost', emoji: '👻', allowedReqs: ['gold_nugget', 'bone', 'emerald', 'rope', 'crystal'] },
   { id: 'mole', name: 'Giant Mole', emoji: '🐭', allowedReqs: ['mushroom', 'relic', 'crystal', 'gold_nugget', 'bone', 'emerald'] },

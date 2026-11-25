@@ -8,7 +8,6 @@ import { getSlotCenter, getWorldDimensions } from './slotGrid.ts';
 import type {
   CaveBrazier,
   CaveLandmark,
-  CaveLandmarkKind,
   DeepCaveSettings,
   Point2D,
   PuzzleEntity,
@@ -141,8 +140,7 @@ export function buildCaveFeatures(
     }
   }
 
-  // 3. Thematic landmarks in regular chambers (Crystal Veins, Glow Pools, Mine Rails, Ruined Arches)
-  const roomThemes: CaveLandmarkKind[] = ['crystal_vein', 'glow_pool', 'mine_rails', 'ruined_arch'];
+  // 3. Thematic ruined masonry accents in selected non-encounter chambers (`ruined_arch` only)
   const activeRegularSlots: Array<{ col: number; row: number; role: string; zone: number }> = [];
   for (let r = 0; r < blueprint.rows - 1; r++) {
     for (let c = 0; c < cols; c++) {
@@ -153,7 +151,6 @@ export function buildCaveFeatures(
   }
 
   const shuffledSlots = shuffle(activeRegularSlots, rng);
-  let themeIdx = Math.floor(rng() * roomThemes.length);
   const landmarkOffsets: Array<[number, number]> = [
     [-5.5, -10],
     [5.5, 10],
@@ -162,20 +159,11 @@ export function buildCaveFeatures(
     [0, 0]
   ];
 
-  const targetLandmarkCount = Math.min(shuffledSlots.length, Math.max(3, Math.ceil(shuffledSlots.length * 0.55)));
+  const targetRuinsCount = Math.min(shuffledSlots.length, Math.max(2, Math.ceil(shuffledSlots.length * 0.35)));
+  let ruinsPlaced = 0;
   for (const sl of shuffledSlots) {
-    if (landmarks.length >= targetLandmarkCount + 3) break;
+    if (ruinsPlaced >= targetRuinsCount) break;
     const center = getSlotCenter(sl.col, sl.row, dims);
-    let pickedKind: CaveLandmarkKind;
-    if (sl.role === 'spur') {
-      pickedKind = rng() < 0.55 ? 'glow_pool' : 'crystal_vein';
-    } else if (sl.role === 'branch' || sl.role === 'loop') {
-      pickedKind = rng() < 0.5 ? 'mine_rails' : 'crystal_vein';
-    } else {
-      pickedKind = roomThemes[themeIdx % roomThemes.length];
-      themeIdx++;
-    }
-
     const offsetCandidates = shuffle(landmarkOffsets, rng);
     for (const [ox, oy] of offsetCandidates) {
       const pt = {
@@ -186,14 +174,15 @@ export function buildCaveFeatures(
       if (Math.hypot(pt.x - campPos.x, pt.y - campPos.y) < 12) continue;
       if (landmarks.some(l => Math.hypot(l.x - pt.x, l.y - pt.y) < 18)) continue;
       landmarks.push({
-        id: `lm_${pickedKind}_${lmSeq++}`,
-        kind: pickedKind,
+        id: `lm_ruined_arch_${lmSeq++}`,
+        kind: 'ruined_arch',
         x: pt.x,
         y: pt.y,
         scale: 0.88 + (rng() * 0.24),
         rotation: Math.round((rng() - 0.5) * 28),
         seed: Math.floor(rng() * 10000)
       });
+      ruinsPlaced++;
       break;
     }
   }

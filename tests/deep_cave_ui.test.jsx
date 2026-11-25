@@ -813,7 +813,7 @@ describe('Deep Cave Phase 4 UI, Worker, Persistence & Hydration', () => {
           ],
           obstaclePolygons: [],
           landmarks: [
-            { id: 'lm_crys_1', kind: 'crystal_vein', x: 35, y: 40 },
+            { id: 'lm_arch_1', kind: 'ruined_arch', x: 35, y: 40 },
             { id: 'lm_vault_1', kind: 'vault_sanctum', x: 50, y: 160 }
           ],
           braziers: [
