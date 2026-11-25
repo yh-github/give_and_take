@@ -507,7 +507,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       expect(airPill.querySelectorAll('.opacity-25').length).toBe(1);
     });
 
-    it('drains abyssal pressure air naturally on the seabed without instakilling, and drops items safely above the abyss on 0 air', async () => {
+    it('charges normal 1 air on the seabed without abyssal pressure and drops items safely above the abyss on 0 air', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const underwater = LEVEL_REGISTRY.underwater;
       const puzzle = generateUnderwaterPuzzle(underwater, 5, 0, 'abyss-drown-seed');
@@ -517,7 +517,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         numDiggers: 0,
         puzzle,
         inventory: ['comb', 'pearl'],
-        air: MAX_AIR,
+        air: 3,
         isTransformed: false,
         pathHistory: [{ x: 50, y: 60, zone: 2 }]
       });
@@ -550,7 +550,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         toJSON: () => {}
       });
 
-      // Click directly into the Abyssal Trench (y = 85 > 72) with 10 air -> arrives ALIVE with 6/10 air (4 abyssal air cost)
+      // Click directly onto the seabed (y = 85 > 72) with 3 air -> normal 1 air cost leaves 2/10 and no abyssal badge
       await act(async () => {
         fireEvent.click(innerMap, { clientX: 200, clientY: 850 });
       });
@@ -558,17 +558,17 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         vi.advanceTimersByTime(900);
       });
       expect(screen.queryByTestId('out-of-air-modal')).toBeNull();
-      expect(screen.getByTestId('air-count-badge').textContent).toBe('6/10');
-      expect(screen.getByTestId('abyss-air-badge').textContent).toContain('-4');
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('2/10');
+      expect(screen.queryByTestId('abyss-air-badge')).toBeNull();
 
-      // Second & third moves inside the abyss naturally deplete remaining air (6 -> 2 -> 0)
+      // Second & third moves on the seabed naturally deplete remaining air (2 -> 1 -> 0)
       await act(async () => {
         fireEvent.click(innerMap, { clientX: 220, clientY: 880 });
       });
       await act(async () => {
         vi.advanceTimersByTime(500);
       });
-      expect(screen.getByTestId('air-count-badge').textContent).toBe('2/10');
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('1/10');
 
       await act(async () => {
         fireEvent.click(innerMap, { clientX: 200, clientY: 910 });
@@ -577,7 +577,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         vi.advanceTimersByTime(500);
       });
 
-      expect(screen.getByTestId('abyss-drowning-banner')).toBeDefined();
+      expect(screen.getByTestId('drowning-vignette')).toBeDefined();
 
       await act(async () => {
         vi.advanceTimersByTime(DROWNING_ALERT_DELAY_MS + 100);

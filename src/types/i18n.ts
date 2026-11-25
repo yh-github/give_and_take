@@ -70,7 +70,6 @@ export interface TranslationDictionary {
   fishingTapNow: string;
   fishingCaught: string;
   fishingEscaped: string;
-  abyssTooDeep: string;
   airPocketBlocked: string;
   settings: string;
   level: string;

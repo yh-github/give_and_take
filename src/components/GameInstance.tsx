@@ -13,7 +13,6 @@ import {
   DROWNING_RETURN_DELAY_MS,
   UNDERWATER_FISHING_MODE,
   UNDERWATER_INSPECT_RADIUS,
-  UNDERWATER_ABYSS_DROWNING_Y,
   CANONICAL_SCREEN_HEIGHT,
   DEEP_CAVE_HERO_RADIUS
 } from '../constants.ts';
@@ -691,7 +690,7 @@ export function GameInstance({
       return;
     }
 
-    const airCost = getDivingAirCost(level, effectiveInv, isTransformedRef.current, options?.wasFullBeforeMove, finalY);
+    const airCost = getDivingAirCost(level, effectiveInv, isTransformedRef.current, options?.wasFullBeforeMove);
     const nextAir = Math.max(0, airRef.current - airCost);
 
     if (nextAir <= 0) {
@@ -2734,7 +2733,6 @@ export function GameInstance({
             level={level}
             isTransformed={isTransformed}
             isHeavy={isHeavyUnderwater}
-            isAbyssalPressure={level.id === 'underwater' && !isTransformed && playerVisualY > UNDERWATER_ABYSS_DROWNING_Y}
             onSwimToSurface={handleSwimToSurface}
           />
 
@@ -2860,16 +2858,6 @@ export function GameInstance({
             >
               <span className="text-base tracking-widest">🧜‍♂️ 💦 🚫 ➔ 😈</span>
               <span className="text-xs sm:text-sm font-bold">{dict.airPocketBlocked}</span>
-            </div>
-          )}
-
-          {isDrowning && !isDrowningAscending && level.id === 'underwater' && !isTransformed && playerVisualY > UNDERWATER_ABYSS_DROWNING_Y && !outOfAirModal && (
-            <div
-              data-testid="abyss-drowning-banner"
-              dir={lang === 'he' ? 'rtl' : 'ltr'}
-              className="absolute top-16 inset-x-4 z-[245] mx-auto max-w-xs bg-rose-950/95 border-2 border-rose-400 text-rose-100 px-3 py-2 rounded-2xl shadow-2xl text-center text-xs sm:text-sm font-bold font-sans animate-bounce"
-            >
-              ⚠️ {dict.abyssTooDeep}
             </div>
           )}
 

@@ -4,8 +4,6 @@ import {
   FISHING_CATCH_CONFIG,
   MAX_AIR,
   MAX_UNIQUE_ITEMS,
-  UNDERWATER_ABYSS_DROWNING_Y,
-  UNDERWATER_AIR_COST_ABYSS,
   UNDERWATER_AIR_COST_FULL_BAG,
   UNDERWATER_AIR_COST_NORMAL,
   UNDERWATER_FISH_ITEM_IDS,
@@ -131,18 +129,10 @@ export function getDivingAirCost(
   level: Pick<LevelDefinition, 'id' | 'mechanics'> | null | undefined,
   inventory: readonly string[],
   isTransformed: boolean,
-  wasFullBeforeMove?: boolean,
-  targetY?: number
+  wasFullBeforeMove?: boolean
 ): number {
   if (!level?.mechanics?.hasAir || isTransformed) return 0;
   const isHeavy = wasFullBeforeMove !== undefined ? wasFullBeforeMove : isUnderwaterBackpackFull(inventory);
-  const isAbyss =
-    level.id === 'underwater' &&
-    targetY !== undefined &&
-    targetY > UNDERWATER_ABYSS_DROWNING_Y;
-  if (isAbyss) {
-    return isHeavy ? UNDERWATER_AIR_COST_ABYSS + 1 : UNDERWATER_AIR_COST_ABYSS;
-  }
   return isHeavy ? UNDERWATER_AIR_COST_FULL_BAG : UNDERWATER_AIR_COST_NORMAL;
 }
 
