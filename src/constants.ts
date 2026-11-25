@@ -27,6 +27,7 @@ export const UNDERWATER_INSPECT_RADIUS = 22;
 export const UNDERWATER_NEAR_RADIUS = 10;
 export const UNDERWATER_AIR_COST_NORMAL = 1;
 export const UNDERWATER_AIR_COST_FULL_BAG = 2;
+export const UNDERWATER_AIR_COST_ABYSS = 4;
 export const UNDERWATER_FULL_BAG_SPEED_MULTIPLIER = 2.1;
 export const UNDERWATER_FISH_ITEM_IDS = ['fish', 'gold_fish', 'blowfish'] as const;
 export const UNDERWATER_ABYSS_DROWNING_Y = 72;

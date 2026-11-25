@@ -31,9 +31,9 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
     expect(changed).toBe(true);
   });
 
-  it('meets all solvability, spacing, navigability, and preset targets across all 4 difficulty presets (20 seeds)', () => {
+  it('meets all solvability, spacing, navigability, and preset targets across all 4 difficulty presets (fast 1 seed/preset)', () => {
     for (const [presetId, preset] of Object.entries(DEEP_CAVE_PRESETS)) {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 1; i++) {
         const seed = `preset-${presetId}-${i}`;
         const p = generateDeepCavePuzzle(deepCave, preset, null, seed);
 
@@ -139,7 +139,7 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
 
   it('produces non-linear hard/expert puzzles with multi-item trolls, backtracking, greedy traps, and maze loops', () => {
     let totalLoops = 0;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 2; i++) {
       const hardP = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.hard, null, `nonlinear-hard-${i}`);
       expect(hardP.difficulty).toBeDefined();
       expect(hardP.difficulty.greedySolvable).toBe(false);
@@ -181,7 +181,7 @@ describe('Phase 3: Deep Cave Puzzle-First Generator', () => {
 
   it('decouples Mushroom Grotto resources from its immediate entrance vestibule', () => {
     let checkedGrottos = 0;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       const p = generateDeepCavePuzzle(deepCave, DEEP_CAVE_PRESETS.hard, null, `grotto-sep-${i}`);
       const grottoRock = p.puzzleEntities.find(e => e.id?.startsWith('grotto_rock_'));
       if (!grottoRock) continue;

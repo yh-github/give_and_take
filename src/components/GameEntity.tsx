@@ -415,17 +415,15 @@ export function GameEntity({
                         <div
                           data-testid="dolphin-sprite"
                           style={!isCustomEntity && !isAnimating ? { animationPlayState: isSelected ? 'paused' : 'running' } : undefined}
-                          className={`relative w-[18cqw] h-[18cqw] flex items-center justify-center text-[12cqw] font-sans drop-shadow-2xl ${!isCustomEntity && !isAnimating ? 'animate-dolphin-playful' : ''} ${isAlerting ? 'animate-troll-mad' : ''}`}
+                          className={`relative w-[18cqw] h-[18cqw] flex items-center justify-center text-[12cqw] font-sans drop-shadow-2xl ${
+                            !isCustomEntity && !isAnimating
+                              ? (visualY > 40 ? 'animate-dolphin-idle' : 'animate-dolphin-playful')
+                              : ''
+                          } ${isAlerting ? 'animate-troll-mad' : ''}`}
                         >
-                          {ent.emoji}
-                          {!isCustomEntity && (
-                            <span
-                              aria-hidden="true"
-                              className="absolute -top-1 -right-1 text-[4.5cqw] opacity-85 animate-pulse pointer-events-none"
-                            >
-                              💦
-                            </span>
-                          )}
+                          <span className={!isCustomEntity ? 'inline-block scale-x-[-1]' : 'inline-block'}>
+                            {ent.emoji}
+                          </span>
                         </div>
                         <div className="-mt-2 bg-sky-950/90 border border-cyan-300 text-cyan-100 rounded-full px-2 py-0.5 text-[2.4cqw] font-black shadow-md pointer-events-none flex items-center gap-1">
                           <span>🐟</span>

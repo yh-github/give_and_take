@@ -507,7 +507,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       expect(airPill.querySelectorAll('.opacity-25').length).toBe(1);
     });
 
-    it('drowns naturally when diving past the Abyssal Trench rim untransformed and drops items safely above the abyss', async () => {
+    it('drains abyssal pressure air naturally on the seabed without instakilling, and drops items safely above the abyss on 0 air', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const underwater = LEVEL_REGISTRY.underwater;
       const puzzle = generateUnderwaterPuzzle(underwater, 5, 0, 'abyss-drown-seed');
@@ -550,13 +550,31 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         toJSON: () => {}
       });
 
-      // Click directly into the Abyssal Trench (y = 85 > 72) without transformation
+      // Click directly into the Abyssal Trench (y = 85 > 72) with 10 air -> arrives ALIVE with 6/10 air (4 abyssal air cost)
       await act(async () => {
         fireEvent.click(innerMap, { clientX: 200, clientY: 850 });
       });
+      await act(async () => {
+        vi.advanceTimersByTime(900);
+      });
+      expect(screen.queryByTestId('out-of-air-modal')).toBeNull();
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('6/10');
+      expect(screen.getByTestId('abyss-air-badge').textContent).toContain('-4');
+
+      // Second & third moves inside the abyss naturally deplete remaining air (6 -> 2 -> 0)
+      await act(async () => {
+        fireEvent.click(innerMap, { clientX: 220, clientY: 880 });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('2/10');
 
       await act(async () => {
-        vi.advanceTimersByTime(700);
+        fireEvent.click(innerMap, { clientX: 200, clientY: 910 });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(500);
       });
 
       expect(screen.getByTestId('abyss-drowning-banner')).toBeDefined();
@@ -879,6 +897,7 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       );
 
       const dolphinSprite = screen.getByTestId('dolphin-sprite');
+      expect(dolphinSprite.textContent).not.toContain('💦');
 
       // Clicking dolphin without selecting fish does NOT start a ride
       await act(async () => {

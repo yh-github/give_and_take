@@ -234,6 +234,7 @@ export function GameInstance({
   );
   const [isRefillingAir, setIsRefillingAir] = useState(false);
   const [hasDeepTreasure, setHasDeepTreasure] = useState(() => Boolean(savedState?.hasDeepTreasure));
+  const hasTransformedOnceRef = useRef(Boolean(savedState?.isTransformed || savedState?.hasDeepTreasure || defaultTransformed));
   const [inkFogEntities, setInkFogEntities] = useState<Set<string>>(() => new Set(savedState?.inkFogEntities || []));
   const [roamingBoats, setRoamingBoats] = useState<RoamingBoatState[]>([]);
   const [outOfAirModal, setOutOfAirModal] = useState<{ items: string[]; dropPos: Point2D; lostAtSea?: boolean } | null>(null);
@@ -496,6 +497,7 @@ export function GameInstance({
       isTransformedRef.current = restoredTransformed;
       setIsTransformed(restoredTransformed);
       setHasDeepTreasure(Boolean(saved.hasDeepTreasure));
+      hasTransformedOnceRef.current = Boolean(restoredTransformed || saved.hasDeepTreasure || defaultTransformed);
       setEnvItemState(saved.envItemState || 'active');
       setEnvItemCaughtPos(saved.envItemCaughtPos || { x: 50, y: 50 });
       setDolphinState(saved.dolphinState || 'idle_surface');
@@ -531,6 +533,7 @@ export function GameInstance({
       isTransformedRef.current = defaultTransformed;
       setIsTransformed(defaultTransformed);
       setHasDeepTreasure(false);
+      hasTransformedOnceRef.current = defaultTransformed;
       setIsAnimatingLoot(false);
       setTempPlayerPos(null);
       setAlertEntityId(null);
@@ -682,13 +685,13 @@ export function GameInstance({
     if (isAtRefill || isVentAction) {
       airRef.current = maxAir;
       setAir(maxAir);
-      if (level.id === 'underwater' && finalY <= 20 && hasDeepTreasure && !isTransformedRef.current && effectiveInv.includes('crown')) {
+      if (level.id === 'underwater' && finalY <= 20 && hasDeepTreasure && hasTransformedOnceRef.current && !isTransformedRef.current && effectiveInv.includes('crown')) {
         triggerVictory();
       }
       return;
     }
 
-    const airCost = getDivingAirCost(level, effectiveInv, isTransformedRef.current, options?.wasFullBeforeMove);
+    const airCost = getDivingAirCost(level, effectiveInv, isTransformedRef.current, options?.wasFullBeforeMove, finalY);
     const nextAir = Math.max(0, airRef.current - airCost);
 
     if (nextAir <= 0) {
@@ -747,18 +750,24 @@ export function GameInstance({
     if (dolphinState !== 'diving' && dolphinState !== 'rising') return;
 
     let frameId = 0;
+    let lastRenderTime = 0;
     const update = () => {
       const anim = dolphinAnimRef.current;
       const state = dolphinStateRef.current;
 
       if (state === 'diving' || state === 'rising') {
-        const elapsed = performance.now() - anim.startTime;
+        const now = performance.now();
+        const elapsed = now - anim.startTime;
         const progress = Math.min(1, Math.max(0, elapsed / anim.duration));
-        const ease = progress < 0.5
-          ? 4 * progress * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-        const currentY = anim.startY + (anim.targetY - anim.startY) * ease;
-        setDolphinYPos(currentY);
+        const shouldUpdate = now - lastRenderTime >= 40 || progress >= 1;
+        if (shouldUpdate) {
+          lastRenderTime = now;
+          const ease = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+          const currentY = anim.startY + (anim.targetY - anim.startY) * ease;
+          setDolphinYPos(currentY);
+        }
 
         if (progress >= 1) {
           if (state === 'diving') {
@@ -1016,6 +1025,7 @@ export function GameInstance({
     setMassFlyingTreasures([]);
     setIsTransformed(defaultTransformed);
     setHasDeepTreasure(false);
+    hasTransformedOnceRef.current = defaultTransformed;
     setInkFogEntities(new Set());
     setRoamingBoats([]);
     setAttachedEntityId(null);
@@ -1532,42 +1542,6 @@ export function GameInstance({
     }, DROWNING_RETURN_DELAY_MS);
   }, [outOfAirModal, startDolphinReturn, navigateTo, level, scheduleTimeout, triggerAirLossBubbles, triggerWaterSplash, maybeTriggerWaterSplash]);
 
-  const triggerAbyssalDrowning = useCallback((
-    targetX: number,
-    targetY: number,
-    wasFullBeforeMove: boolean
-  ) => {
-    if (dolphinStateRef.current === 'idle_deep') {
-      startDolphinReturn(false);
-    }
-    setAttachedEntityId(null);
-    saveHistory();
-
-    const clampedDropX = Math.max(18, Math.min(82, targetX));
-    const drownY = Math.max(74, Math.min(80, targetY));
-    const swimDuration = getUnderwaterMoveDurationMs(650, wasFullBeforeMove);
-    setMoveDurationMs(swimDuration);
-    setIsAnimatingLoot(true);
-
-    const lastP = pathHistory[pathHistory.length - 1] || level.campPos;
-    triggerAirLossBubbles(lastP.x, lastP.y, true, 16);
-    setPathHistory(prev => [...prev, { x: clampedDropX, y: drownY, depth: 3, zone: 2 }]);
-
-    scheduleTimeout(() => {
-      airRef.current = 0;
-      setAir(0);
-      triggerAirLossBubbles(clampedDropX, drownY, true, 18);
-      setIsAnimatingLoot(false);
-      setAlertEntityId('out_of_air');
-      scheduleTimeout(() => {
-        setOutOfAirModal({
-          items: [...inventoryRef.current],
-          dropPos: { x: clampedDropX, y: 66 }
-        });
-      }, DROWNING_ALERT_DELAY_MS);
-    }, swimDuration);
-  }, [pathHistory, level.campPos, startDolphinReturn, saveHistory, triggerAirLossBubbles, scheduleTimeout]);
-
   const handleResolveFishingCatch = useCallback((caught: boolean) => {
     const active = fishingCatch;
     setFishingCatch(null);
@@ -1912,7 +1886,7 @@ export function GameInstance({
         airRef.current = maxAir;
         setAir(maxAir);
       }
-      if (level.id === 'underwater' && !isTransformedRef.current && hasDeepTreasure && nextInv.includes('crown')) {
+      if (level.id === 'underwater' && !isTransformedRef.current && hasDeepTreasure && hasTransformedOnceRef.current && nextInv.includes('crown')) {
         triggerVictory();
       }
     }, swimDuration);
@@ -2025,11 +1999,6 @@ export function GameInstance({
 
       const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
 
-      if (level.id === 'underwater' && !isTransformedRef.current && targetY > UNDERWATER_ABYSS_DROWNING_Y) {
-        triggerAbyssalDrowning(targetX, targetY, wasFullBeforeMove);
-        return;
-      }
-
       if (dolphinStateRef.current === 'idle_deep') {
         startDolphinReturn(false);
       }
@@ -2109,9 +2078,8 @@ export function GameInstance({
         const rawProg = Math.min(1, Math.max(0, (dolphinYPos - startY) / Math.max(1, targetY - startY)));
         const waveX = 50 + Math.sin(rawProg * Math.PI * 2.5) * 14;
         const isMovingLeft = Math.cos(rawProg * Math.PI * 2.5) < 0;
-        const flipAngle = rawProg < 0.35 ? (rawProg / 0.35) * 360 * (isMovingLeft ? -1 : 1) : 0;
         const diveTilt = 28 * (isMovingLeft ? -1 : 1);
-        return { x: waveX, y: dolphinYPos, rotate: flipAngle + diveTilt, flip: isMovingLeft, isActiveMotion: true };
+        return { x: waveX, y: dolphinYPos, rotate: diveTilt, flip: !isMovingLeft, isActiveMotion: true };
       }
 
       if (state === 'rising') {
@@ -2120,9 +2088,8 @@ export function GameInstance({
         const rawProg = Math.min(1, Math.max(0, (startY - dolphinYPos) / Math.max(1, startY - targetY)));
         const waveX = 50 + Math.sin(rawProg * Math.PI * 2.5) * 14;
         const isMovingLeft = Math.cos(rawProg * Math.PI * 2.5) < 0;
-        const flipAngle = rawProg > 0.7 ? ((rawProg - 0.7) / 0.3) * 360 * (isMovingLeft ? -1 : 1) : 0;
         const riseTilt = -28 * (isMovingLeft ? -1 : 1);
-        return { x: waveX, y: dolphinYPos, rotate: flipAngle + riseTilt, flip: isMovingLeft, isActiveMotion: true };
+        return { x: waveX, y: dolphinYPos, rotate: riseTilt, flip: !isMovingLeft, isActiveMotion: true };
       }
 
       if (state === 'idle_deep') {
@@ -2184,11 +2151,6 @@ export function GameInstance({
     if (level.id === 'underwater' && entity.id === 'dolphin_1') {
       const cm = getCustomEntityMovement(entity);
       if (cm) targetY = cm.y;
-    }
-
-    if (level.id === 'underwater' && !isTransformedRef.current && (entity.zone > 2 || targetY > UNDERWATER_ABYSS_DROWNING_Y)) {
-      triggerAbyssalDrowning(entity.x, targetY, wasFullBeforeMove);
-      return;
     }
 
     if (level.id === 'shipwreck' && isTransformedRef.current && (entity.requiresHuman || isInShipwreckAirPocket(entity.x, targetY))) {
@@ -2420,6 +2382,7 @@ export function GameInstance({
             scheduleTimeout(() => setIsMagicAnimating(false), 1500);
             isTransformedRef.current = true;
             setIsTransformed(true);
+            hasTransformedOnceRef.current = true;
           } else if (hasDeepTreasure) {
             setIsMagicAnimating(true);
             scheduleTimeout(() => setIsMagicAnimating(false), 1500);
@@ -2717,7 +2680,7 @@ export function GameInstance({
       setIsAnimatingLoot(false);
       airRef.current = maxAir;
       setAir(maxAir);
-      if (level.id === 'underwater' && hasDeepTreasure && !isTransformedRef.current && inventoryRef.current.includes('crown')) {
+      if (level.id === 'underwater' && hasDeepTreasure && hasTransformedOnceRef.current && !isTransformedRef.current && inventoryRef.current.includes('crown')) {
         triggerVictory();
       }
     }, swimDuration);
@@ -2771,6 +2734,7 @@ export function GameInstance({
             level={level}
             isTransformed={isTransformed}
             isHeavy={isHeavyUnderwater}
+            isAbyssalPressure={level.id === 'underwater' && !isTransformed && playerVisualY > UNDERWATER_ABYSS_DROWNING_Y}
             onSwimToSurface={handleSwimToSurface}
           />
 

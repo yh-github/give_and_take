@@ -183,18 +183,18 @@
 .animate-dolphin-idle { animation: dolphinIdle 4s ease-in-out infinite; }
 
 @keyframes dolphinPlayful {
-  0% { transform: translate3d(-18cqw, 2px, 0) scaleX(-1) rotate(-8deg); }
-  16% { transform: translate3d(-2cqw, -14px, 0) scaleX(-1) rotate(175deg); }
-  30% { transform: translate3d(13cqw, -2px, 0) scaleX(-1) rotate(360deg); }
-  45% { transform: translate3d(19cqw, 4px, 0) scaleX(-1) rotate(6deg); }
-  50% { transform: translate3d(19cqw, 4px, 0) scaleX(1) rotate(-8deg); }
-  66% { transform: translate3d(3cqw, -12px, 0) scaleX(1) rotate(-175deg); }
-  80% { transform: translate3d(-13cqw, -1px, 0) scaleX(1) rotate(-360deg); }
-  94% { transform: translate3d(-18cqw, 2px, 0) scaleX(1) rotate(4deg); }
-  100% { transform: translate3d(-18cqw, 2px, 0) scaleX(-1) rotate(-8deg); }
+  0% { transform: translate3d(-12cqw, 0px, 0) rotate(-10deg); }
+  10% { transform: translate3d(-2cqw, -44px, 0) rotate(-45deg); }
+  18% { transform: translate3d(8cqw, -54px, 0) rotate(-190deg); }
+  26% { transform: translate3d(15cqw, -6px, 0) rotate(-325deg); }
+  44% { transform: translate3d(10cqw, 120px, 0) rotate(-325deg); }
+  56% { transform: translate3d(0cqw, 132px, 0) rotate(-360deg); }
+  76% { transform: translate3d(-10cqw, 36px, 0) rotate(-395deg); }
+  90% { transform: translate3d(-14cqw, 0px, 0) rotate(-372deg); }
+  100% { transform: translate3d(-12cqw, 0px, 0) rotate(-370deg); }
 }
 .animate-dolphin-playful {
-  animation: dolphinPlayful 7.5s ease-in-out infinite;
+  animation: dolphinPlayful 6.5s ease-in-out infinite;
   @media (prefers-reduced-motion: reduce) {
     animation: dolphinIdle 8s ease-in-out infinite;
   }

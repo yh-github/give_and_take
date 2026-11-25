@@ -202,10 +202,10 @@ describe('Deterministic Level Generation & Underwater Fixes', () => {
   });
 
   it('strictly enforces across all levels and seeds that no entity ever asks for the item it guards/rewards', () => {
-    // Test across all registered levels and varied seeds
+    // Fast suite checks 3 seeds per level; extended 15-seed fuzz lives in tests/generator_fuzz.full.test.js
     for (const levelId of ['river_crossing', 'underground', 'underwater', 'shipwreck']) {
       const level = LEVEL_REGISTRY[levelId];
-      for (let s = 1; s <= 15; s++) {
+      for (let s = 1; s <= 3; s++) {
         const seed = `invariant-test-${levelId}-${s}`;
         const puzzle = generateLevelPuzzle(level, 5, 1, seed);
 
