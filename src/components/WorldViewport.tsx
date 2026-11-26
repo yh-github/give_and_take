@@ -89,6 +89,9 @@ export interface WorldViewportProps {
   wallSegments: readonly ObstacleSegment[];
   breakingRockIds: Record<string, boolean>;
   bridgingChasmIds?: Record<string, boolean>;
+  inventory?: readonly string[];
+  wildLightSources?: readonly Point2D[];
+  lanternfishLightCount?: number;
   getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
   handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
   playerVisualX: number;
@@ -159,6 +162,17 @@ function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
       }}
     >
       <div className="-translate-x-1/2 relative flex items-center hover:scale-125 transition-transform">
+        {fish.type === 'blowfish' && (
+          <div
+            data-testid="lanternfish-glow"
+            aria-hidden="true"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full pointer-events-none -z-10"
+            style={{
+              background:
+                'radial-gradient(circle, rgba(254,240,138,0.48) 0%, rgba(103,232,249,0.22) 45%, rgba(34,211,238,0) 75%)'
+            }}
+          />
+        )}
         <div
           aria-hidden="true"
           className={`flex items-center gap-1 opacity-60 pointer-events-none ${
@@ -239,6 +253,9 @@ export function WorldViewport({
   wallSegments,
   breakingRockIds,
   bridgingChasmIds,
+  inventory = [],
+  wildLightSources = [],
+  lanternfishLightCount = 0,
   getCustomEntityMovement,
   handleInteract,
   playerVisualX,
@@ -579,6 +596,8 @@ export function WorldViewport({
           displayPlayerPos={displayPlayerPos}
           breakingRockIds={breakingRockIds}
           bridgingChasmIds={bridgingChasmIds}
+          inventory={inventory}
+          wildLightSources={wildLightSources}
           isTransformed={isTransformed}
           hasDeepTreasure={hasDeepTreasure}
           getCustomEntityMovement={getCustomEntityMovement}
@@ -609,6 +628,7 @@ export function WorldViewport({
         level={level}
         isAnimatingLoot={isAnimatingLoot}
         isHeavy={isHeavyUnderwater}
+        lanternfishLightCount={lanternfishLightCount}
       />
 
       {showTrophy && (

@@ -13,6 +13,8 @@ A procedurally generated puzzle-trading adventure built with React, Vite, and Ta
 - **Multi-language Support**: Built-in support for English and Hebrew.
 - **BFS Solver**: The game includes a Breadth-First Search solver that can "Show Solution" if you're stuck, proving that every generated map is beatable.
 
+- **Classic Edition**: A frozen standalone build of the original River Crossing game (emoji graphics + dotted path line) is preserved in `public/classic/` and documented in [CLASSIC_EDITION.md](file:///home/yoavh/code/antigravity/give_and_take/docs/CLASSIC_EDITION.md).
+
 ---
 
 ## 🏗️ The Code
@@ -30,6 +32,8 @@ The application is structured as a modern React single-page application focused 
 - **[`rules.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/rules.js) & [`solver.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/solver.js)**: Pure domain rule evaluators and Breadth-First Search (BFS) solver that guarantee every generated puzzle is solvable.
 - **[`generator.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/generator.js) & [`rng.js`](file:///home/yoavh/code/antigravity/give_and_take/src/logic/rng.js)**: Seedable procedural puzzle generation with Fisher-Yates shuffling and shuffle-bag item distribution.
 - **[`GameInstance.jsx`](file:///home/yoavh/code/antigravity/give_and_take/src/components/GameInstance.jsx) & [`WorldViewport.jsx`](file:///home/yoavh/code/antigravity/give_and_take/src/components/WorldViewport.jsx)**: Modular UI and state controllers with 2D A* pathfinding, raycast cave lighting, and custom SVG entities.
+
+- **Classic Edition**: A frozen standalone build of the original River Crossing game (emoji graphics + dotted path line) is preserved in `public/classic/` and documented in [CLASSIC_EDITION.md](file:///home/yoavh/code/antigravity/give_and_take/docs/CLASSIC_EDITION.md).
 
 ---
 
@@ -61,6 +65,8 @@ The application is structured as a modern React single-page application focused 
     - **Roaming Trades**: Boats occasionally sail across the surface, offering rare junk items (boots, mirrors) in exchange for fish.
     - **Mermaid Elevators**: Mermaids act as both traders and vertical transport between the surface and the deep.
 - **Goal**: Retrieve the Glowing Crown from the deepest trench and return to the surface safely.
+
+- **Classic Edition**: A frozen standalone build of the original River Crossing game (emoji graphics + dotted path line) is preserved in `public/classic/` and documented in [CLASSIC_EDITION.md](file:///home/yoavh/code/antigravity/give_and_take/docs/CLASSIC_EDITION.md).
 
 ---
 

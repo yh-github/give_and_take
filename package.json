@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --exclude '**/*.full.test.*' --exclude tests/deep_cave_generator.test.js --exclude tests/deep_cave_ui.test.jsx --exclude tests/save_and_autosave.test.jsx --exclude tests/gameplay_regression.test.jsx --exclude tests/underground_movement.test.jsx",
+    "test": "vitest run --exclude '**/*.full.test.*' --exclude tests/deep_cave_generator.test.js --exclude tests/deep_cave_ui.test.jsx --exclude tests/underwater_ui.test.jsx --exclude tests/save_and_autosave.test.jsx --exclude tests/gameplay_regression.test.jsx --exclude tests/underground_movement.test.jsx",
     "test:full": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node scripts/smoke_test.cjs"

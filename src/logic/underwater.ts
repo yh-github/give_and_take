@@ -2,8 +2,15 @@ import {
   FISH_CHASE_CONFIG,
   FISH_PATTERN_CONFIG,
   FISHING_CATCH_CONFIG,
+  LANTERNFISH_HELD_RADIUS_STEP,
+  LANTERNFISH_MAX_LIGHT_STACKS,
+  LANTERNFISH_WILD_LIGHT_RADIUS,
   MAX_AIR,
   MAX_UNIQUE_ITEMS,
+  MERMAN_CATCH_RADIUS_MULT,
+  MERMAN_DIRECT_GRAB_MULT,
+  MERMAN_SPOOK_MULT,
+  MERMAN_TIMING_TOLERANCE_MULT,
   UNDERWATER_AIR_COST_FULL_BAG,
   UNDERWATER_AIR_COST_NORMAL,
   UNDERWATER_FISH_ITEM_IDS,
@@ -210,23 +217,50 @@ export function isCampItemFloating(
   return false;
 }
 
+export interface MurkyVisibilityOptions {
+  inventory?: readonly string[];
+  wildLightSources?: readonly Point2D[];
+}
+
+export function getHeldLanternfishLightCount(inventory: readonly string[] = []): number {
+  let count = 0;
+  for (const id of inventory) {
+    if (id === 'blowfish') count++;
+  }
+  return Math.min(LANTERNFISH_MAX_LIGHT_STACKS, count);
+}
+
+export function getUnderwaterInspectRadius(inventory: readonly string[] = []): number {
+  return UNDERWATER_INSPECT_RADIUS + getHeldLanternfishLightCount(inventory) * LANTERNFISH_HELD_RADIUS_STEP;
+}
+
 export function isEntityMurkyFar(
   level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
   ent: Pick<PuzzleEntity, 'id' | 'isPreset' | 'isGatekeeper'>,
   visualPos: Point2D,
-  heroPos: Point2D | null | undefined
+  heroPos: Point2D | null | undefined,
+  options?: MurkyVisibilityOptions
 ): boolean {
   if (!level?.mechanics?.hasMurkyWater || !heroPos) return false;
   if (
     ent.isPreset ||
     ent.isGatekeeper ||
-    ent.id === 'sea_witch' ||
-    ent.id === 'dolphin_1' ||
-    ent.id === 'captains_chest'
+    ent.id === 'dolphin_1'
   ) {
     return false;
   }
-  return Math.hypot(visualPos.x - heroPos.x, visualPos.y - heroPos.y) > UNDERWATER_INSPECT_RADIUS;
+  const inspectRadius = getUnderwaterInspectRadius(options?.inventory);
+  if (Math.hypot(visualPos.x - heroPos.x, visualPos.y - heroPos.y) <= inspectRadius) {
+    return false;
+  }
+  if (options?.wildLightSources?.length) {
+    for (const lightPos of options.wildLightSources) {
+      if (Math.hypot(visualPos.x - lightPos.x, visualPos.y - lightPos.y) <= LANTERNFISH_WILD_LIGHT_RADIUS) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 export function shouldRefillAirOnTrade(
@@ -258,15 +292,22 @@ export function getAquaticHeroFace({
  * Evaluates a tap during the 1-tap timing-ring fishing mini-game.
  * Progress `0.5` is the center of the golden target ring.
  */
-export function evaluateFishingCatch(progress: number, fishType: string): FishingCatchResult {
+export function evaluateFishingCatch(
+  progress: number,
+  fishType: string,
+  isTransformed = false
+): FishingCatchResult {
   const cfg =
     FISHING_CATCH_CONFIG[fishType as keyof typeof FISHING_CATCH_CONFIG] ||
     FISHING_CATCH_CONFIG.fish;
+  const effectiveTolerance = isTransformed
+    ? cfg.tolerance * MERMAN_TIMING_TOLERANCE_MULT
+    : cfg.tolerance;
   const delta = Math.abs(progress - 0.5);
-  if (delta <= cfg.tolerance * 0.45) {
+  if (delta <= effectiveTolerance * 0.45) {
     return { caught: true, quality: 'perfect' };
   }
-  if (delta <= cfg.tolerance) {
+  if (delta <= effectiveTolerance) {
     return { caught: true, quality: 'good' };
   }
   return { caught: false, quality: 'miss' };
@@ -290,6 +331,8 @@ export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Poi
   const p = clamp((nowMs - spawnTime) / durationMs, 0, 1);
   const cfg = getFishChaseConfig(fish.type);
 
+  const maxSwimY = fish.type === 'blowfish' ? 94 : 66;
+
   if (fish.isSpooked) {
     const spookStart = fish.spookedAt ?? spawnTime;
     const easeT = clamp((nowMs - spookStart) / FISH_PATTERN_CONFIG.dodgeEaseMs, 0, 1);
@@ -297,7 +340,7 @@ export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Poi
     const fromY = fish.dodgeFromY ?? fish.y;
     return {
       x: startX + (endX - startX) * p,
-      y: clamp(fromY + (fish.y - fromY) * eased, 14, 66)
+      y: clamp(fromY + (fish.y - fromY) * eased, 14, maxSwimY)
     };
   }
 
@@ -335,7 +378,7 @@ export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Poi
 
   return {
     x: startX + (endX - startX) * xProgress,
-    y: clamp(fish.y + yOffset, 14, 66)
+    y: clamp(fish.y + yOffset, 14, maxSwimY)
   };
 }
 
@@ -356,9 +399,10 @@ export function createSpookedFishState(fish: SchoolFishState, nowMs: number): Sc
 
   const prevCount = fish.spookCount || 0;
   let dodgeDir = prevCount % 2 === 0 ? -1 : 1;
+  const maxSpookY = fish.type === 'blowfish' ? 92 : 62;
   if (curPos.y < 24) dodgeDir = 1;
-  else if (curPos.y > 56) dodgeDir = -1;
-  const nextY = Number(clamp(curPos.y + dodgeDir * cfg.fleeDodgeY, 18, 62).toFixed(2));
+  else if (curPos.y > maxSpookY - 6) dodgeDir = -1;
+  const nextY = Number(clamp(curPos.y + dodgeDir * cfg.fleeDodgeY, 18, maxSpookY).toFixed(2));
 
   return {
     ...fish,
@@ -380,11 +424,13 @@ export function createSpookedFishState(fish: SchoolFishState, nowMs: number): Sc
 export function canDirectGrabFish(
   fish: SchoolFishState,
   heroPos: Point2D,
-  nowMs: number
+  nowMs: number,
+  isTransformed = false
 ): boolean {
   const cfg = getFishChaseConfig(fish.type);
   const curPos = getSchoolFishPosition(fish, nowMs);
-  return Math.hypot(curPos.x - heroPos.x, curPos.y - heroPos.y) <= cfg.directGrabDist;
+  const grabDist = isTransformed ? cfg.directGrabDist * MERMAN_DIRECT_GRAB_MULT : cfg.directGrabDist;
+  return Math.hypot(curPos.x - heroPos.x, curPos.y - heroPos.y) <= grabDist;
 }
 
 /**
@@ -393,7 +439,8 @@ export function canDirectGrabFish(
 export function findInterceptedFish(
   fishes: readonly SchoolFishState[],
   targetPos: Point2D,
-  arrivalTimeMs: number
+  arrivalTimeMs: number,
+  isTransformed = false
 ): SchoolFishState | null {
   const sampleOffsets = [-180, 0, 220];
   let bestFish: SchoolFishState | null = null;
@@ -405,12 +452,14 @@ export function findInterceptedFish(
       continue;
     }
     const cfg = getFishChaseConfig(fish.type);
+    const radiusX = isTransformed ? cfg.catchRadiusX * MERMAN_CATCH_RADIUS_MULT : cfg.catchRadiusX;
+    const radiusY = isTransformed ? cfg.catchRadiusY * MERMAN_CATCH_RADIUS_MULT : cfg.catchRadiusY;
 
     for (const offset of sampleOffsets) {
       const pos = getSchoolFishPosition(fish, arrivalTimeMs + offset);
       const dx = Math.abs(pos.x - targetPos.x);
       const dy = Math.abs(pos.y - targetPos.y);
-      if (dx <= cfg.catchRadiusX && dy <= cfg.catchRadiusY) {
+      if (dx <= radiusX && dy <= radiusY) {
         const score = dx + dy * 1.5;
         if (score < bestScore) {
           bestScore = score;
@@ -430,14 +479,18 @@ export function findInterceptedFish(
 export function shouldSpookFishFromPoint(
   fish: SchoolFishState,
   clickPos: Point2D,
-  nowMs: number
+  nowMs: number,
+  isTransformed = false
 ): boolean {
   if (fish.isSpooked) return false;
   const cfg = getFishChaseConfig(fish.type);
   const curPos = getSchoolFishPosition(fish, nowMs);
-  if (Math.abs(clickPos.y - curPos.y) > cfg.spookBandY) return false;
+  const spookBandY = isTransformed ? cfg.spookBandY * MERMAN_SPOOK_MULT : cfg.spookBandY;
+  const spookBehind = isTransformed ? cfg.spookBehind * MERMAN_SPOOK_MULT : cfg.spookBehind;
+  const spookAhead = isTransformed ? cfg.spookAhead * MERMAN_SPOOK_MULT : cfg.spookAhead;
+  if (Math.abs(clickPos.y - curPos.y) > spookBandY) return false;
   const forwardDelta = fish.isRight ? (clickPos.x - curPos.x) : (curPos.x - clickPos.x);
-  return forwardDelta >= -cfg.spookBehind && forwardDelta <= cfg.spookAhead;
+  return forwardDelta >= -spookBehind && forwardDelta <= spookAhead;
 }
 
 /**

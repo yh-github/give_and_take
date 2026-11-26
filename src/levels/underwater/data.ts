@@ -60,7 +60,8 @@ export interface ReefKelpHabitat {
 export const reefKelpHabitats: readonly ReefKelpHabitat[] = [
   { id: 'kelp_shallow', x: 11, y: 26, fishType: 'fish' },
   { id: 'kelp_mid', x: 89, y: 39, fishType: 'gold_fish' },
-  { id: 'kelp_deep', x: 11, y: 52, fishType: 'blowfish' }
+  { id: 'kelp_deep', x: 11, y: 52, fishType: 'blowfish' },
+  { id: 'kelp_abyss', x: 90, y: 80, fishType: 'blowfish' }
 ];
 
 // === Underwater: Map Layout ===

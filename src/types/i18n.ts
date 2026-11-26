@@ -107,6 +107,7 @@ export interface TranslationDictionary {
   ambientOpacity: string;
   flicker: string;
   resetDefaults: string;
+  classicEdition: string;
 }
 
 export type TranslationsMap = Record<LanguageCode, TranslationDictionary>;

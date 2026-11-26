@@ -413,13 +413,6 @@ export const CaptainsTreasureSVG = ({
       <text x="14" y="34" fontSize="12" opacity="0.9">✨</text>
       <text x="116" y="32" fontSize="12" opacity="0.9">✨</text>
     </svg>
-
-    {!isDefeated && (isTransformed || reqEmojis.length > 0) && (
-      <div className="-mt-1 flex items-center gap-1 bg-amber-950/95 border border-amber-300/85 text-amber-100 rounded-full px-2 py-0.5 text-[2.2cqw] font-black shadow-md whitespace-nowrap">
-        {isTransformed && <span>🤠</span>}
-        {reqEmojis.length > 0 && <span>{reqEmojis.join('+')}</span>}
-      </div>
-    )}
   </div>
 );
 

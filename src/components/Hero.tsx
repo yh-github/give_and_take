@@ -20,6 +20,7 @@ export interface HeroProps {
   isAnimatingLoot: boolean;
   isInventoryFullAlert?: boolean;
   isHeavy?: boolean;
+  lanternfishLightCount?: number;
 }
 
 export function Hero({
@@ -40,7 +41,8 @@ export function Hero({
   level,
   isAnimatingLoot,
   isInventoryFullAlert = false,
-  isHeavy = false
+  isHeavy = false,
+  lanternfishLightCount = 0
 }: HeroProps) {
   return (
     <div 
@@ -59,6 +61,23 @@ export function Hero({
         <div
           aria-hidden="true"
           className="absolute inset-[-38%] rounded-full border-2 border-rose-400/80 bg-rose-500/20 animate-ping pointer-events-none"
+        />
+      )}
+
+      {/* Bioluminescent Lanternfish Halo when carrying 1-3 Lanternfish in murky waters */}
+      {lanternfishLightCount > 0 && level.mechanics.hasMurkyWater && !isDrowning && (
+        <div
+          data-testid="hero-lantern-glow"
+          data-light-stacks={lanternfishLightCount}
+          aria-hidden="true"
+          className="absolute rounded-full pointer-events-none transition-all duration-500 -z-10"
+          style={{
+            width: `${18 + lanternfishLightCount * 10}cqw`,
+            height: `${18 + lanternfishLightCount * 10}cqw`,
+            background:
+              'radial-gradient(circle, rgba(254,240,138,0.42) 0%, rgba(34,211,238,0.22) 48%, rgba(34,211,238,0) 75%)',
+            boxShadow: `0 0 ${12 + lanternfishLightCount * 8}px rgba(103,232,249,0.45)`
+          }}
         />
       )}
 

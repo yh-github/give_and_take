@@ -401,34 +401,6 @@ export const SunkenVaultSVG = ({
             <text x="60" y="59" textAnchor="middle" fontSize="11">
               🔒
             </text>
-
-            {/* Seal Socket Medallions */}
-            {Array.from({ length: socketCount }).map((_, idx) => {
-              const cx = cxStart + idx * 26;
-              const cy = 78;
-              const emoji = reqEmojis[idx];
-              return (
-                <g key={`seal-${idx}`}>
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r="11.5"
-                    fill="#0f172a"
-                    stroke={isMurkyFar ? '#38bdf8' : '#fde047'}
-                    strokeWidth="2"
-                  />
-                  <text
-                    x={cx}
-                    y={cy + 4.5}
-                    textAnchor="middle"
-                    fontSize="13"
-                    fill={isMurkyFar ? '#7dd3fc' : '#ffffff'}
-                  >
-                    {isMurkyFar || !emoji ? '❓' : emoji}
-                  </text>
-                </g>
-              );
-            })}
           </>
         )}
       </svg>

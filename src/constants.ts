@@ -24,6 +24,13 @@ export const GENERATOR_MAX_ATTEMPTS = 5000;
 // === Navigation & Layout ===
 export const NAV_OFFSET = 6.0;
 export const UNDERWATER_INSPECT_RADIUS = 22;
+export const LANTERNFISH_MAX_LIGHT_STACKS = 3;
+export const LANTERNFISH_HELD_RADIUS_STEP = 12;
+export const LANTERNFISH_WILD_LIGHT_RADIUS = 20;
+export const MERMAN_DIRECT_GRAB_MULT = 1.7;
+export const MERMAN_CATCH_RADIUS_MULT = 1.65;
+export const MERMAN_SPOOK_MULT = 0.55;
+export const MERMAN_TIMING_TOLERANCE_MULT = 1.5;
 export const UNDERWATER_NEAR_RADIUS = 10;
 export const UNDERWATER_AIR_COST_NORMAL = 1;
 export const UNDERWATER_AIR_COST_FULL_BAG = 2;

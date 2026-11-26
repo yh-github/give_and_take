@@ -69,7 +69,8 @@ const en = {
   ambientColor: "Ambient Glow Color",
   ambientOpacity: "Glow Intensity",
   flicker: "Flicker Scale",
-  resetDefaults: "Reset Defaults"
+  resetDefaults: "Reset Defaults",
+  classicEdition: "Classic Edition (River Crossing)"
 };
 
 const he: typeof en = {
@@ -141,7 +142,8 @@ const he: typeof en = {
   ambientColor: "צבע זוהר סביבתי",
   ambientOpacity: "עוצמת זוהר",
   flicker: "עוצמת הבהוב",
-  resetDefaults: "איפוס לברירת מחדל"
+  resetDefaults: "איפוס לברירת מחדל",
+  classicEdition: "גרסה קלאסית (חציית הנהר)"
 };
 
 const STRINGS: TranslationsMap = { en, he };

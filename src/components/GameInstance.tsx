@@ -13,6 +13,7 @@ import {
   DROWNING_RETURN_DELAY_MS,
   UNDERWATER_FISHING_MODE,
   UNDERWATER_INSPECT_RADIUS,
+  LANTERNFISH_WILD_LIGHT_RADIUS,
   CANONICAL_SCREEN_HEIGHT,
   DEEP_CAVE_HERO_RADIUS
 } from '../constants.ts';
@@ -37,6 +38,8 @@ import {
   findInterceptedFish,
   getAquaticHeroFace,
   getBoatReqFishForTrinket,
+  getHeldLanternfishLightCount,
+  getUnderwaterInspectRadius,
   getDivingAirCost,
   getDivingMoveDurationMs,
   getMaxAir,
@@ -202,6 +205,7 @@ export function GameInstance({
   const [envItemState, setEnvItemState] = useState<string>(() => savedState?.envItemState || 'active');
   const [envItemCaughtPos, setEnvItemCaughtPos] = useState(() => savedState?.envItemCaughtPos || { x: 50, y: 50 });
   const [schoolsOfFish, setSchoolsOfFish] = useState<SchoolFishState[]>([]);
+  const [wildLightSources, setWildLightSources] = useState<Point2D[]>([]);
   const [campItems, setCampItems] = useState<CampItemState[]>(() => savedState?.campItems || []);
   const [massFlyingTreasures, setMassFlyingTreasures] = useState<FlyingItemState[]>([]);
   const [clickIndicator, setClickIndicator] = useState<ClickIndicatorState | null>(null);
@@ -812,7 +816,7 @@ export function GameInstance({
             ? 18 + Math.random() * 16
             : type === 'gold_fish'
               ? 30 + Math.random() * 22
-              : 44 + Math.random() * 18;
+              : 46 + Math.random() * 44;
       const speed =
         type === 'fish'
           ? 10 + Math.random() * 5
@@ -856,12 +860,42 @@ export function GameInstance({
       spawnFish('fish');
       spawnFish('gold_fish');
       spawnFish('blowfish');
+      spawnFish('blowfish', 80);
     }
     const intervalId = setInterval(() => {
       spawnFish();
     }, FISH_SPAWN_INTERVAL_MS);
     return () => { clearInterval(intervalId); timeoutIds.forEach(clearTimeout); };
   }, [level.mechanics.hasSchoolsOfFish, level.id]);
+
+  const hasActiveLanternfish =
+    Boolean(level.mechanics.hasMurkyWater) &&
+    schoolsOfFish.some((f) => f.type === 'blowfish');
+
+  useEffect(() => {
+    if (!hasActiveLanternfish) {
+      setWildLightSources((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
+    const updateLights = () => {
+      const now = Date.now();
+      const next = schoolsOfFishRef.current
+        .filter((f) => f.type === 'blowfish')
+        .map((f) => getSchoolFishPosition(f, now));
+      setWildLightSources((prev) => {
+        if (
+          prev.length === next.length &&
+          prev.every((p, idx) => Math.hypot(p.x - next[idx].x, p.y - next[idx].y) < 1.5)
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    };
+    updateLights();
+    const timer = setInterval(updateLights, 400);
+    return () => clearInterval(timer);
+  }, [hasActiveLanternfish]);
 
   useEffect(() => {
     if (level.id !== 'underwater' || !puzzle) return;
@@ -1589,7 +1623,7 @@ export function GameInstance({
     const isRight = habitat.x < 50;
     const startX = habitat.x;
     const endX = isRight ? 115 : -15;
-    const yPos = Math.max(18, Math.min(62, habitat.y));
+    const yPos = Math.max(18, Math.min(habitat.fishType === 'blowfish' ? 92 : 62, habitat.y));
 
     const flushedFish: SchoolFishState = {
       id,
@@ -1712,7 +1746,8 @@ export function GameInstance({
       ? ((e.clientX - rect.left) / rect.width) * 100
       : liveFishPos.x;
     const targetX = Math.max(10, Math.min(90, Number.isFinite(rawTargetX) ? rawTargetX : 50));
-    const targetY = Math.max(14, Math.min(66, liveFishPos.y));
+    const maxFishY = fishObj.type === 'blowfish' ? 94 : 66;
+    const targetY = Math.max(14, Math.min(maxFishY, liveFishPos.y));
 
     const dist = Math.hypot(targetX - startPos.x, targetY - startPos.y);
     const baseDuration = Math.min(800, Math.max(250, Math.round(dist * 35)));
@@ -1720,7 +1755,8 @@ export function GameInstance({
     setMoveDurationMs(swimDuration);
 
     const targetPos = { x: targetX, y: targetY };
-    const canGrab = canDirectGrabFish(fishObj, startPos, now);
+    const isMerman = isTransformedRef.current;
+    const canGrab = canDirectGrabFish(fishObj, startPos, now, isMerman);
 
     if (!canGrab) {
       spookFishById(fishObj.id);
@@ -1737,7 +1773,7 @@ export function GameInstance({
       let caughtFish: SchoolFishState | null = null;
       if (canGrab) {
         const live = schoolsOfFishRef.current.find(f => f.id === fishObj.id);
-        caughtFish = live ? findInterceptedFish([live], targetPos, arrivalNow) : null;
+        caughtFish = live ? findInterceptedFish([live], targetPos, arrivalNow, isMerman) : null;
       }
       let nextInv = inventoryRef.current;
 
@@ -2050,7 +2086,9 @@ export function GameInstance({
 
       if (level.id === 'underwater' && fishingMode === 'chase') {
         const arrivalNow = Date.now();
-        const fishToSpook = schoolsOfFishRef.current.filter(f => shouldSpookFishFromPoint(f, lastP, arrivalNow));
+        const fishToSpook = schoolsOfFishRef.current.filter(f =>
+          shouldSpookFishFromPoint(f, lastP, arrivalNow, isTransformedRef.current)
+        );
         fishToSpook.forEach(f => spookFishById(f.id));
       }
 
@@ -2235,7 +2273,12 @@ export function GameInstance({
       entity.requires &&
       entity.requires.length > 0;
 
-    if (isInspectOnly && distToEntity <= UNDERWATER_INSPECT_RADIUS) {
+    const effectiveInspectRadius = getUnderwaterInspectRadius(inventoryRef.current);
+    const isWildLit = wildLightSources.some(
+      (lp) => Math.hypot(entity.x - lp.x, entity.y - lp.y) <= LANTERNFISH_WILD_LIGHT_RADIUS
+    );
+
+    if (isInspectOnly && (distToEntity <= effectiveInspectRadius || isWildLit)) {
       if (isClamEntity(entity) && selectedEntityId !== entity.id && !buriedEntities.includes(entity.id)) {
         saveHistory();
         setBuriedEntities(prev => (prev.includes(entity.id) ? prev : [...prev, entity.id]));
@@ -2805,6 +2848,9 @@ export function GameInstance({
               wallSegments={wallSegments}
               breakingRockIds={breakingRockIds}
               bridgingChasmIds={bridgingChasmIds}
+              inventory={inventory}
+              wildLightSources={wildLightSources}
+              lanternfishLightCount={getHeldLanternfishLightCount(inventory)}
               getCustomEntityMovement={getCustomEntityMovement}
               handleInteract={handleInteract}
               playerVisualX={playerVisualX}
@@ -2875,6 +2921,7 @@ export function GameInstance({
               fishType={fishingCatch.fish.type}
               fishEmoji={level.items.find(i => i.id === fishingCatch.fish.type)?.emoji || '🐟'}
               fishName={dict.items?.[fishingCatch.fish.type] || fishingCatch.fish.type}
+              isTransformed={isTransformed}
               dict={dict}
               lang={lang}
               onResolve={handleResolveFishingCatch}

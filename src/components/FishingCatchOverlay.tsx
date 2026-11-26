@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FISHING_CATCH_CONFIG } from '../constants.ts';
+import { FISHING_CATCH_CONFIG, MERMAN_TIMING_TOLERANCE_MULT } from '../constants.ts';
 import { evaluateFishingCatch } from '../logic/underwater.ts';
 import { SpriteIcon } from './sprites/SpriteIcon.tsx';
 import type { LanguageCode, TranslationDictionary } from '../types/index.ts';
@@ -8,6 +8,7 @@ export interface FishingCatchOverlayProps {
   fishType: string;
   fishEmoji: string;
   fishName: string;
+  isTransformed?: boolean;
   dict: TranslationDictionary;
   lang: LanguageCode;
   onResolve: (caught: boolean) => void;
@@ -17,6 +18,7 @@ export function FishingCatchOverlay({
   fishType,
   fishEmoji,
   fishName,
+  isTransformed = false,
   dict,
   lang,
   onResolve
@@ -76,10 +78,10 @@ export function FishingCatchOverlay({
       if (resolvedRef.current) return;
       const elapsed = performance.now() - startTimeRef.current;
       const liveProgress = Math.min(1, Math.max(0, elapsed / cfg.durationMs));
-      const { caught } = evaluateFishingCatch(liveProgress, fishType);
+      const { caught } = evaluateFishingCatch(liveProgress, fishType, isTransformed);
       finishWithResult(caught);
     },
-    [cfg.durationMs, fishType, finishWithResult]
+    [cfg.durationMs, fishType, isTransformed, finishWithResult]
   );
 
   useEffect(() => {
@@ -96,7 +98,10 @@ export function FishingCatchOverlay({
   // Visual ring radius shrinks linearly from 52 down to 8 in SVG viewBox 0..120 (golden target at r=30)
   const ringRadius = Math.max(8, 52 - progress * 44);
   const targetRadius = 30;
-  const bandStrokeWidth = Math.max(8, cfg.tolerance * 44 * 2);
+  const effectiveTolerance = isTransformed
+    ? cfg.tolerance * MERMAN_TIMING_TOLERANCE_MULT
+    : cfg.tolerance;
+  const bandStrokeWidth = Math.max(8, effectiveTolerance * 44 * 2);
 
   return (
     <div

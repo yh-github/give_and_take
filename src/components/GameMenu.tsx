@@ -332,6 +332,14 @@ export function GameMenu({
             </div>
 
             <button onClick={onClose} className="mt-2 text-stone-400 hover:text-white font-bold tracking-widest uppercase transition-colors">{dict.resume}</button>
+            <div className="pt-2 border-t border-stone-700/70 text-center">
+              <a
+                href="./classic/"
+                className="text-xs font-sans text-stone-400 hover:text-amber-300 underline decoration-stone-600 hover:decoration-amber-400 transition-colors"
+              >
+                {dict.classicEdition || 'Classic Edition (River Crossing)'}
+              </a>
+            </div>
           </>
         ) : menuView === 'settings' ? (
           <>

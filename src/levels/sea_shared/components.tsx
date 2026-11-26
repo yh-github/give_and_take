@@ -109,12 +109,6 @@ export const SeaWitchSVG = ({
         alt="Sea Witch"
         className={`${emojiSizeClass} z-10 drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]`}
       />
-
-      <div
-        className={`mt-1 rounded-full ${badgeTextClass} py-0.5 whitespace-nowrap font-black border-2 z-20 transition-all ${badgeStyle} ${bounceClass}`}
-      >
-        {badgeContent}
-      </div>
     </div>
   );
 };

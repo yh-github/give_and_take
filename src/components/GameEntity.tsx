@@ -45,6 +45,8 @@ export interface GameEntityProps {
   displayPlayerPos: Point2D | null;
   breakingRockIds: Record<string, boolean>;
   bridgingChasmIds?: Record<string, boolean>;
+  inventory?: readonly string[];
+  wildLightSources?: readonly Point2D[];
   isTransformed: boolean;
   hasDeepTreasure: boolean;
   getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
@@ -72,6 +74,8 @@ export function GameEntity({
   displayPlayerPos,
   breakingRockIds,
   bridgingChasmIds = {},
+  inventory = [],
+  wildLightSources = [],
   isTransformed,
   hasDeepTreasure,
   getCustomEntityMovement,
@@ -160,7 +164,8 @@ export function GameEntity({
     level,
     ent,
     { x: visualX, y: visualY },
-    displayPlayerPos
+    displayPlayerPos,
+    { inventory, wildLightSources }
   );
 
   const worldWidth = puzzle?.geometry?.worldWidth || 100;
