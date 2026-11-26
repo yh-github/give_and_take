@@ -11,6 +11,9 @@ import {
   MERMAN_DIRECT_GRAB_MULT,
   MERMAN_SPOOK_MULT,
   MERMAN_TIMING_TOLERANCE_MULT,
+  SURFACE_SWIM_HEAVY_CAP_MS,
+  SURFACE_SWIM_MAX_MS,
+  SURFACE_SWIM_MIN_MS,
   UNDERWATER_AIR_COST_FULL_BAG,
   UNDERWATER_AIR_COST_NORMAL,
   UNDERWATER_FISH_ITEM_IDS,
@@ -155,6 +158,27 @@ export function getDivingMoveDurationMs(
   return getUnderwaterMoveDurationMs(baseDurationMs, isHeavy);
 }
 
+/**
+ * Computes a calm, distance-scaled swim duration when ascending to the air source
+ * via the air indicator, clamped between SURFACE_SWIM_MIN_MS and SURFACE_SWIM_MAX_MS
+ * (and capped at SURFACE_SWIM_HEAVY_CAP_MS when carrying a full heavy backpack).
+ */
+export function getSurfaceSwimDurationMs(
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  curPos: Point2D,
+  campPos: Point2D,
+  inventory: readonly string[],
+  isTransformed: boolean,
+  wasFullBeforeMove?: boolean
+): number {
+  const dist = Math.hypot(campPos.x - curPos.x, campPos.y - curPos.y);
+  const baseMs = Math.round(clamp(700 + dist * 28, SURFACE_SWIM_MIN_MS, SURFACE_SWIM_MAX_MS));
+  return Math.min(
+    SURFACE_SWIM_HEAVY_CAP_MS,
+    getDivingMoveDurationMs(level, baseMs, inventory, isTransformed, wasFullBeforeMove)
+  );
+}
+
 export function getOutOfAirDropBounds(
   level: Pick<LevelDefinition, 'id'> | null | undefined
 ): { min: number; max: number } {
@@ -272,16 +296,19 @@ export function shouldRefillAirOnTrade(
 
 export function getAquaticHeroFace({
   isDrowning,
+  isRefillingAir = false,
   isTransformed,
   isInventoryFullAlert,
   isSubmerged
 }: {
   isDrowning: boolean;
+  isRefillingAir?: boolean;
   isTransformed: boolean;
   isInventoryFullAlert: boolean;
   isSubmerged: boolean;
 }): string {
   if (isDrowning) return '😵';
+  if (isRefillingAir) return '😮‍💨';
   if (isTransformed) return '🧜‍♂️';
   if (isInventoryFullAlert) return '😥';
   if (isSubmerged) return '🤿';

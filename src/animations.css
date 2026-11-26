@@ -353,6 +353,61 @@
 }
 
 /* === Underwater: Sea Witch Magic === */
+@keyframes witchBob {
+  0%, 100% {
+    transform: translate3d(0, 3px, 0) rotate(-1.8deg);
+  }
+  50% {
+    transform: translate3d(0, -5px, 0) rotate(2deg);
+  }
+}
+.animate-witch-bob {
+  animation: witchBob 4.4s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes witchAuraPulse {
+  0%, 100% {
+    transform: scale(0.94);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+.animate-witch-aura {
+  animation: witchAuraPulse 3.6s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+@keyframes witchSparkle {
+  0%, 100% {
+    transform: translate3d(0, 2px, 0) scale(0.55) rotate(0deg);
+    opacity: 0.15;
+  }
+  50% {
+    transform: translate3d(0, -6px, 0) scale(1.1) rotate(45deg);
+    opacity: 0.95;
+  }
+  85% {
+    transform: translate3d(0, -12px, 0) scale(0.6) rotate(90deg);
+    opacity: 0.15;
+  }
+}
+.animate-witch-sparkle {
+  animation: witchSparkle 3.2s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
 @keyframes witchCast {
   0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 4px 12px rgba(147, 51, 234, 0.9)); }
   35% { transform: translateY(-6px) scale(1.12); filter: drop-shadow(0 0 24px rgba(52, 211, 153, 1)) brightness(1.2); }

@@ -14,6 +14,7 @@ import {
   RaftCampSVG,
   SunkenVaultSVG
 } from '../src/levels/underwater/components.tsx';
+import { SeaWitchSVG } from '../src/levels/sea_shared/components.tsx';
 import { generateUnderwaterPuzzle } from '../src/levels/underwater/generator.ts';
 import {
   HUMAN_TRINKET_IDS,
@@ -21,8 +22,10 @@ import {
   createSpookedFishState,
   evaluateFishingCatch,
   findInterceptedFish,
+  getAquaticHeroFace,
   getHeldLanternfishLightCount,
   getSchoolFishPosition,
+  getSurfaceSwimDurationMs,
   getUnderwaterAirCost,
   getUnderwaterInspectRadius,
   getUnderwaterMoveDurationMs,
@@ -40,6 +43,9 @@ import {
   DROWNING_ALERT_DELAY_MS,
   DROWNING_RETURN_DELAY_MS,
   MAX_AIR,
+  SURFACE_SWIM_HEAVY_CAP_MS,
+  SURFACE_SWIM_MAX_MS,
+  SURFACE_SWIM_MIN_MS,
   UNDERWATER_FULL_BAG_SPEED_MULTIPLIER
 } from '../src/constants.ts';
 
@@ -418,6 +424,73 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       });
 
       expect(onResolve).toHaveBeenCalledWith(true);
+    });
+
+    it('renders SeaWitchSVG floating in water with glow and sparkles (no cauldron or arch) and cast fx', () => {
+      const { rerender } = render(
+        <SeaWitchSVG isTransformed={false} isCastingMagic={false} />
+      );
+      const witchRoot = screen.getByTestId('sea-witch-grotto');
+      expect(witchRoot).toBeDefined();
+      expect(screen.getByTestId('sea-witch-sparkles')).toBeDefined();
+      const auraSvg = witchRoot.querySelector('svg[aria-hidden="true"]');
+      expect(auraSvg).not.toBeNull();
+      expect(auraSvg.querySelector('path')).toBeNull();
+      expect(auraSvg.querySelector('ellipse')).toBeNull();
+      expect(screen.queryByTestId('witch-cast-fx')).toBeNull();
+
+      rerender(<SeaWitchSVG isTransformed={false} isCastingMagic={true} />);
+      expect(screen.getByTestId('witch-cast-fx')).toBeDefined();
+    });
+
+    it('shows face exhaling emoji while refilling air after drowning and scales surface swim duration smoothly', () => {
+      expect(
+        getAquaticHeroFace({
+          isDrowning: true,
+          isRefillingAir: true,
+          isTransformed: false,
+          isInventoryFullAlert: false,
+          isSubmerged: false
+        })
+      ).toBe('😵');
+
+      expect(
+        getAquaticHeroFace({
+          isDrowning: false,
+          isRefillingAir: true,
+          isTransformed: false,
+          isInventoryFullAlert: false,
+          isSubmerged: false
+        })
+      ).toBe('😮‍💨');
+
+      expect(
+        getAquaticHeroFace({
+          isDrowning: false,
+          isRefillingAir: false,
+          isTransformed: false,
+          isInventoryFullAlert: false,
+          isSubmerged: false
+        })
+      ).toBe('🤠');
+
+      const underwater = LEVEL_REGISTRY.underwater;
+      const shallowMs = getSurfaceSwimDurationMs(underwater, { x: 50, y: 24 }, { x: 50, y: 14 }, [], false);
+      const deepMs = getSurfaceSwimDurationMs(underwater, { x: 50, y: 63 }, { x: 50, y: 14 }, [], false);
+      const heavyDeepMs = getSurfaceSwimDurationMs(
+        underwater,
+        { x: 50, y: 63 },
+        { x: 50, y: 14 },
+        ['fish', 'comb', 'pearl', 'shell'],
+        false,
+        true
+      );
+
+      expect(shallowMs).toBeGreaterThanOrEqual(SURFACE_SWIM_MIN_MS);
+      expect(deepMs).toBeGreaterThan(shallowMs);
+      expect(deepMs).toBeLessThanOrEqual(SURFACE_SWIM_MAX_MS);
+      expect(heavyDeepMs).toBeLessThanOrEqual(SURFACE_SWIM_HEAVY_CAP_MS);
+      expect(heavyDeepMs).toBeGreaterThanOrEqual(deepMs);
     });
   });
 

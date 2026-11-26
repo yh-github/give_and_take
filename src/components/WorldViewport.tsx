@@ -106,6 +106,7 @@ export interface WorldViewportProps {
   isSubmerged: boolean;
   isDrowning: boolean;
   isDrowningAscending?: boolean;
+  isSwimmingToSurface?: boolean;
   heroFace: string;
   isAnimatingLoot: boolean;
   isHeavyUnderwater?: boolean;
@@ -271,6 +272,7 @@ export function WorldViewport({
   isSubmerged,
   isDrowning,
   isDrowningAscending = false,
+  isSwimmingToSurface = false,
   heroFace,
   isAnimatingLoot,
   isHeavyUnderwater = false,
@@ -285,7 +287,9 @@ export function WorldViewport({
     ? 'transition-none'
     : isDrowning
       ? 'transition-transform ease-linear'
-      : 'transition-transform ease-out';
+      : isSwimmingToSurface
+        ? 'transition-transform ease-in-out'
+        : 'transition-transform ease-out';
 
   const useIsotropic = Boolean(level.mechanics.useIsotropicCoords && puzzle?.geometry);
   const worldWidth = (useIsotropic && puzzle?.geometry?.worldWidth)
@@ -331,9 +335,11 @@ export function WorldViewport({
           ? {
               transitionDuration: isDrowning
                 ? `${DROWNING_RETURN_DELAY_MS}ms`
-                : isHeavyUnderwater
-                  ? '1100ms'
-                  : '500ms'
+                : isSwimmingToSurface
+                  ? (playerTransitionDuration || '1600ms')
+                  : isHeavyUnderwater
+                    ? '1100ms'
+                    : '500ms'
             }
           : {})
       }}

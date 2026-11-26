@@ -46,6 +46,7 @@ import {
   getMaxAir,
   getOutOfAirDropBounds,
   getSchoolFishPosition,
+  getSurfaceSwimDurationMs,
   getUnderwaterMoveDurationMs,
   getWaterlineSplashPoint,
   isAtAirRefillZone,
@@ -238,6 +239,7 @@ export function GameInstance({
       : defaultTransformed
   );
   const [isRefillingAir, setIsRefillingAir] = useState(false);
+  const [isSwimmingToSurface, setIsSwimmingToSurface] = useState(false);
   const [hasDeepTreasure, setHasDeepTreasure] = useState(() => Boolean(savedState?.hasDeepTreasure));
   const hasTransformedOnceRef = useRef(Boolean(savedState?.isTransformed || savedState?.hasDeepTreasure || defaultTransformed));
   const [inkFogEntities, setInkFogEntities] = useState<Set<string>>(() => new Set(savedState?.inkFogEntities || []));
@@ -512,6 +514,8 @@ export function GameInstance({
       if (saved.inkFogEntities) setInkFogEntities(new Set(saved.inkFogEntities));
       setSelectedItemTypes([]);
       setIsAnimatingLoot(false);
+      setIsSwimmingToSurface(false);
+      setIsRefillingAir(false);
       setTempPlayerPos(null);
       setAlertEntityId(null);
       setAttachedEntityId(null);
@@ -540,6 +544,8 @@ export function GameInstance({
       setHasDeepTreasure(false);
       hasTransformedOnceRef.current = defaultTransformed;
       setIsAnimatingLoot(false);
+      setIsSwimmingToSurface(false);
+      setIsRefillingAir(false);
       setTempPlayerPos(null);
       setAlertEntityId(null);
       setAttachedEntityId(null);
@@ -1047,6 +1053,8 @@ export function GameInstance({
     setShowVictoryMsg(false);
     setIsDemonstrating(false);
     setIsAnimatingLoot(false);
+    setIsSwimmingToSurface(false);
+    setIsRefillingAir(false);
     setAlertEntityId(null);
     setAlertReason(null);
     setIsInventoryFullAlert(false);
@@ -2700,6 +2708,7 @@ export function GameInstance({
   const isSubmerged = isHeroSubmerged(level, { x: playerVisualX, y: playerVisualY });
   const heroFace = getAquaticHeroFace({
     isDrowning,
+    isRefillingAir,
     isTransformed,
     isInventoryFullAlert,
     isSubmerged
@@ -2715,7 +2724,14 @@ export function GameInstance({
       return;
     }
     const wasFullBeforeMove = isHeavyDivingLoad(level, inventoryRef.current, isTransformedRef.current);
-    const swimDuration = getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove);
+    const swimDuration = getSurfaceSwimDurationMs(
+      level,
+      curPos,
+      level.campPos,
+      inventoryRef.current,
+      isTransformedRef.current,
+      wasFullBeforeMove
+    );
     setMoveDurationMs(swimDuration);
     if (dolphinStateRef.current === 'idle_deep') {
       startDolphinReturn(false);
@@ -2723,6 +2739,7 @@ export function GameInstance({
     triggerAirLossBubbles(curPos.x, curPos.y, wasFullBeforeMove);
     setAttachedEntityId(null);
     saveHistory();
+    setIsSwimmingToSurface(true);
     setIsAnimatingLoot(true);
     const returnPath = navigateTo(level.campPos.x, level.campPos.y, 1, level.campPos.depth || 3, false);
     const resolvedReturnPath = returnPath.length > 0
@@ -2731,6 +2748,7 @@ export function GameInstance({
     maybeTriggerWaterSplash(curPos, resolvedReturnPath[resolvedReturnPath.length - 1]);
     setPathHistory(prev => [...prev, ...resolvedReturnPath]);
     scheduleTimeout(() => {
+      setIsSwimmingToSurface(false);
       setIsAnimatingLoot(false);
       airRef.current = maxAir;
       setAir(maxAir);
@@ -2871,6 +2889,7 @@ export function GameInstance({
               isSubmerged={isSubmerged}
               isDrowning={isDrowning}
               isDrowningAscending={isDrowningAscending}
+              isSwimmingToSurface={isSwimmingToSurface}
               heroFace={heroFace}
               isAnimatingLoot={isAnimatingLoot}
               isHeavyUnderwater={isHeavyUnderwater}

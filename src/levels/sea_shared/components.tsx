@@ -21,17 +21,26 @@ export interface SeaWitchSVGProps {
   isCastingMagic?: boolean;
 }
 
+const WITCH_SPARKLES = [
+  { left: '12%', top: '18%', size: 10, delay: '0s', dur: '3.1s' },
+  { left: '84%', top: '20%', size: 12, delay: '0.6s', dur: '3.4s' },
+  { left: '6%', top: '58%', size: 9, delay: '1.3s', dur: '2.9s' },
+  { left: '90%', top: '55%', size: 10, delay: '1.9s', dur: '3.3s' },
+  { left: '24%', top: '86%', size: 8, delay: '0.9s', dur: '3.6s' },
+  { left: '76%', top: '84%', size: 9, delay: '2.4s', dur: '3.0s' }
+] as const;
+
 /**
- * Shared Sea Witch grotto, cauldron, and cast magic effects used across all Sea levels.
- * Centralizes Witch visuals so art updates apply everywhere in one place.
+ * Shared Sea Witch aura, ambient sparkles, and cast magic effects used across all Sea levels.
+ * Renders the Sea Witch floating directly in the water without a cauldron or backdrop arch.
  */
 export const SeaWitchSVG = ({
   variant = 'underwater',
   isTransformed,
   hasDeepTreasure = false,
-  returnRelicId = null,
-  returnRelicEmoji = '🔮',
-  reqEmojis = [],
+  returnRelicId: _returnRelicId = null,
+  returnRelicEmoji: _returnRelicEmoji = '🔮',
+  reqEmojis: _reqEmojis = [],
   emoji = '😈',
   spriteSrc = null,
   isCastingMagic = false
@@ -39,70 +48,66 @@ export const SeaWitchSVG = ({
   const isEmeraldReady =
     variant === 'shipwreck' ? !isTransformed : Boolean(isTransformed && hasDeepTreasure);
 
-  const badgeContent =
-    variant === 'shipwreck'
-      ? isTransformed
-        ? `${reqEmojis.join(' + ') || '🔮'} ➔ 🤠`
-        : '🤠 ⬆️ 🫧'
-      : !isTransformed
-        ? '3×🎵 ➔ 🧜‍♂️'
-        : hasDeepTreasure
-          ? (
-            <span className="inline-flex items-center gap-1">
-              <SpriteIcon id={returnRelicId} emoji={returnRelicEmoji || '🔮'} />
-              <span>➔ 🤠</span>
-            </span>
-          )
-          : '👑 ⬇️';
-
-  const badgeStyle = isEmeraldReady
-    ? 'bg-emerald-950/95 border-amber-300 text-amber-200 shadow-[0_0_16px_rgba(52,211,153,0.95)]'
-    : variant === 'underwater' && isTransformed
-      ? 'bg-indigo-950/90 border-cyan-400/70 text-cyan-100 shadow-[0_0_10px_rgba(34,211,238,0.5)]'
-      : 'bg-purple-950/95 border-purple-400 text-purple-100 shadow-[0_0_12px_rgba(168,85,247,0.85)]';
-
-  const sizeClass = variant === 'shipwreck' ? 'w-[32cqw] h-[25cqw]' : 'w-[36cqw] h-[28cqw]';
+  const sizeClass = variant === 'shipwreck' ? 'w-[30cqw] h-[30cqw]' : 'w-[34cqw] h-[34cqw]';
   const emojiSizeClass = variant === 'shipwreck' ? 'text-[11cqw]' : 'text-[12cqw]';
-  const badgeTextClass = variant === 'shipwreck' ? 'px-2 text-[2.5cqw]' : 'px-2.5 text-[2.8cqw]';
-  const bounceClass = variant === 'underwater' && isEmeraldReady ? 'animate-bounce' : '';
   const glowId = `seaWitchGlow-${variant}`;
+  const sparkleFill = isEmeraldReady ? '#6ee7b7' : '#e9d5ff';
+  const sparkleAccent = isEmeraldReady ? '#fde68a' : '#67e8f9';
 
   return (
     <div data-testid="sea-witch-grotto" className="relative flex flex-col items-center justify-center">
+      {/* Soft ambient magical glow in the water (no cauldron or arch backdrop) */}
       <svg
-        viewBox="0 0 140 110"
-        className={`absolute -top-6 left-1/2 -translate-x-1/2 ${sizeClass} pointer-events-none -z-10 overflow-visible`}
+        viewBox="0 0 120 120"
+        aria-hidden="true"
+        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${sizeClass} pointer-events-none -z-10 overflow-visible`}
       >
         <defs>
-          <radialGradient id={glowId} cx="50%" cy="55%" r="50%">
-            <stop offset="0%" stopColor={isEmeraldReady ? '#10b981' : '#9333ea'} stopOpacity="0.68" />
-            <stop offset="65%" stopColor={isEmeraldReady ? '#059669' : '#581c87'} stopOpacity="0.3" />
+          <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={isEmeraldReady ? '#34d399' : '#a855f7'} stopOpacity="0.62" />
+            <stop offset="48%" stopColor={isEmeraldReady ? '#059669' : '#6b21a8'} stopOpacity="0.32" />
             <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
           </radialGradient>
         </defs>
 
-        <circle cx="70" cy="58" r="56" fill={`url(#${glowId})`} />
-
-        <path
-          d="M 22 92 Q 18 46 42 26 Q 70 12 98 26 Q 122 46 118 92 Z"
-          fill="#1e1b4b"
-          opacity="0.72"
-          stroke={isEmeraldReady && variant === 'shipwreck' ? '#34d399' : '#6b21a8'}
-          strokeWidth="2"
+        <circle
+          cx="60"
+          cy="60"
+          r="56"
+          fill={`url(#${glowId})`}
+          className="animate-witch-aura"
+          style={{ transformOrigin: '60px 60px' }}
         />
-
-        <ellipse cx="70" cy="84" rx="22" ry="7" fill="#0f172a" stroke="#a855f7" strokeWidth="1.6" />
-        <ellipse
-          cx="70"
-          cy="83"
-          rx="15"
-          ry="4"
-          fill={isEmeraldReady ? '#34d399' : '#c084fc'}
-          opacity="0.75"
-        />
-        <circle cx="62" cy="76" r="2.2" fill={isEmeraldReady ? '#6ee7b7' : '#e9d5ff'} opacity="0.8" />
-        <circle cx="76" cy="73" r="1.7" fill={isEmeraldReady ? '#6ee7b7' : '#e9d5ff'} opacity="0.7" />
       </svg>
+
+      {/* Ambient magical star sparkles drifting around the witch */}
+      <div
+        data-testid="sea-witch-sparkles"
+        aria-hidden="true"
+        className="absolute -inset-4 pointer-events-none z-20"
+      >
+        {WITCH_SPARKLES.map((s, idx) => (
+          <svg
+            key={idx}
+            viewBox="0 0 24 24"
+            width={s.size}
+            height={s.size}
+            className="absolute animate-witch-sparkle"
+            style={{
+              left: s.left,
+              top: s.top,
+              animationDelay: s.delay,
+              animationDuration: s.dur,
+              filter: `drop-shadow(0 0 4px ${isEmeraldReady ? 'rgba(52,211,153,0.9)' : 'rgba(192,132,252,0.9)'})`
+            }}
+          >
+            <path
+              d="M 12 1 L 14.8 9.2 L 23 12 L 14.8 14.8 L 12 23 L 9.2 14.8 L 1 12 L 9.2 9.2 Z"
+              fill={idx % 2 === 0 ? sparkleFill : sparkleAccent}
+            />
+          </svg>
+        ))}
+      </div>
 
       {isCastingMagic && (
         <div
@@ -122,13 +127,21 @@ export const SeaWitchSVG = ({
         </div>
       )}
 
-      <SpriteIcon
-        id="sea_witch"
-        spriteSrc={spriteSrc}
-        emoji={emoji}
-        alt="Sea Witch"
-        className={`${emojiSizeClass} z-10 ${isCastingMagic ? 'animate-witch-cast' : 'drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]'}`}
-      />
+      <div className={isCastingMagic ? 'z-10' : 'z-10 animate-witch-bob'}>
+        <SpriteIcon
+          id="sea_witch"
+          spriteSrc={spriteSrc}
+          emoji={emoji}
+          alt="Sea Witch"
+          className={`${emojiSizeClass} ${
+            isCastingMagic
+              ? 'animate-witch-cast'
+              : isEmeraldReady
+                ? 'drop-shadow-[0_0_16px_rgba(52,211,153,0.95)]'
+                : 'drop-shadow-[0_0_14px_rgba(168,85,247,0.85)]'
+          }`}
+        />
+      </div>
     </div>
   );
 };
