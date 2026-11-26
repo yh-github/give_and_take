@@ -259,6 +259,29 @@ export function getUnderwaterInspectRadius(inventory: readonly string[] = []): n
   return UNDERWATER_INSPECT_RADIUS + getHeldLanternfishLightCount(inventory) * LANTERNFISH_HELD_RADIUS_STEP;
 }
 
+/**
+ * Returns the visual opacity (0..1) of a Lanternfish bioluminescent light sphere
+ * at `pos`: invisible above water, very faint in sunlit shallows, and full strength
+ * in the dark murky depths.
+ */
+export function getLanternfishGlowOpacity(
+  level: Pick<LevelDefinition, 'id' | 'mechanics'> | null | undefined,
+  pos: Point2D | null | undefined
+): number {
+  if (!level?.mechanics?.hasMurkyWater || !pos) return 0;
+  if (level.id === 'shipwreck') {
+    return isInShipwreckAirPocket(pos.x, pos.y) ? 0 : 1;
+  }
+  if (pos.y <= 16) return 0;
+  if (pos.y <= 38) {
+    return Number((((pos.y - 16) / 22) * 0.15).toFixed(3));
+  }
+  if (pos.y < 64) {
+    return Number((0.15 + ((pos.y - 38) / 26) * 0.85).toFixed(3));
+  }
+  return 1;
+}
+
 function getLightYScale(
   level: Pick<LevelDefinition, 'mechanics'> | null | undefined
 ): number {
@@ -366,6 +389,16 @@ const clamp = (val: number, min: number, max: number): number => Math.max(min, M
 const getFishChaseConfig = (fishType: string) =>
   FISH_CHASE_CONFIG[fishType as keyof typeof FISH_CHASE_CONFIG] || FISH_CHASE_CONFIG.fish;
 
+export function isSchoolFishExpired(
+  fish: Pick<SchoolFishState, 'spawnTime' | 'speed'>,
+  nowMs: number,
+  graceMs = 200
+): boolean {
+  if (fish.spawnTime === undefined) return false;
+  const durationMs = Math.max(250, (fish.speed || 10) * 1000);
+  return nowMs - fish.spawnTime >= durationMs + graceMs;
+}
+
 /**
  * Computes the live `(x, y)` percentage position of a roaming school fish at `nowMs`,
  * applying per-species swim patterns (`cruise`, `dart`, `weave`) or linear spook sprint.
@@ -375,7 +408,7 @@ export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Poi
   const endX = fish.endX ?? (fish.isRight ? 115 : -15);
   const durationMs = Math.max(250, (fish.speed || 10) * 1000);
   const spawnTime = fish.spawnTime ?? (nowMs - durationMs * 0.5);
-  const elapsed = Math.max(0, nowMs - spawnTime);
+  const elapsed = Math.min(durationMs, Math.max(0, nowMs - spawnTime));
   const p = clamp((nowMs - spawnTime) / durationMs, 0, 1);
   const cfg = getFishChaseConfig(fish.type);
 
@@ -439,7 +472,9 @@ export function createSpookedFishState(fish: SchoolFishState, nowMs: number): Sc
   const cfg = getFishChaseConfig(fish.type);
   const prevStartX = fish.startX ?? (fish.isRight ? -12 : 112);
   const prevEndX = fish.endX ?? (fish.isRight ? 115 : -15);
-  const endX = fish.isRight ? 118 : -18;
+  const endX = fish.type === 'blowfish'
+    ? (fish.isRight ? 128 : -28)
+    : (fish.isRight ? 118 : -18);
   const origVel = Math.max(4, Math.abs(prevEndX - prevStartX) / Math.max(0.5, fish.speed || 10));
   const boost = fish.isSpooked ? 1.2 : cfg.fleeSpeedMultiplier;
   const remainingDist = Math.max(1, Math.abs(endX - curPos.x));

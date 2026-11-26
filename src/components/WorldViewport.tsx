@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, type MouseEvent, type RefObject } from 'react';
 import { DROWNING_RETURN_DELAY_MS, LANTERNFISH_WILD_LIGHT_RADIUS } from '../constants.ts';
-import { getSchoolFishPosition, isCampItemFloating } from '../logic/underwater.ts';
+import {
+  getLanternfishGlowOpacity,
+  getSchoolFishPosition,
+  isCampItemFloating,
+  isSchoolFishExpired
+} from '../logic/underwater.ts';
 import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG, UnderwaterWaterOverlay } from '../levels/underwater/components.tsx';
 import { ShipwreckWaterOverlay } from '../levels/shipwreck/components.tsx';
 import { reefKelpHabitats, type ReefKelpHabitat } from '../levels/underwater/data.ts';
@@ -118,13 +123,18 @@ export interface WorldViewportProps {
 
 interface SchoolFishSpriteProps {
   fish: SchoolFishState;
+  level: LevelDefinition;
   emoji: string;
   onClick: (e: MouseEvent, fish: SchoolFishState) => void;
 }
 
-function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
+function SchoolFishSprite({ fish, level, emoji, onClick }: SchoolFishSpriteProps) {
   const spriteRef = useRef<HTMLDivElement | null>(null);
-  const initPos = getSchoolFishPosition(fish, Date.now());
+  const glowRef = useRef<HTMLDivElement | null>(null);
+  const initNow = Date.now();
+  const initPos = getSchoolFishPosition(fish, initNow);
+  const initGlowOpacity = getLanternfishGlowOpacity(level, initPos);
+  const initHidden = isSchoolFishExpired(fish, initNow, 0);
 
   useEffect(() => {
     if (typeof requestAnimationFrame !== 'function') return;
@@ -134,9 +144,17 @@ function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
       if (cancelled) return;
       const el = spriteRef.current;
       if (el) {
-        const pos = getSchoolFishPosition(fish, Date.now());
+        const now = Date.now();
+        if (isSchoolFishExpired(fish, now, 0)) {
+          el.style.visibility = 'hidden';
+          return;
+        }
+        const pos = getSchoolFishPosition(fish, now);
         el.style.top = `${pos.y}%`;
         el.style.transform = `translate3d(${pos.x}cqw, -50%, 0)`;
+        if (glowRef.current) {
+          glowRef.current.style.opacity = String(getLanternfishGlowOpacity(level, pos));
+        }
       }
       rafId = requestAnimationFrame(tick);
     };
@@ -147,7 +165,7 @@ function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
         cancelAnimationFrame(rafId);
       }
     };
-  }, [fish]);
+  }, [fish, level]);
 
   return (
     <div
@@ -160,18 +178,21 @@ function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
         top: `${initPos.y}%`,
         left: '0%',
         zIndex: 45,
+        visibility: initHidden ? 'hidden' : 'visible',
         transform: `translate3d(${initPos.x}cqw, -50%, 0)`
       }}
     >
       <div className="-translate-x-1/2 relative flex items-center hover:scale-125 transition-transform">
         {fish.type === 'blowfish' && (
           <div
+            ref={glowRef}
             data-testid="lanternfish-glow"
             aria-hidden="true"
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/20 pointer-events-none -z-10"
             style={{
               width: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
               height: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
+              opacity: initGlowOpacity,
               background:
                 'radial-gradient(circle, rgba(254,240,138,0.52) 0%, rgba(103,232,249,0.28) 48%, rgba(34,211,238,0.10) 78%, rgba(34,211,238,0) 100%)',
               boxShadow: '0 0 18px rgba(103,232,249,0.25)'
@@ -444,6 +465,7 @@ export function WorldViewport({
         <SchoolFishSprite
           key={`${f.id}-${f.spookCount || 0}`}
           fish={f}
+          level={level}
           emoji={level.items.find(i => i.id === f.type)?.emoji || '🐟'}
           onClick={handleCatchSchoolFish}
         />

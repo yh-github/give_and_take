@@ -1,4 +1,5 @@
 import React from 'react';
+import { getLanternfishGlowOpacity } from '../logic/underwater.ts';
 import type { CSSCustomProperties, LevelDefinition } from '../types/index.ts';
 
 export interface HeroProps {
@@ -44,6 +45,8 @@ export function Hero({
   isHeavy = false,
   lanternfishLightCount = 0
 }: HeroProps) {
+  const heroGlowOpacity = getLanternfishGlowOpacity(level, { x: playerVisualX, y: playerVisualY });
+
   return (
     <div 
       data-testid={isDrowning ? 'drowned-hero' : undefined}
@@ -74,6 +77,7 @@ export function Hero({
           style={{
             width: `${24 + lanternfishLightCount * 12}cqw`,
             height: `${24 + lanternfishLightCount * 12}cqw`,
+            opacity: heroGlowOpacity,
             background:
               'radial-gradient(circle, rgba(254,240,138,0.46) 0%, rgba(103,232,249,0.26) 48%, rgba(34,211,238,0.08) 78%, rgba(34,211,238,0) 100%)',
             boxShadow: `0 0 ${14 + lanternfishLightCount * 8}px rgba(103,232,249,0.4)`

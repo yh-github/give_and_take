@@ -24,6 +24,7 @@ import {
   findInterceptedFish,
   getAquaticHeroFace,
   getHeldLanternfishLightCount,
+  getLanternfishGlowOpacity,
   getSchoolFishPosition,
   getSurfaceSwimDurationMs,
   getUnderwaterAirCost,
@@ -31,6 +32,7 @@ import {
   getUnderwaterMoveDurationMs,
   isEntityMurkyFar,
   isFishItem,
+  isSchoolFishExpired,
   resolveOutOfAirDrop,
   shouldSpookFishFromPoint,
   verifyUnderwaterAirSolvability
@@ -222,6 +224,13 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
           wildLightSources: [{ x: 50, y: 93 }]
         })
       ).toBe(false);
+
+      // Lanternfish light sphere fades out in sunlit surface waters and glows at full strength in the murky depths
+      expect(getLanternfishGlowOpacity(underwaterLevel, { x: 50, y: 14 })).toBe(0);
+      expect(getLanternfishGlowOpacity(underwaterLevel, { x: 50, y: 30 })).toBeLessThanOrEqual(0.15);
+      expect(getLanternfishGlowOpacity(underwaterLevel, { x: 50, y: 80 })).toBe(1);
+      expect(getLanternfishGlowOpacity(shipwreckLevel, { x: 80, y: 20 })).toBe(0);
+      expect(getLanternfishGlowOpacity(shipwreckLevel, { x: 40, y: 60 })).toBe(1);
     });
 
     it('makes catching fish easier when transformed into a Merman', () => {
@@ -309,6 +318,12 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       // Close-range direct grab gating
       expect(canDirectGrabFish(baseFish, { x: 55, y: 52 }, 6000)).toBe(true);
       expect(canDirectGrabFish(baseFish, { x: 20, y: 52 }, 6000)).toBe(false);
+
+      // Expired fish detection & frozen post-arrival vertical position (prevents offscreen bobbing)
+      expect(isSchoolFishExpired(baseFish, 11000, 0)).toBe(true);
+      expect(isSchoolFishExpired(baseFish, 11100, 200)).toBe(false);
+      expect(isSchoolFishExpired(baseFish, 11200, 200)).toBe(true);
+      expect(getSchoolFishPosition(baseFish, 15000)).toEqual(getSchoolFishPosition(baseFish, 11000));
     });
   });
 

@@ -54,6 +54,7 @@ import {
   isHeavyDivingLoad,
   isHeroSubmerged,
   isPointIlluminatedByWildLight,
+  isSchoolFishExpired,
   isUnderwaterBackpackFull,
   resolveOutOfAirDrop,
   resolveShipwreckDrowningTarget,
@@ -834,8 +835,12 @@ export function GameInstance({
             ? 9 + Math.random() * 3
             : 11 + Math.random() * 3;
       const isRight = forceRight !== undefined ? forceRight : Math.random() > 0.5;
-      const startX = isRight ? -12 : 112;
-      const endX = isRight ? 115 : -15;
+      const startX = type === 'blowfish'
+        ? (isRight ? -26 : 126)
+        : (isRight ? -12 : 112);
+      const endX = type === 'blowfish'
+        ? (isRight ? 128 : -28)
+        : (isRight ? 115 : -15);
       const fishObj: SchoolFishState = {
         id,
         type,
@@ -850,7 +855,8 @@ export function GameInstance({
         spookCount: 0
       };
       setSchoolsOfFish(prev => {
-        const next = [...prev.slice(-11), fishObj];
+        const activePrev = prev.filter(f => !isSchoolFishExpired(f, now));
+        const next = [...activePrev.slice(-11), fishObj];
         schoolsOfFishRef.current = next;
         return next;
       });
@@ -889,7 +895,12 @@ export function GameInstance({
     }
     const updateLights = () => {
       const now = Date.now();
-      const next = schoolsOfFishRef.current
+      const activeFish = schoolsOfFishRef.current.filter((f) => !isSchoolFishExpired(f, now));
+      if (activeFish.length !== schoolsOfFishRef.current.length) {
+        schoolsOfFishRef.current = activeFish;
+        setSchoolsOfFish(activeFish);
+      }
+      const next = activeFish
         .filter((f) => f.type === 'blowfish')
         .map((f) => getSchoolFishPosition(f, now));
       setWildLightSources((prev) => {
@@ -1634,7 +1645,9 @@ export function GameInstance({
     const speed = habitat.fishType === 'fish' ? 12 : habitat.fishType === 'gold_fish' ? 10 : 12;
     const isRight = habitat.x < 50;
     const startX = habitat.x;
-    const endX = isRight ? 115 : -15;
+    const endX = habitat.fishType === 'blowfish'
+      ? (isRight ? 128 : -28)
+      : (isRight ? 115 : -15);
     const yPos = Math.max(18, Math.min(habitat.fishType === 'blowfish' ? 95 : 62, habitat.y));
 
     const flushedFish: SchoolFishState = {
