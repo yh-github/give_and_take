@@ -80,7 +80,7 @@ export function checkPolygonCollision(
       if ((a.y < rMinY && b.y < rMinY) || (a.y > rMaxY && b.y > rMaxY)) continue;
       if (segmentsIntersect(p1, p2, a, b)) return true;
     }
-    if (isPointInPolygon(mid, poly)) return true;
+    if (isPointInPolygon(mid, poly) || isPointInPolygon(p2, poly)) return true;
   }
   return false;
 }
@@ -93,7 +93,9 @@ export function smoothPath(
 ): Point2D[] {
   if (!path || path.length <= 1) return path;
   if (path.length === 2) {
-    if (segments && segments.length > 0 && checkCollision(path[0], path[1], segments)) {
+    const hasSegColl = Boolean(segments && segments.length > 0 && checkCollision(path[0], path[1], segments));
+    const hasPolyColl = Boolean(polygons && polygons.length > 0 && checkPolygonCollision(path[0], path[1], polygons));
+    if (hasSegColl || hasPolyColl) {
       return [];
     }
     return path;
@@ -309,6 +311,9 @@ export function findGlobalPath(
   const actualPolys = Array.isArray(polygons) ? polygons : [];
   const segs = segments || [];
   if (segs.length === 0 && actualPolys.length === 0) return [end];
+  if (actualPolys.length > 0 && actualPolys.some(poly => isPointInPolygon(end, poly))) {
+    return [];
+  }
 
   const cornerClearance = options.cornerClearance ?? 1.2;
 
@@ -387,10 +392,27 @@ export function findGlobalPath(
         tempIdx = cameFrom[tempIdx];
       }
       const rawPath = path.reverse();
-      if (rawPath.length > 0 && segs.length > 0 && checkCollision(start, rawPath[0], segs)) {
+      if (
+        rawPath.length > 0 &&
+        ((segs.length > 0 && checkCollision(start, rawPath[0], segs)) ||
+          (actualPolys.length > 0 && checkPolygonCollision(start, rawPath[0], actualPolys)))
+      ) {
         return [];
       }
-      return smoothPath(rawPath, segs, actualPolys, cornerClearance);
+      const smoothedWithStart = smoothPath([start, ...rawPath], segs, actualPolys, cornerClearance);
+      if (smoothedWithStart.length < 2) return [];
+      const result = smoothedWithStart.slice(1);
+      for (let i = 0; i < smoothedWithStart.length - 1; i++) {
+        const a = smoothedWithStart[i];
+        const b = smoothedWithStart[i + 1];
+        if (
+          (segs.length > 0 && checkCollision(a, b, segs)) ||
+          (actualPolys.length > 0 && checkPolygonCollision(a, b, actualPolys))
+        ) {
+          return [];
+        }
+      }
+      return result;
     }
 
     const cx = currentIdx % cols;
@@ -417,6 +439,9 @@ export function findGlobalPath(
         const pNeighbor = isNeighborEnd ? end : { x: nx * resolution, y: ny * resolution };
         const edgeSegs = (isCurrentStart || isNeighborEnd) ? segs : rowSegs[cy];
         if (edgeSegs.length > 0 && checkCollision(pCurrent, pNeighbor, edgeSegs)) continue;
+        if ((isCurrentStart || isNeighborEnd) && actualPolys.length > 0 && checkPolygonCollision(pCurrent, pNeighbor, actualPolys)) {
+          continue;
+        }
 
         let stepCost = dx !== 0 && dy !== 0 ? 1.414 : 1;
 

@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, fireEvent, act } from '@testing-library/react';
-import { getProceduralObstacleSegments, getVisibilityPolygon, isPointInVisibilityPolygon } from '../src/logic/visibility.js';
-import { findGlobalPath } from '../src/logic/pathfinding.js';
+import { render, fireEvent, act, cleanup } from '@testing-library/react';
+import { getProceduralObstacleSegments, getVisibilityPolygon, isPointInVisibilityPolygon, checkCollision } from '../src/logic/visibility.js';
+import { checkPolygonCollision, findGlobalPath } from '../src/logic/pathfinding.js';
+import { computeNavigationPath } from '../src/logic/navigation.js';
 import { evaluateEntityTrade, validateEntitySpacing } from '../src/logic/rules.js';
 import { solvePuzzle } from '../src/logic/solver.js';
 import { createSavePayload, validateSaveState } from '../src/logic/saveState.js';
@@ -168,7 +169,10 @@ describe('Phase 1: Isotropic Engine & Decoupled Cave Primitives', () => {
 
   describe('GameInstance isotropic rendering & interaction', () => {
     beforeEach(() => { vi.useFakeTimers(); });
-    afterEach(() => { vi.useRealTimers(); });
+    afterEach(() => {
+      cleanup();
+      vi.useRealTimers();
+    });
 
     it('renders isotropic level with puzzle-owned geometry, positions camp/entities in world units, and clears chasm with rope', async () => {
       const mockIsoLevel = {
@@ -274,6 +278,167 @@ describe('Phase 1: Isotropic Engine & Decoupled Cave Primitives', () => {
       await act(async () => { fireEvent.click(chasmEl); });
       await act(async () => { vi.advanceTimersByTime(1200); });
       expect(container.querySelector('button [data-sprite-id="rope"]')).toBeNull(); // Rope consumed from inventory
+    });
+
+    it('navigates column 4 (worldWidth > 100) without truncation and rejects targets inside solid polygons', () => {
+      const wallPoly = [
+        { x: 112, y: 5 },
+        { x: 118, y: 5 },
+        { x: 118, y: 65 },
+        { x: 112, y: 65 }
+      ];
+      const geometry = {
+        worldWidth: 133.33,
+        worldHeight: 192,
+        wallPolylines: [
+          { points: [{ x: 5, y: 5 }, { x: 128, y: 5 }, { x: 128, y: 187 }, { x: 5, y: 187 }], closed: true },
+          { points: wallPoly, closed: true, isPillar: true }
+        ],
+        obstaclePolygons: [wallPoly]
+      };
+      const segs = getProceduralObstacleSegments([], geometry, []);
+
+      // Path in column 4 (x > 100) must route around the wall rather than failing at width=100
+      const wps = computeNavigationPath({
+        lastPos: { x: 102, y: 25, zone: 1 },
+        targetX: 124,
+        targetY: 25,
+        targetZone: 1,
+        isCaveType: true,
+        useIsotropic: true,
+        worldWidth: 133.33,
+        worldHeight: 192,
+        yScale: 1,
+        obstacleSegments: segs,
+        obstaclePolygons: geometry.obstaclePolygons
+      });
+      expect(wps.length).toBeGreaterThan(1);
+      const full = [{ x: 102, y: 25 }, ...wps];
+      for (let i = 0; i < full.length - 1; i++) {
+        expect(checkCollision(full[i], full[i + 1], segs)).toBe(false);
+        expect(checkPolygonCollision(full[i], full[i + 1], geometry.obstaclePolygons)).toBe(false);
+      }
+
+      // Target inside solid polygon must be rejected
+      const blocked = findGlobalPath(
+        { x: 102, y: 25 },
+        { x: 115, y: 35 },
+        segs,
+        { width: 133.33, height: 192 },
+        geometry.obstaclePolygons,
+        2.5,
+        { radius: DEEP_CAVE_HERO_RADIUS }
+      );
+      expect(blocked).toEqual([]);
+    });
+
+    it('steps hero waypoint-by-waypoint around a wall when clicking an entity lit on the opposite side', async () => {
+      const dividerWall = [
+        { x: 46, y: 5 },
+        { x: 54, y: 5 },
+        { x: 54, y: 70 },
+        { x: 46, y: 70 }
+      ];
+      const mockIsoLevel = {
+        id: 'deep_cave',
+        name: 'The Abyssal Descent',
+        items: [{ id: 'crystal', name: 'Crystal', emoji: '💎' }],
+        entities: [],
+        mapNodes: [],
+        sceneryNodes: [],
+        campPos: { x: 25, y: 20 },
+        mechanics: {
+          isCaveType: true,
+          useIsotropicCoords: true,
+          hasPickaxe: true,
+          hasDarkness: true,
+          darknessType: 'radial',
+          isVertical: true,
+          screens: 1.5
+        },
+        BackgroundComponent: () => <div data-testid="iso-bg" />
+      };
+
+      const savedState = {
+        levelId: 'deep_cave',
+        targetSteps: 3,
+        numDiggers: 0,
+        inventory: ['crystal'],
+        unlockedZones: [1],
+        defeated: [],
+        litBraziers: ['brazier_east'],
+        pathHistory: [{ x: 25, y: 20, zone: 1 }],
+        puzzle: {
+          levelId: 'deep_cave',
+          goalEntityId: 'vault_rock',
+          startItems: ['crystal'],
+          solution: [],
+          geometry: {
+            worldWidth: 100,
+            worldHeight: 192,
+            campPos: { x: 25, y: 20 },
+            torchRadius: 45,
+            wallPolylines: [
+              { points: [{ x: 5, y: 5 }, { x: 95, y: 5 }, { x: 95, y: 187 }, { x: 5, y: 187 }], closed: true },
+              { points: dividerWall, closed: true, isPillar: true }
+            ],
+            obstaclePolygons: [dividerWall],
+            braziers: [{ id: 'brazier_east', x: 75, y: 30, zone: 1, radius: 35 }]
+          },
+          puzzleEntities: [
+            {
+              id: 'east_trader',
+              x: 75,
+              y: 20,
+              zone: 1,
+              emoji: '🧙',
+              requires: ['crystal'],
+              reqType: 'AND',
+              reward: null
+            },
+            {
+              id: 'vault_rock',
+              x: 50,
+              y: 160,
+              zone: 1,
+              emoji: '👑',
+              isGoal: true,
+              isPreset: 'treasure',
+              isTreasure: true,
+              requires: [],
+              reqType: 'AND',
+              reward: null
+            }
+          ]
+        }
+      };
+
+      const { getByTestId, getByText } = render(
+        <GameInstance level={mockIsoLevel} targetSteps={3} numDiggers={0} savedState={savedState} lang="en" />
+      );
+
+      await act(async () => { vi.advanceTimersByTime(100); });
+
+      const heroWrap = getByText('🤠').closest('div[style*="left:"]');
+      expect(heroWrap.style.left).toBe('25%');
+
+      // Click the trader visible on the opposite side of the divider wall (lit by brazier_east)
+      await act(async () => {
+        fireEvent.click(getByTestId('entity-east_trader'));
+      });
+
+      // Immediately after click, hero starts on the first intermediate waypoint (NOT jumping directly to x=75)
+      const firstX = parseFloat(heroWrap.style.left);
+      expect(firstX).toBeLessThan(60);
+
+      // Advance through remaining waypoints to arrive around the wall
+      for (let i = 0; i < 8; i++) {
+        await act(async () => { vi.advanceTimersByTime(800); });
+      }
+      const arrivedX = parseFloat(heroWrap.style.left);
+      const arrivedY = parseFloat(heroWrap.style.top);
+      expect(arrivedX).toBeGreaterThan(60);
+      expect(arrivedY).toBeLessThan(35);
     });
   });
 });

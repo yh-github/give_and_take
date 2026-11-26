@@ -647,13 +647,14 @@ export function GameInstance({
       collarBounds,
       isCaveType: Boolean(level.mechanics.isCaveType || level.mechanics.hasWalls),
       useIsotropic,
+      worldWidth,
       worldHeight,
       yScale,
       obstacleSegments,
       obstaclePolygons,
       caveWallVertices: CAVE_WALL_VERTICES
     });
-  }, [puzzle, pathHistory, level.mechanics.isCaveType, level.mechanics.hasWalls, obstacleSegments, obstaclePolygons, useIsotropic, worldHeight, yScale]);
+  }, [puzzle, pathHistory, level.mechanics.isCaveType, level.mechanics.hasWalls, obstacleSegments, obstaclePolygons, useIsotropic, worldWidth, worldHeight, yScale]);
 
   const triggerAirLossBubbles = useCallback((x: number, y: number, isHeavy = false, countOverride?: number) => {
     if (!isDivingLevel(level) || isTransformedRef.current) return;
@@ -689,6 +690,37 @@ export function GameInstance({
       triggerWaterSplash(splashPt.x, splashPt.y, 'normal');
     }
   }, [level, triggerWaterSplash]);
+
+  const walkWaypointsStepByStep = useCallback(async (
+    waypoints: readonly Waypoint[],
+    startPos: Point2D,
+    wasFullBeforeMove: boolean
+  ): Promise<boolean> => {
+    setIsAnimatingLoot(true);
+    let lastP: Point2D = startPos;
+    const sessionId = ++walkSessionRef.current;
+
+    for (let i = 0; i < waypoints.length; i++) {
+      if (walkSessionRef.current !== sessionId) return false;
+      const wp = waypoints[i];
+      const dx = wp.x - lastP.x;
+      const dy = wp.y - lastP.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const baseDuration = Math.min(800, Math.max(useIsotropic ? 180 : 250, Math.round(dist * (useIsotropic ? 14 : 35))));
+      const duration = getDivingMoveDurationMs(level, baseDuration, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove);
+
+      maybeTriggerWaterSplash(lastP, wp);
+
+      setMoveDurationMs(duration);
+      setPathHistory(prev => [...prev, wp]);
+      lastP = wp;
+
+      await new Promise<void>(r => scheduleTimeout(r, duration));
+    }
+
+    if (walkSessionRef.current !== sessionId) return false;
+    return true;
+  }, [level, useIsotropic, maybeTriggerWaterSplash, scheduleTimeout]);
 
   const handlePostActionAir = useCallback((
     finalY: number,
@@ -993,11 +1025,11 @@ export function GameInstance({
     });
   }, [pathHistory, unlockedZones, puzzle, isDemonstrating, isAnimatingLoot, buriedEntities, animatingEntities, defeated, level, visibleEntitiesSet]);
 
-  const saveHistory = useCallback(() => {
+  const saveHistory = useCallback((pathHistoryOverride?: PathHistoryPoint[]) => {
     setHistoryStack(prev => [...prev, {
       inventory: [...stateRefs.current.inventory],
       defeated: [...stateRefs.current.defeated],
-      pathHistory: [...stateRefs.current.pathHistory],
+      pathHistory: [...(pathHistoryOverride ?? stateRefs.current.pathHistory)],
       envItemState: stateRefs.current.envItemState,
       unlockedZones: [...stateRefs.current.unlockedZones],
       campItems: [...stateRefs.current.campItems],
@@ -1290,7 +1322,7 @@ export function GameInstance({
           startPos,
           { x: goalX, y: goalY },
           simSegs,
-          { width: 100, height: worldHeight },
+          { width: worldWidth, height: worldHeight },
           puzzle.geometry.obstaclePolygons || [],
           2.5,
           { radius: DEEP_CAVE_HERO_RADIUS, maxIters: 25000, cornerClearance: 1.5 }
@@ -1920,7 +1952,7 @@ export function GameInstance({
     }, swimDuration);
   };
 
-  const handleCampClick = (e: MouseEvent) => {
+  const handleCampClick = async (e: MouseEvent) => {
     if (outOfAirModal || fishingCatch || alertEntityId === 'out_of_air') return;
     const itemToDrop = selectedItemTypes[0];
     if (!itemToDrop && !level.mechanics.hasAir) return;
@@ -1932,6 +1964,20 @@ export function GameInstance({
     const swimDuration = isDivingLevel(level)
       ? getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove)
       : ACTION_ANIM_MS;
+
+    const isCaveOrWalled = Boolean(level.mechanics.isCaveType || level.mechanics.hasWalls);
+    const lastPos = pathHistory[pathHistory.length - 1];
+    let newPath = navigateTo(effectiveCampPos.x, effectiveCampPos.y, 1, effectiveCampPos.depth || 3, false);
+    if (!newPath || newPath.length === 0) {
+      if (isCaveOrWalled) {
+        const distToCamp = lastPos ? Math.hypot(effectiveCampPos.x - lastPos.x, effectiveCampPos.y - lastPos.y) : Infinity;
+        if (distToCamp > 8) return;
+        newPath = [{ x: lastPos.x, y: lastPos.y, depth: effectiveCampPos.depth || 3, zone: 1 }];
+      } else {
+        newPath = [{ x: effectiveCampPos.x, y: effectiveCampPos.y, depth: effectiveCampPos.depth || 3, zone: 1 }];
+      }
+    }
+
     if (isDivingLevel(level)) setMoveDurationMs(swimDuration);
 
     if (dolphinStateRef.current === 'idle_deep') {
@@ -1939,26 +1985,8 @@ export function GameInstance({
     }
     setAttachedEntityId(null);
     saveHistory();
-    setIsAnimatingLoot(true);
 
-    let newPath = navigateTo(effectiveCampPos.x, effectiveCampPos.y, 1, effectiveCampPos.depth || 3, false);
-    if (!newPath || newPath.length === 0) {
-      newPath = [{ x: effectiveCampPos.x, y: effectiveCampPos.y, depth: effectiveCampPos.depth || 3, zone: 1 }];
-    }
-    const lastPos = pathHistory[pathHistory.length - 1];
-    const finalPos = newPath[newPath.length - 1];
-
-    if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
-      triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
-      maybeTriggerWaterSplash(lastPos, finalPos);
-    }
-
-    setPathHistory(prev => {
-      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
-      return [...prev, ...newPath];
-    });
-
-    scheduleTimeout(() => {
+    const applyCampArrival = () => {
       let nextInv = inventoryRef.current;
       if (itemToDrop) {
         nextInv = [...inventoryRef.current];
@@ -1979,10 +2007,34 @@ export function GameInstance({
       if (level.id === 'underwater' && !isTransformedRef.current && hasDeepTreasure && hasTransformedOnceRef.current && nextInv.includes('crown')) {
         triggerVictory();
       }
-    }, swimDuration);
+    };
+
+    const finalPos = newPath[newPath.length - 1];
+    if (level.mechanics.isCaveType && newPath.length > 1) {
+      if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
+        triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      }
+      const completed = await walkWaypointsStepByStep(newPath, lastPos, wasFullBeforeMove);
+      if (!completed) return;
+      applyCampArrival();
+      return;
+    }
+
+    setIsAnimatingLoot(true);
+    if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
+      triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      maybeTriggerWaterSplash(lastPos, finalPos);
+    }
+
+    setPathHistory(prev => {
+      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+      return [...prev, ...newPath];
+    });
+
+    scheduleTimeout(applyCampArrival, swimDuration);
   };
 
-  const handleCampItemClick = (e: MouseEvent, campItem: CampItemState) => {
+  const handleCampItemClick = async (e: MouseEvent, campItem: CampItemState) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
 
@@ -1996,6 +2048,22 @@ export function GameInstance({
     const swimDuration = isDivingLevel(level)
       ? getDivingMoveDurationMs(level, 650, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove)
       : ACTION_ANIM_MS;
+
+    const isCaveOrWalled = Boolean(level.mechanics.isCaveType || level.mechanics.hasWalls);
+    const lastPos = pathHistory[pathHistory.length - 1];
+    const currentZone = lastPos?.zone || 1;
+    const targetZone = inferTargetZone(level, campItem.x, campItem.y, currentZone);
+    let newPath = navigateTo(campItem.x, campItem.y, targetZone, level.campPos.depth || 3, false);
+    if (!newPath || newPath.length === 0) {
+      if (isCaveOrWalled) {
+        const distToItem = lastPos ? Math.hypot(campItem.x - lastPos.x, campItem.y - lastPos.y) : Infinity;
+        if (distToItem > 8) return;
+        newPath = [{ x: lastPos.x, y: lastPos.y, depth: level.campPos.depth || 3, zone: targetZone }];
+      } else {
+        newPath = [{ x: campItem.x, y: campItem.y, depth: level.campPos.depth || 3, zone: targetZone }];
+      }
+    }
+
     if (isDivingLevel(level)) setMoveDurationMs(swimDuration);
 
     if (dolphinStateRef.current === 'idle_deep') {
@@ -2003,28 +2071,9 @@ export function GameInstance({
     }
     setAttachedEntityId(null);
     saveHistory();
-    setIsAnimatingLoot(true);
 
-    const currentZone = pathHistory[pathHistory.length - 1]?.zone || 1;
-    const targetZone = inferTargetZone(level, campItem.x, campItem.y, currentZone);
-    let newPath = navigateTo(campItem.x, campItem.y, targetZone, level.campPos.depth || 3, false);
-    if (!newPath || newPath.length === 0) {
-      newPath = [{ x: campItem.x, y: campItem.y, depth: level.campPos.depth || 3, zone: targetZone }];
-    }
-    const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
-
-    if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
-      triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
-      maybeTriggerWaterSplash(lastPos, finalPos);
-    }
-
-    setPathHistory(prev => {
-      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
-      return [...prev, ...newPath];
-    });
-
-    scheduleTimeout(() => {
+    const applyCampItemPickup = () => {
       setCampItems(prev => prev.filter(i => i.uid !== campItem.uid));
       const nextInv = [...inventoryRef.current, campItem.id];
       inventoryRef.current = nextInv;
@@ -2037,7 +2086,30 @@ export function GameInstance({
           dropPos: { x: finalPos.x, y: finalPos.y }
         });
       }
-    }, swimDuration);
+    };
+
+    if (level.mechanics.isCaveType && newPath.length > 1) {
+      if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
+        triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      }
+      const completed = await walkWaypointsStepByStep(newPath, lastPos, wasFullBeforeMove);
+      if (!completed) return;
+      applyCampItemPickup();
+      return;
+    }
+
+    setIsAnimatingLoot(true);
+    if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
+      triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      maybeTriggerWaterSplash(lastPos, finalPos);
+    }
+
+    setPathHistory(prev => {
+      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+      return [...prev, ...newPath];
+    });
+
+    scheduleTimeout(applyCampItemPickup, swimDuration);
   };
 
   const triggerAirPocketBlocked = useCallback(() => {
@@ -2099,7 +2171,7 @@ export function GameInstance({
 
       const newPath = navigateTo(targetX, targetY, targetZone, 3, false);
       if (!newPath || newPath.length === 0) {
-        if (level.mechanics.hasWalls) {
+        if (level.mechanics.hasWalls || level.mechanics.isCaveType) {
           setClickIndicator({ x: targetX, y: targetY, isValid: false, id: indicatorId });
         }
         return;
@@ -2110,30 +2182,10 @@ export function GameInstance({
       const startP = pathHistory[pathHistory.length - 1];
       triggerAirLossBubbles(startP.x, startP.y, wasFullBeforeMove);
 
-      setIsAnimatingLoot(true);
-      let lastP: Point2D = pathHistory[pathHistory.length - 1];
-      const sessionId = ++walkSessionRef.current;
-
-      for (let i = 0; i < newPath.length; i++) {
-        if (walkSessionRef.current !== sessionId) return;
-        const wp = newPath[i];
-        const dx = wp.x - lastP.x;
-        const dy = wp.y - lastP.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const baseDuration = Math.min(800, Math.max(useIsotropic ? 180 : 250, Math.round(dist * (useIsotropic ? 14 : 35))));
-        const duration = getDivingMoveDurationMs(level, baseDuration, inventoryRef.current, isTransformedRef.current, wasFullBeforeMove);
-
-        maybeTriggerWaterSplash(lastP, wp);
-
-        setMoveDurationMs(duration);
-        setPathHistory(prev => [...prev, wp]);
-        lastP = wp;
-
-        await new Promise<void>(r => scheduleTimeout(r, duration));
-      }
-
-      if (walkSessionRef.current !== sessionId) return;
+      const completed = await walkWaypointsStepByStep(newPath, startP, wasFullBeforeMove);
+      if (!completed) return;
       setIsAnimatingLoot(false);
+      const lastP: Point2D = newPath[newPath.length - 1];
 
       if (level.id === 'underwater' && fishingMode === 'chase') {
         const arrivalNow = Date.now();
@@ -2193,7 +2245,7 @@ export function GameInstance({
     return null;
   };
 
-  const handleLightBrazier = (brazier: CaveBrazier, e: MouseEvent) => {
+  const handleLightBrazier = async (brazier: CaveBrazier, e: MouseEvent) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
     if (!puzzle) return;
@@ -2213,6 +2265,14 @@ export function GameInstance({
     saveHistory();
     const lastPos = pathHistory[pathHistory.length - 1];
     const finalPos = newPath[newPath.length - 1];
+    if (level.mechanics.isCaveType && newPath.length > 1) {
+      const completed = await walkWaypointsStepByStep(newPath, lastPos, false);
+      if (!completed) return;
+      setIsAnimatingLoot(false);
+      setLitBraziers(prev => (prev.includes(brazier.id) ? prev : [...prev, brazier.id]));
+      return;
+    }
+
     const moveDist = lastPos && finalPos ? Math.hypot(finalPos.x - lastPos.x, finalPos.y - lastPos.y) : 0;
     setMoveDurationMs(Math.min(700, Math.max(180, Math.round(moveDist * 14))));
     setPathHistory(prev => {
@@ -2222,7 +2282,7 @@ export function GameInstance({
     setLitBraziers(prev => (prev.includes(brazier.id) ? prev : [...prev, brazier.id]));
   };
 
-  const handleInteract = (entity: PuzzleEntity, e: MouseEvent) => {
+  const handleInteract = async (entity: PuzzleEntity, e: MouseEvent) => {
     e.stopPropagation();
     if (isVictorious || isDemonstrating || isAnimatingLoot || isRefillingAir || alertEntityId === 'out_of_air' || outOfAirModal || fishingCatch) return;
     if (!puzzle) return;
@@ -2348,20 +2408,32 @@ export function GameInstance({
     const newPath = navigateTo(targetX, targetY, entity.zone, 3, true, occluderType, entity.collarBounds || null);
     if (!newPath || newPath.length === 0) return;
     const finalPos = newPath[newPath.length - 1];
+    const preWalkPathHistory = [...stateRefs.current.pathHistory];
+    const shouldStepWalk = Boolean(level.mechanics.isCaveType && newPath.length > 1);
+    const historyPathOverride = shouldStepWalk ? preWalkPathHistory : undefined;
 
-    if (isDivingLevel(level) && entity.id !== 'dolphin_1') {
-      setMoveDurationMs(interactSwimDuration);
+    if (shouldStepWalk) {
+      if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
+        triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+      }
+      const completed = await walkWaypointsStepByStep(newPath, lastPos, wasFullBeforeMove);
+      if (!completed) return;
+      setIsAnimatingLoot(false);
+    } else {
+      if (isDivingLevel(level) && entity.id !== 'dolphin_1') {
+        setMoveDurationMs(interactSwimDuration);
+      }
+
+      if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
+        triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
+        maybeTriggerWaterSplash(lastPos, finalPos);
+      }
+
+      setPathHistory(prev => {
+        if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
+        return [...prev, ...newPath];
+      });
     }
-
-    if (lastPos && finalPos && (lastPos.x !== finalPos.x || lastPos.y !== finalPos.y)) {
-      triggerAirLossBubbles(lastPos.x, lastPos.y, wasFullBeforeMove);
-      maybeTriggerWaterSplash(lastPos, finalPos);
-    }
-
-    setPathHistory(prev => {
-      if (lastPos && finalPos && lastPos.x === finalPos.x && lastPos.y === finalPos.y) return prev;
-      return [...prev, ...newPath];
-    });
 
     if (defeated.includes(entity.id) || (entity.isVent && selectedItemTypes.length === 0)) {
       if (entity.id === 'dolphin_1') {
@@ -2396,7 +2468,7 @@ export function GameInstance({
         return;
       }
 
-      setIsAnimatingLoot(true); saveHistory();
+      setIsAnimatingLoot(true); saveHistory(historyPathOverride);
 
       if (level.mechanics.isCaveType && entity.isTreasure) {
         const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
@@ -2449,7 +2521,7 @@ export function GameInstance({
     }
 
     if (isInspectOnly) {
-      saveHistory();
+      saveHistory(historyPathOverride);
       setSelectedEntityId(entity.id);
       if (isClamEntity(entity) && !buriedEntities.includes(entity.id)) {
         setBuriedEntities(prev => (prev.includes(entity.id) ? prev : [...prev, entity.id]));
@@ -2511,7 +2583,7 @@ export function GameInstance({
         transformedJustEnded = true;
       }
 
-      setIsAnimatingLoot(true); saveHistory();
+      setIsAnimatingLoot(true); saveHistory(historyPathOverride);
       if (isClamEntity(entity)) {
         setBuriedEntities(prev => prev.filter(id => id !== entity.id));
       }

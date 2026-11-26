@@ -217,15 +217,16 @@ export function getProceduralObstacleSegments(
 }
 
 /**
- * Standard ray-segment intersection.
- * ray = { a: origin, b: point_on_ray }
- * segment = { a: start, b: end }
+ * Ray-segment intersection from ray origin (r_px, r_py) and direction (r_dx, r_dy).
+ * Uses a tiny segment-parameter epsilon so shared wall vertices do not leak rays.
  */
-function getIntersection(ray: Segment2D, segment: Segment2D): RayIntersection | null {
-  const r_px = ray.a.x;
-  const r_py = ray.a.y;
-  const r_dx = ray.b.x - ray.a.x;
-  const r_dy = ray.b.y - ray.a.y;
+function getRaySegmentIntersection(
+  r_px: number,
+  r_py: number,
+  r_dx: number,
+  r_dy: number,
+  segment: Segment2D
+): RayIntersection | null {
   const s_px = segment.a.x;
   const s_py = segment.a.y;
   const s_dx = segment.b.x - segment.a.x;
@@ -239,14 +240,39 @@ function getIntersection(ray: Segment2D, segment: Segment2D): RayIntersection | 
     ? (s_px + s_dx * T2 - r_px) / r_dx
     : (s_py + s_dy * T2 - r_py) / r_dy;
 
+  const T2_EPS = 1e-9;
   if (T1 < 0) return null;
-  if (T2 < 0 || T2 > 1) return null;
+  if (T2 < -T2_EPS || T2 > 1 + T2_EPS) return null;
 
   return {
     x: r_px + r_dx * T1,
     y: r_py + r_dy * T1,
     param: T1
   };
+}
+
+/**
+ * Standard ray-segment intersection.
+ * ray = { a: origin, b: point_on_ray }
+ * segment = { a: start, b: end }
+ */
+function getIntersection(ray: Segment2D, segment: Segment2D): RayIntersection | null {
+  return getRaySegmentIntersection(
+    ray.a.x,
+    ray.a.y,
+    ray.b.x - ray.a.x,
+    ray.b.y - ray.a.y,
+    segment
+  );
+}
+
+/**
+ * Normalizes an angle in radians into [-Math.PI, Math.PI).
+ */
+function normalizeAngle(a: number): number {
+  let wrapped = (a + Math.PI) % (Math.PI * 2);
+  if (wrapped < 0) wrapped += Math.PI * 2;
+  return wrapped - Math.PI;
 }
 
 /**
@@ -302,25 +328,24 @@ export function castRays(
     const dy = p.y - origin.y;
     if (dx * dx + dy * dy > maxRayReachSq) return;
     const angle = Math.atan2(dy, dx);
-    angles.push(angle - 0.0001);
-    angles.push(angle + 0.0001);
+    angles.push(normalizeAngle(angle - 0.0001));
+    angles.push(normalizeAngle(angle + 0.0001));
   });
 
   // Ensure smooth circular perimeter even in wide open chambers
   const ringCount = 24;
   for (let i = 0; i < ringCount; i++) {
-    angles.push(-Math.PI + (i / ringCount) * Math.PI * 2);
+    angles.push(normalizeAngle(-Math.PI + (i / ringCount) * Math.PI * 2));
   }
 
   const intersects: Array<RayIntersection & { angle: number }> = [];
   angles.forEach(angle => {
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
-    const ray: Segment2D = { a: origin, b: { x: origin.x + dx, y: origin.y + dy } };
 
     let closest: RayIntersection | null = null;
     for (let i = 0; i < localSightSegments.length; i++) {
-      const hit = getIntersection(ray, localSightSegments[i]);
+      const hit = getRaySegmentIntersection(origin.x, origin.y, dx, dy, localSightSegments[i]);
       if (!hit) continue;
       if (!closest || hit.param < closest.param) {
         closest = hit;
@@ -398,7 +423,7 @@ export function checkCollision(
     const by = s.b.y;
     if ((ay < minY && by < minY) || (ay > maxY && by > maxY)) continue;
     const hit = getIntersection(ray, s);
-    if (hit && hit.param > 0.001 && hit.param < 0.999) {
+    if (hit && hit.param > 1e-6 && hit.param < 1 - 1e-6) {
       return true;
     }
   }

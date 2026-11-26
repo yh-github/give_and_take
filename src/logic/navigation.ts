@@ -10,7 +10,8 @@ import type {
   Waypoint
 } from '../types/index.ts';
 import { getCorridorBounds } from './geometry.ts';
-import { findGlobalPath } from './pathfinding.ts';
+import { checkPolygonCollision, findGlobalPath, isPointInPolygon } from './pathfinding.ts';
+import { checkCollision } from './visibility.ts';
 import { isInShipwreckAirPocket } from '../levels/shipwreck/geometry.ts';
 
 /**
@@ -154,6 +155,7 @@ export interface ComputeNavigationPathParams {
   collarBounds?: CollarBounds | null;
   isCaveType: boolean;
   useIsotropic: boolean;
+  worldWidth?: number;
   worldHeight: number;
   yScale: number;
   obstacleSegments: readonly ObstacleSegment[];
@@ -189,6 +191,7 @@ export const computeNavigationPath = ({
   collarBounds = null,
   isCaveType,
   useIsotropic,
+  worldWidth = 100,
   worldHeight,
   yScale,
   obstacleSegments,
@@ -205,24 +208,31 @@ export const computeNavigationPath = ({
       : isCompact2DWorld
         ? { radius: 1.4, maxIters: 20000, cornerClearance: 0.9 }
         : {};
-    const pathBounds = { width: 100, height: worldHeight };
+    const pathBounds = { width: worldWidth, height: worldHeight };
+    const startPt: Point2D = { x: lastPos.x, y: lastPos.y * yScale };
     let finalTargetX = targetX;
     let finalTargetY = targetY;
 
     if (occluderType === 'rock' || occluderType === 'chasm' || occluderType === 'guardian') {
       let isAlreadyInRange = false;
+      let altTargetX: number | null = null;
+      let altTargetY: number | null = null;
 
       if (collarBounds) {
         if (collarBounds.orientation === 'vertical') {
           finalTargetY = Math.max(collarBounds.yTop + 3, Math.min(collarBounds.yBottom - 3, lastPos.y));
           const isLeft = lastPos.x <= targetX;
           finalTargetX = isLeft ? collarBounds.xLeft - 4.0 : collarBounds.xRight + 4.0;
+          altTargetX = isLeft ? collarBounds.xRight + 4.0 : collarBounds.xLeft - 4.0;
+          altTargetY = finalTargetY;
           const yDist = Math.max(0, Math.max(collarBounds.yTop - lastPos.y, lastPos.y - collarBounds.yBottom));
           isAlreadyInRange = yDist <= 2 && Math.abs(lastPos.x - targetX) <= 7.0;
         } else {
           finalTargetX = Math.max(collarBounds.xLeft + 3, Math.min(collarBounds.xRight - 3, lastPos.x));
           const isAbove = lastPos.y <= targetY;
           finalTargetY = isAbove ? collarBounds.yTop - 4.0 : collarBounds.yBottom + 4.0;
+          altTargetX = finalTargetX;
+          altTargetY = isAbove ? collarBounds.yBottom + 4.0 : collarBounds.yTop - 4.0;
           const xDist = Math.max(0, Math.max(collarBounds.xLeft - lastPos.x, lastPos.x - collarBounds.xRight));
           isAlreadyInRange = xDist <= 2 && Math.abs(lastPos.y - targetY) <= 7.0;
         }
@@ -237,8 +247,15 @@ export const computeNavigationPath = ({
         isAlreadyInRange = xDist <= 2 && yDist <= 3.8;
       }
 
-      const rawPath = findGlobalPath(
-        { x: lastPos.x, y: lastPos.y * yScale },
+      if (isAlreadyInRange) {
+        const wallOnlySegs = obstacleSegments.filter(s => !s.isRock);
+        if (checkCollision(startPt, { x: targetX, y: targetY * yScale }, wallOnlySegs)) {
+          isAlreadyInRange = false;
+        }
+      }
+
+      let rawPath = findGlobalPath(
+        startPt,
         { x: finalTargetX, y: finalTargetY * yScale },
         obstacleSegments,
         pathBounds,
@@ -246,6 +263,18 @@ export const computeNavigationPath = ({
         res,
         pathOpts
       );
+
+      if (rawPath.length === 0 && altTargetX !== null && altTargetY !== null) {
+        rawPath = findGlobalPath(
+          startPt,
+          { x: altTargetX, y: altTargetY * yScale },
+          obstacleSegments,
+          pathBounds,
+          obstaclePolygons,
+          res,
+          pathOpts
+        );
+      }
 
       if (rawPath.length > 0) {
         return mapPathToWaypoints(rawPath, yScale, depth, targetZone);
@@ -256,6 +285,7 @@ export const computeNavigationPath = ({
       return [];
     }
 
+    let appliedStopOffset = 0;
     if (isInteract) {
       const stopOffset = useIsotropic ? DEEP_CAVE_HERO_RADIUS + 1.5 : 3.5;
       const dx = finalTargetX - lastPos.x;
@@ -264,14 +294,15 @@ export const computeNavigationPath = ({
       if (dist > stopOffset) {
         finalTargetX = finalTargetX - (dx / dist) * stopOffset;
         finalTargetY = finalTargetY - (dy / dist) * stopOffset;
+        appliedStopOffset = stopOffset;
       } else if (dist > 0) {
         finalTargetX = lastPos.x;
         finalTargetY = lastPos.y;
       }
     }
 
-    const rawPath = findGlobalPath(
-      { x: lastPos.x, y: lastPos.y * yScale },
+    let rawPath = findGlobalPath(
+      startPt,
       { x: finalTargetX, y: finalTargetY * yScale },
       obstacleSegments,
       pathBounds,
@@ -279,6 +310,41 @@ export const computeNavigationPath = ({
       res,
       pathOpts
     );
+
+    // If the naive straight-line backoff landed inside a wall/obstacle, path directly
+    // to the entity and back off along the final unobstructed approach segment instead.
+    if (rawPath.length === 0 && appliedStopOffset > 0) {
+      const directPath = findGlobalPath(
+        startPt,
+        { x: targetX, y: targetY * yScale },
+        obstacleSegments,
+        pathBounds,
+        obstaclePolygons,
+        res,
+        pathOpts
+      );
+      if (directPath.length > 0) {
+        const lastIdx = directPath.length - 1;
+        const prevPt = lastIdx > 0 ? directPath[lastIdx - 1] : startPt;
+        const endPt = directPath[lastIdx];
+        const sdx = endPt.x - prevPt.x;
+        const sdy = endPt.y - prevPt.y;
+        const sDist = Math.hypot(sdx, sdy);
+        if (sDist > appliedStopOffset) {
+          const backedOff: Point2D = {
+            x: endPt.x - (sdx / sDist) * appliedStopOffset,
+            y: endPt.y - (sdy / sDist) * appliedStopOffset
+          };
+          const inSolidPoly = obstaclePolygons.some(poly => isPointInPolygon(backedOff, poly));
+          const hitsSeg = checkCollision(prevPt, backedOff, obstacleSegments);
+          const hitsPoly = checkPolygonCollision(prevPt, backedOff, obstaclePolygons);
+          if (!inSolidPoly && !hitsSeg && !hitsPoly) {
+            directPath[lastIdx] = backedOff;
+          }
+        }
+        rawPath = directPath;
+      }
+    }
 
     return mapPathToWaypoints(rawPath, yScale, depth, targetZone);
   }
