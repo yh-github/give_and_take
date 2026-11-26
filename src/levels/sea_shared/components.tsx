@@ -18,10 +18,11 @@ export interface SeaWitchSVGProps {
   reqEmojis?: string[];
   emoji?: string | null;
   spriteSrc?: string | null;
+  isCastingMagic?: boolean;
 }
 
 /**
- * Shared Sea Witch grotto, cauldron, and status badge used across all Sea levels.
+ * Shared Sea Witch grotto, cauldron, and cast magic effects used across all Sea levels.
  * Centralizes Witch visuals so art updates apply everywhere in one place.
  */
 export const SeaWitchSVG = ({
@@ -32,7 +33,8 @@ export const SeaWitchSVG = ({
   returnRelicEmoji = '🔮',
   reqEmojis = [],
   emoji = '😈',
-  spriteSrc = null
+  spriteSrc = null,
+  isCastingMagic = false
 }: SeaWitchSVGProps) => {
   const isEmeraldReady =
     variant === 'shipwreck' ? !isTransformed : Boolean(isTransformed && hasDeepTreasure);
@@ -102,12 +104,30 @@ export const SeaWitchSVG = ({
         <circle cx="76" cy="73" r="1.7" fill={isEmeraldReady ? '#6ee7b7' : '#e9d5ff'} opacity="0.7" />
       </svg>
 
+      {isCastingMagic && (
+        <div
+          data-testid="witch-cast-fx"
+          aria-hidden="true"
+          className="absolute left-1/2 top-1/2 w-[18cqw] h-[18cqw] rounded-full border-2 border-emerald-300/80 shadow-[0_0_24px_rgba(52,211,153,0.95)] pointer-events-none z-20 animate-witch-cast-ring"
+        >
+          {[0, 60, 120, 180, 240, 300].map((deg) => (
+            <span
+              key={deg}
+              className="absolute left-1/2 top-1/2 w-2 h-2 rounded-full bg-emerald-200 shadow-[0_0_8px_#a855f7]"
+              style={{
+                transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-9cqw)`
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       <SpriteIcon
         id="sea_witch"
         spriteSrc={spriteSrc}
         emoji={emoji}
         alt="Sea Witch"
-        className={`${emojiSizeClass} z-10 drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]`}
+        className={`${emojiSizeClass} z-10 ${isCastingMagic ? 'animate-witch-cast' : 'drop-shadow-[0_4px_12px_rgba(147,51,234,0.9)]'}`}
       />
     </div>
   );

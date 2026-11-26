@@ -1,7 +1,5 @@
 import type { SpriteAsset } from './types.ts';
-import { RopeSprite } from './items/RopeSprite.tsx';
 import { LanternfishSprite } from './items/LanternfishSprite.tsx';
-import { SeaWitchSprite } from './entities/SeaWitchSprite.tsx';
 
 /**
  * Central sprite registry mapping item/entity IDs (or explicit `spriteId` keys)
@@ -10,9 +8,9 @@ import { SeaWitchSprite } from './entities/SeaWitchSprite.tsx';
  */
 export const SPRITE_REGISTRY: Record<string, SpriteAsset> = {
   rope: {
-    kind: 'svg',
-    Component: RopeSprite,
-    label: 'Rope'
+    kind: 'image',
+    src: './sprites/rope.png',
+    alt: 'Rope'
   },
   blowfish: {
     kind: 'svg',
@@ -20,9 +18,9 @@ export const SPRITE_REGISTRY: Record<string, SpriteAsset> = {
     label: 'Lanternfish'
   },
   sea_witch: {
-    kind: 'svg',
-    Component: SeaWitchSprite,
-    label: 'Sea Witch'
+    kind: 'image',
+    src: './sprites/sea_witch.png',
+    alt: 'Sea Witch'
   }
 };
 

@@ -92,6 +92,7 @@ export interface WorldViewportProps {
   inventory?: readonly string[];
   wildLightSources?: readonly Point2D[];
   lanternfishLightCount?: number;
+  isMagicAnimating?: boolean;
   getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
   handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
   playerVisualX: number;
@@ -256,6 +257,7 @@ export function WorldViewport({
   inventory = [],
   wildLightSources = [],
   lanternfishLightCount = 0,
+  isMagicAnimating = false,
   getCustomEntityMovement,
   handleInteract,
   playerVisualX,
@@ -600,6 +602,7 @@ export function WorldViewport({
           wildLightSources={wildLightSources}
           isTransformed={isTransformed}
           hasDeepTreasure={hasDeepTreasure}
+          isMagicAnimating={isMagicAnimating}
           getCustomEntityMovement={getCustomEntityMovement}
           handleInteract={handleInteract}
           dict={dict}

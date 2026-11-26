@@ -49,6 +49,7 @@ export interface GameEntityProps {
   wildLightSources?: readonly Point2D[];
   isTransformed: boolean;
   hasDeepTreasure: boolean;
+  isMagicAnimating?: boolean;
   getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
   handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
   dict: TranslationDictionary;
@@ -78,6 +79,7 @@ export function GameEntity({
   wildLightSources = [],
   isTransformed,
   hasDeepTreasure,
+  isMagicAnimating = false,
   getCustomEntityMovement,
   handleInteract,
   dict,
@@ -433,6 +435,7 @@ export function GameEntity({
                         returnRelicEmoji={returnRelicEmoji}
                         emoji={ent.emoji}
                         spriteSrc={ent.spriteSrc}
+                        isCastingMagic={isMagicAnimating}
                       />
                     ) : ent.id === 'sunken_vault' ? (
                       <SunkenVaultSVG
@@ -465,11 +468,6 @@ export function GameEntity({
                           <span className={!isCustomEntity ? 'inline-block scale-x-[-1]' : 'inline-block'}>
                             <SpriteIcon id="dolphin" spriteSrc={ent.spriteSrc} emoji={ent.emoji} />
                           </span>
-                        </div>
-                        <div className="-mt-2 bg-sky-950/90 border border-cyan-300 text-cyan-100 rounded-full px-2 py-0.5 text-[2.4cqw] font-black shadow-md pointer-events-none flex items-center gap-1">
-                          <SpriteIcon id="fish" emoji="🐟" />
-                          <span>➔</span>
-                          <span>{visualY > 40 ? '⬆️' : '⬇️'}</span>
                         </div>
                       </div>
                     ) : isMermaid ? (
@@ -519,6 +517,7 @@ export function GameEntity({
                         reqEmojis={vaultReqEmojis}
                         emoji={ent.emoji}
                         spriteSrc={ent.spriteSrc}
+                        isCastingMagic={isMagicAnimating}
                       />
                     ) : ent.id === 'captains_chest' ? (
                       <CaptainsTreasureSVG

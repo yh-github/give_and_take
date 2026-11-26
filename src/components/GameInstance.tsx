@@ -13,6 +13,7 @@ import {
   DROWNING_RETURN_DELAY_MS,
   UNDERWATER_FISHING_MODE,
   UNDERWATER_INSPECT_RADIUS,
+  UNDERWATER_INSPECT_MOVES_HERO,
   LANTERNFISH_WILD_LIGHT_RADIUS,
   CANONICAL_SCREEN_HEIGHT,
   DEEP_CAVE_HERO_RADIUS
@@ -2278,7 +2279,12 @@ export function GameInstance({
       (lp) => Math.hypot(entity.x - lp.x, entity.y - lp.y) <= LANTERNFISH_WILD_LIGHT_RADIUS
     );
 
-    if (isInspectOnly && (distToEntity <= effectiveInspectRadius || isWildLit)) {
+    const shouldAllowFreeInspect =
+      selectedEntityId === entity.id ||
+      ((!isDivingLevel(level) || !UNDERWATER_INSPECT_MOVES_HERO) &&
+        (distToEntity <= effectiveInspectRadius || isWildLit));
+
+    if (isInspectOnly && shouldAllowFreeInspect) {
       if (isClamEntity(entity) && selectedEntityId !== entity.id && !buriedEntities.includes(entity.id)) {
         saveHistory();
         setBuriedEntities(prev => (prev.includes(entity.id) ? prev : [...prev, entity.id]));
@@ -2851,6 +2857,7 @@ export function GameInstance({
               inventory={inventory}
               wildLightSources={wildLightSources}
               lanternfishLightCount={getHeldLanternfishLightCount(inventory)}
+              isMagicAnimating={isMagicAnimating}
               getCustomEntityMovement={getCustomEntityMovement}
               handleInteract={handleInteract}
               playerVisualX={playerVisualX}

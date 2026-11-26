@@ -108,20 +108,26 @@ describe('Giant Clams Click-to-Close & Ship Wreck Level', () => {
       expect(findClamReward('⚪')).not.toBeNull();
       expect(findClamReward('🔱')).not.toBeNull();
 
-      // Click close clam (clam_0) to inspect what it wants -> snaps shut immediately!
+      // Click close clam (clam_0) to inspect what it wants -> swims up & snaps shut!
       const pearlSprite = findClamReward('⚪');
       await act(async () => {
         fireEvent.click(pearlSprite.closest('svg'));
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(900);
       });
       expect(findClamReward('⚪')).toBeNull();
       // Tooltip shows want item (Glowing Kelp) and hidden reward (?)
       const clamTooltip = screen.getAllByText('❓').find(el => el.closest('.bg-white')).closest('.bg-white');
       expect(clamTooltip).toBeDefined();
 
-      // Click second non-memory clam (giant_clam_1) -> ALSO snaps shut immediately!
+      // Click second non-memory clam (giant_clam_1) -> swims up & snaps shut!
       const tridentSprite = findClamReward('🔱');
       await act(async () => {
         fireEvent.click(tridentSprite.closest('svg'));
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(900);
       });
       expect(findClamReward('🔱')).toBeNull();
 

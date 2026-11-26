@@ -308,13 +308,15 @@ export interface ShipwreckWitchSVGProps {
   reqEmojis?: string[];
   emoji?: string | null;
   spriteSrc?: string | null;
+  isCastingMagic?: boolean;
 }
 
 export const ShipwreckWitchSVG = ({
   isTransformed,
   reqEmojis = [],
   emoji = '😈',
-  spriteSrc = null
+  spriteSrc = null,
+  isCastingMagic = false
 }: ShipwreckWitchSVGProps) => (
   <SeaWitchSVG
     variant="shipwreck"
@@ -322,6 +324,7 @@ export const ShipwreckWitchSVG = ({
     reqEmojis={reqEmojis}
     emoji={emoji}
     spriteSrc={spriteSrc}
+    isCastingMagic={isCastingMagic}
   />
 );
 

@@ -24,6 +24,7 @@ export const GENERATOR_MAX_ATTEMPTS = 5000;
 // === Navigation & Layout ===
 export const NAV_OFFSET = 6.0;
 export const UNDERWATER_INSPECT_RADIUS = 22;
+export const UNDERWATER_INSPECT_MOVES_HERO = true;
 export const LANTERNFISH_MAX_LIGHT_STACKS = 3;
 export const LANTERNFISH_HELD_RADIUS_STEP = 12;
 export const LANTERNFISH_WILD_LIGHT_RADIUS = 20;

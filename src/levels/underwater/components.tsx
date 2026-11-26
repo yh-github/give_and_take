@@ -316,6 +316,7 @@ export interface SeaWitchGrottoSVGProps {
   returnRelicEmoji?: string | null;
   emoji?: string | null;
   spriteSrc?: string | null;
+  isCastingMagic?: boolean;
 }
 
 export const SeaWitchGrottoSVG = ({
@@ -324,7 +325,8 @@ export const SeaWitchGrottoSVG = ({
   returnRelicId = null,
   returnRelicEmoji = '🔮',
   emoji = '😈',
-  spriteSrc = null
+  spriteSrc = null,
+  isCastingMagic = false
 }: SeaWitchGrottoSVGProps) => (
   <SeaWitchSVG
     variant="underwater"
@@ -334,6 +336,7 @@ export const SeaWitchGrottoSVG = ({
     returnRelicEmoji={returnRelicEmoji}
     emoji={emoji}
     spriteSrc={spriteSrc}
+    isCastingMagic={isCastingMagic}
   />
 );
 

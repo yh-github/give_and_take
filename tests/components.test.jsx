@@ -345,15 +345,22 @@ describe('GUI Component & Integration Tests', () => {
       </div>
     );
 
-    expect(screen.getByTestId('sprite-rope').querySelector('svg')).toBeTruthy();
+    const ropeImg = screen.getByTestId('sprite-rope').querySelector('img');
+    expect(ropeImg).toBeTruthy();
+    expect(ropeImg.getAttribute('src')).toBe('./sprites/rope.png');
+
     expect(screen.getByTestId('sprite-fish').querySelector('svg')).toBeTruthy();
-    expect(screen.getByTestId('sprite-witch').querySelector('svg')).toBeTruthy();
+
+    const witchImg = screen.getByTestId('sprite-witch').querySelector('img');
+    expect(witchImg).toBeTruthy();
+    expect(witchImg.getAttribute('src')).toBe('./sprites/sea_witch.png');
 
     const imgEl = screen.getByTestId('sprite-img').querySelector('img');
     expect(imgEl).toBeTruthy();
     expect(imgEl.getAttribute('src')).toBe('/sprites/goblin.webp');
 
     expect(screen.getByTestId('sprite-fallback').textContent).toBe('💎');
+    expect(container.querySelector('svg image[href="./sprites/rope.png"]')).toBeTruthy();
     expect(container.querySelector('svg image[href="/sprites/gem.png"]')).toBeTruthy();
     expect(container.querySelector('svg text').textContent).toBe('⭐');
   });

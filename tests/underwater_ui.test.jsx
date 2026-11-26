@@ -599,12 +599,17 @@ describe('Underwater GameInstance UI Integration', () => {
 
       const dolphinSprite = screen.getByTestId('dolphin-sprite');
       expect(dolphinSprite.textContent).not.toContain('💦');
+      expect(screen.getByTestId('entity-dolphin_1').textContent).not.toContain('⬆️');
 
-      // Clicking dolphin without selecting fish does NOT start a ride
+      // Clicking dolphin without selecting fish swims hero to inspect it (spending 1 air) and does NOT start a ride
       await act(async () => {
         fireEvent.click(dolphinSprite);
       });
+      await act(async () => {
+        vi.advanceTimersByTime(800);
+      });
       expect(screen.getByText('1/4')).toBeDefined();
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('9/10');
 
       // Select fish and click dolphin -> consumes fish, rides down, returns 0 items
       await act(async () => {
@@ -705,6 +710,62 @@ describe('Underwater GameInstance UI Integration', () => {
         fireEvent.click(screen.getByTestId('sea-preset-hard'));
       });
       expect(screen.queryByTestId('sea-custom-badge')).toBeNull();
+    });
+
+    it('renders Sea Witch cast animation during transformation and lets dismissing a selected tooltip cost 0 air', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const underwater = LEVEL_REGISTRY.underwater;
+      const puzzle = generateUnderwaterPuzzle(underwater, 5, 0, 'witch-cast-anim-seed');
+      const savedState = createSavePayload({
+        levelId: 'underwater',
+        targetSteps: 5,
+        numDiggers: 0,
+        puzzle,
+        inventory: ['mermaid_voice', 'mermaid_voice', 'mermaid_voice'],
+        air: MAX_AIR,
+        pathHistory: [{ x: 50, y: 58, zone: 2 }]
+      });
+
+      render(
+        <GameInstance
+          level={underwater}
+          targetSteps={5}
+          numDiggers={0}
+          onGenerateNew={() => {}}
+          onLoadState={() => {}}
+          savedState={savedState}
+          lang="en"
+          setLang={() => {}}
+        />
+      );
+
+      // Inspect Sea Witch (moves & costs 1 air), then click again to dismiss tooltip (0 extra air)
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('sea-witch-grotto'));
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(800);
+      });
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('9/10');
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('sea-witch-grotto'));
+      });
+      expect(screen.getByTestId('air-count-badge').textContent).toBe('9/10');
+
+      // Select 3x Mermaid Song and trigger Sea Witch transformation -> witch-cast-fx animates
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /🎵/ }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('sea-witch-grotto'));
+      });
+      expect(screen.getByTestId('witch-cast-fx')).toBeDefined();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1600);
+      });
+      expect(screen.queryByTestId('witch-cast-fx')).toBeNull();
+      expect(screen.getByText('🧜‍♂️')).toBeDefined();
     });
   });
 });
