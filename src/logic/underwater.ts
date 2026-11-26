@@ -502,6 +502,14 @@ export function createSpookedFishState(fish: SchoolFishState, nowMs: number): Sc
 }
 
 /**
+ * Returns the close-range direct-grab radius (in map % units) for `fishType`.
+ */
+export function getDirectGrabRadius(fishType: string, isTransformed = false): number {
+  const cfg = getFishChaseConfig(fishType);
+  return isTransformed ? cfg.directGrabDist * MERMAN_DIRECT_GRAB_MULT : cfg.directGrabDist;
+}
+
+/**
  * Returns true if the hero is already close enough to attempt a direct grab on `fish`.
  */
 export function canDirectGrabFish(
@@ -510,9 +518,8 @@ export function canDirectGrabFish(
   nowMs: number,
   isTransformed = false
 ): boolean {
-  const cfg = getFishChaseConfig(fish.type);
   const curPos = getSchoolFishPosition(fish, nowMs);
-  const grabDist = isTransformed ? cfg.directGrabDist * MERMAN_DIRECT_GRAB_MULT : cfg.directGrabDist;
+  const grabDist = getDirectGrabRadius(fish.type, isTransformed);
   return Math.hypot(curPos.x - heroPos.x, curPos.y - heroPos.y) <= grabDist;
 }
 

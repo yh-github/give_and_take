@@ -39,6 +39,7 @@ import {
   findInterceptedFish,
   getAquaticHeroFace,
   getBoatReqFishForTrinket,
+  getDirectGrabRadius,
   getHeldLanternfishLightCount,
   getUnderwaterInspectRadius,
   getDivingAirCost,
@@ -93,6 +94,7 @@ import type {
   CustomEntityMovement,
   DeepCaveSettings,
   ExtraLightPolygon,
+  FishReachCueState,
   FlyingItemState,
   GameHistoryEntry,
   GameInstanceProps,
@@ -213,6 +215,7 @@ export function GameInstance({
   const [campItems, setCampItems] = useState<CampItemState[]>(() => savedState?.campItems || []);
   const [massFlyingTreasures, setMassFlyingTreasures] = useState<FlyingItemState[]>([]);
   const [clickIndicator, setClickIndicator] = useState<ClickIndicatorState | null>(null);
+  const [fishReachCue, setFishReachCue] = useState<FishReachCueState | null>(null);
   const [heroBubbleBursts, setHeroBubbleBursts] = useState<HeroBubbleBurst[]>([]);
   const [waterSplashes, setWaterSplashes] = useState<WaterSplashState[]>([]);
   const [moveDurationMs, setMoveDurationMs] = useState(300);
@@ -518,6 +521,7 @@ export function GameInstance({
       setIsAnimatingLoot(false);
       setIsSwimmingToSurface(false);
       setIsRefillingAir(false);
+      setFishReachCue(null);
       setTempPlayerPos(null);
       setAlertEntityId(null);
       setAttachedEntityId(null);
@@ -548,6 +552,7 @@ export function GameInstance({
       setIsAnimatingLoot(false);
       setIsSwimmingToSurface(false);
       setIsRefillingAir(false);
+      setFishReachCue(null);
       setTempPlayerPos(null);
       setAlertEntityId(null);
       setAttachedEntityId(null);
@@ -1016,6 +1021,7 @@ export function GameInstance({
     setAlertEntityId(null);
     setAlertReason(null);
     setIsInventoryFullAlert(false);
+    setFishReachCue(null);
     const prevState = historyStack[historyStack.length - 1];
     inventoryRef.current = prevState.inventory;
     const restoredAir = prevState.air ?? maxAir;
@@ -1069,9 +1075,11 @@ export function GameInstance({
     setIsAnimatingLoot(false);
     setIsSwimmingToSurface(false);
     setIsRefillingAir(false);
+    setFishReachCue(null);
     setAlertEntityId(null);
     setAlertReason(null);
     setIsInventoryFullAlert(false);
+    setFishReachCue(null);
     setFlyingItem(null);
     setTempPlayerPos(null);
     setEnvItemState('active');
@@ -1785,6 +1793,14 @@ export function GameInstance({
 
     if (!canGrab) {
       spookFishById(fishObj.id);
+      const cueId = now;
+      setFishReachCue({
+        id: cueId,
+        radiusCqw: getDirectGrabRadius(fishObj.type, isMerman)
+      });
+      scheduleTimeout(() => {
+        setFishReachCue(prev => (prev?.id === cueId ? null : prev));
+      }, 650);
     }
 
     saveHistory();
@@ -1830,8 +1846,14 @@ export function GameInstance({
         scheduleTimeout(() => setFlyingItem(null), Math.round(ACTION_ANIM_MS * 0.6));
       } else {
         const missId = Date.now();
-        setClickIndicator({ x: targetX, y: targetY, isValid: false, id: missId });
-        scheduleTimeout(() => setClickIndicator(prev => prev?.id === missId ? null : prev), 550);
+        setClickIndicator({
+          x: targetX,
+          y: targetY,
+          isValid: false,
+          kind: canGrab ? 'fish_whiff' : 'fish_spook',
+          id: missId
+        });
+        scheduleTimeout(() => setClickIndicator(prev => prev?.id === missId ? null : prev), 650);
       }
 
       setIsAnimatingLoot(false);
@@ -2889,6 +2911,7 @@ export function GameInstance({
               inventory={inventory}
               wildLightSources={wildLightSources}
               lanternfishLightCount={getHeldLanternfishLightCount(inventory)}
+              fishReachCue={fishReachCue}
               isMagicAnimating={isMagicAnimating}
               getCustomEntityMovement={getCustomEntityMovement}
               handleInteract={handleInteract}

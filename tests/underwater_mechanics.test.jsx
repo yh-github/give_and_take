@@ -8,6 +8,8 @@ import GameInstance from '../src/components/GameInstance.tsx';
 import OutOfAirModal from '../src/components/OutOfAirModal.tsx';
 import AirIndicator from '../src/components/AirIndicator.tsx';
 import FishingCatchOverlay from '../src/components/FishingCatchOverlay.tsx';
+import Hero from '../src/components/Hero.tsx';
+import { ClickIndicator } from '../src/components/EffectsOverlay.tsx';
 import {
   BoatSVG,
   BoatWakeEffect,
@@ -23,6 +25,7 @@ import {
   evaluateFishingCatch,
   findInterceptedFish,
   getAquaticHeroFace,
+  getDirectGrabRadius,
   getHeldLanternfishLightCount,
   getLanternfishGlowOpacity,
   getSchoolFishPosition,
@@ -315,7 +318,10 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       expect(getSchoolFishPosition(dartFish, 960).x).toBe(0);
       expect(getSchoolFishPosition(dartFish, 2400).x).toBeCloseTo(25, 5);
 
-      // Close-range direct grab gating
+      // Close-range direct grab gating & reach radius helper
+      expect(getDirectGrabRadius('fish', false)).toBe(12);
+      expect(getDirectGrabRadius('blowfish', false)).toBe(8);
+      expect(getDirectGrabRadius('blowfish', true)).toBeGreaterThan(getDirectGrabRadius('blowfish', false));
       expect(canDirectGrabFish(baseFish, { x: 55, y: 52 }, 6000)).toBe(true);
       expect(canDirectGrabFish(baseFish, { x: 20, y: 52 }, 6000)).toBe(false);
 
@@ -521,6 +527,39 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
       expect(deepMs).toBeLessThanOrEqual(SURFACE_SWIM_MAX_MS);
       expect(heavyDeepMs).toBeLessThanOrEqual(SURFACE_SWIM_HEAVY_CAP_MS);
       expect(heavyDeepMs).toBeGreaterThanOrEqual(deepMs);
+    });
+
+    it('keeps hero lantern glow and reach cue inside hero-bob-wrapper and renders distinct fish miss indicators', () => {
+      const { rerender } = render(
+        <Hero
+          playerVisualX={50}
+          playerVisualY={70}
+          playerRotation={0}
+          playerScale="scale-100"
+          playerFilter=""
+          playerZ={160}
+          playerTransition="ease-out"
+          isTransformed={false}
+          isSubmerged={true}
+          isDrowning={false}
+          heroFace="🤿"
+          level={LEVEL_REGISTRY.underwater}
+          isAnimatingLoot={false}
+          lanternfishLightCount={1}
+          fishReachCue={{ id: 1, radiusCqw: 12 }}
+        />
+      );
+
+      const bobWrapper = screen.getByTestId('hero-bob-wrapper');
+      expect(bobWrapper.className).toContain('animate-bob');
+      expect(bobWrapper.contains(screen.getByTestId('hero-lantern-glow'))).toBe(true);
+      expect(bobWrapper.contains(screen.getByTestId('hero-reach-cue'))).toBe(true);
+
+      rerender(<ClickIndicator indicator={{ id: 1, x: 40, y: 50, isValid: false, kind: 'fish_whiff' }} />);
+      expect(screen.getByTestId('fish-whiff-indicator')).toBeDefined();
+
+      rerender(<ClickIndicator indicator={{ id: 2, x: 40, y: 50, isValid: false, kind: 'fish_spook' }} />);
+      expect(screen.getByTestId('fish-spook-indicator')).toBeDefined();
     });
   });
 

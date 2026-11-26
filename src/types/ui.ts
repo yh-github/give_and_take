@@ -102,6 +102,12 @@ export interface ClickIndicatorState {
   x: number;
   y: number;
   isValid: boolean;
+  kind?: 'default' | 'fish_whiff' | 'fish_spook';
+}
+
+export interface FishReachCueState {
+  id: number;
+  radiusCqw: number;
 }
 
 export interface BubbleParticle {

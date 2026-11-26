@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, type MouseEvent, type RefObject } from 'react';
 import { DROWNING_RETURN_DELAY_MS, LANTERNFISH_WILD_LIGHT_RADIUS } from '../constants.ts';
 import {
+  canDirectGrabFish,
   getLanternfishGlowOpacity,
   getSchoolFishPosition,
   isCampItemFloating,
@@ -24,6 +25,7 @@ import type {
   ClickIndicatorState,
   CustomEntityMovement,
   ExtraLightPolygon,
+  FishReachCueState,
   FlyingItemState,
   HeroBubbleBurst,
   LevelDefinition,
@@ -97,6 +99,7 @@ export interface WorldViewportProps {
   inventory?: readonly string[];
   wildLightSources?: readonly Point2D[];
   lanternfishLightCount?: number;
+  fishReachCue?: FishReachCueState | null;
   isMagicAnimating?: boolean;
   getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
   handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
@@ -124,17 +127,33 @@ export interface WorldViewportProps {
 interface SchoolFishSpriteProps {
   fish: SchoolFishState;
   level: LevelDefinition;
+  heroPos: Point2D;
+  isTransformed: boolean;
   emoji: string;
   onClick: (e: MouseEvent, fish: SchoolFishState) => void;
 }
 
-function SchoolFishSprite({ fish, level, emoji, onClick }: SchoolFishSpriteProps) {
+function SchoolFishSprite({
+  fish,
+  level,
+  heroPos,
+  isTransformed,
+  emoji,
+  onClick
+}: SchoolFishSpriteProps) {
   const spriteRef = useRef<HTMLDivElement | null>(null);
   const glowRef = useRef<HTMLDivElement | null>(null);
+  const grabRingRef = useRef<HTMLDivElement | null>(null);
+  const heroPosRef = useRef(heroPos);
+  const isTransformedRef = useRef(isTransformed);
+  heroPosRef.current = heroPos;
+  isTransformedRef.current = isTransformed;
+
   const initNow = Date.now();
   const initPos = getSchoolFishPosition(fish, initNow);
   const initGlowOpacity = getLanternfishGlowOpacity(level, initPos);
   const initHidden = isSchoolFishExpired(fish, initNow, 0);
+  const initGrabbable = !fish.isSpooked && canDirectGrabFish(fish, heroPos, initNow, isTransformed);
 
   useEffect(() => {
     if (typeof requestAnimationFrame !== 'function') return;
@@ -154,6 +173,12 @@ function SchoolFishSprite({ fish, level, emoji, onClick }: SchoolFishSpriteProps
         el.style.transform = `translate3d(${pos.x}cqw, -50%, 0)`;
         if (glowRef.current) {
           glowRef.current.style.opacity = String(getLanternfishGlowOpacity(level, pos));
+        }
+        if (grabRingRef.current) {
+          const canGrabNow =
+            !fish.isSpooked &&
+            canDirectGrabFish(fish, heroPosRef.current, now, isTransformedRef.current);
+          grabRingRef.current.style.opacity = canGrabNow ? '1' : '0';
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -183,6 +208,13 @@ function SchoolFishSprite({ fish, level, emoji, onClick }: SchoolFishSpriteProps
       }}
     >
       <div className="-translate-x-1/2 relative flex items-center hover:scale-125 transition-transform">
+        <div
+          ref={grabRingRef}
+          data-testid="fish-grabbable-ring"
+          aria-hidden="true"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full border-2 border-amber-300/75 shadow-[0_0_12px_rgba(251,191,36,0.5)] pointer-events-none transition-opacity duration-200"
+          style={{ opacity: initGrabbable ? 1 : 0 }}
+        />
         {fish.type === 'blowfish' && (
           <div
             ref={glowRef}
@@ -215,6 +247,7 @@ function SchoolFishSprite({ fish, level, emoji, onClick }: SchoolFishSpriteProps
 
         {fish.isSpooked && (
           <div className=" -top-5 left-1/2 -translate-x-1/2 absolute flex items-center gap-0.5 text-sm font-black pointer-events-none animate-bounce whitespace-nowrap drop-shadow-md">
+            <span>👀</span>
             <span>❗</span>
             <span>💨</span>
           </div>
@@ -282,6 +315,7 @@ export function WorldViewport({
   inventory = [],
   wildLightSources = [],
   lanternfishLightCount = 0,
+  fishReachCue = null,
   isMagicAnimating = false,
   getCustomEntityMovement,
   handleInteract,
@@ -466,6 +500,8 @@ export function WorldViewport({
           key={`${f.id}-${f.spookCount || 0}`}
           fish={f}
           level={level}
+          heroPos={displayPlayerPos}
+          isTransformed={isTransformed}
           emoji={level.items.find(i => i.id === f.type)?.emoji || '🐟'}
           onClick={handleCatchSchoolFish}
         />
@@ -663,6 +699,7 @@ export function WorldViewport({
         isAnimatingLoot={isAnimatingLoot}
         isHeavy={isHeavyUnderwater}
         lanternfishLightCount={lanternfishLightCount}
+        fishReachCue={fishReachCue}
       />
 
       {showTrophy && (

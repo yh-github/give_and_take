@@ -30,6 +30,16 @@ export function ClickIndicator({ indicator, toCssX = null, toCssY = null }: Clic
           <div className="w-8 h-8 rounded-full border-2 border-cyan-400 bg-cyan-400/20 animate-ping absolute" />
           <div className="w-3 h-3 rounded-full bg-cyan-300 border border-white shadow-[0_0_10px_rgba(34,211,238,0.9)] animate-pulse" />
         </div>
+      ) : indicator.kind === 'fish_whiff' ? (
+        <div data-testid="fish-whiff-indicator" className="relative flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full border-2 border-cyan-300/80 bg-cyan-300/15 animate-ping absolute" />
+          <span className="text-lg drop-shadow-md select-none">👐💨</span>
+        </div>
+      ) : indicator.kind === 'fish_spook' ? (
+        <div data-testid="fish-spook-indicator" className="relative flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-amber-300/70 bg-amber-300/10 animate-ping absolute" />
+          <span className="text-lg drop-shadow-md select-none">💨</span>
+        </div>
       ) : (
         <div className="relative flex items-center justify-center">
           <div className="w-8 h-8 rounded-full border-2 border-rose-500 bg-rose-500/20 animate-ping absolute" />

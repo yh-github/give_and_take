@@ -1,6 +1,6 @@
 import React from 'react';
 import { getLanternfishGlowOpacity } from '../logic/underwater.ts';
-import type { CSSCustomProperties, LevelDefinition } from '../types/index.ts';
+import type { CSSCustomProperties, FishReachCueState, LevelDefinition } from '../types/index.ts';
 
 export interface HeroProps {
   playerVisualX: number;
@@ -22,6 +22,7 @@ export interface HeroProps {
   isInventoryFullAlert?: boolean;
   isHeavy?: boolean;
   lanternfishLightCount?: number;
+  fishReachCue?: FishReachCueState | null;
 }
 
 export function Hero({
@@ -43,9 +44,11 @@ export function Hero({
   isAnimatingLoot,
   isInventoryFullAlert = false,
   isHeavy = false,
-  lanternfishLightCount = 0
+  lanternfishLightCount = 0,
+  fishReachCue = null
 }: HeroProps) {
   const heroGlowOpacity = getLanternfishGlowOpacity(level, { x: playerVisualX, y: playerVisualY });
+  const shouldBob = Boolean(level.mechanics.heroBobs && !isDrowning && (level.id !== 'shipwreck' || isSubmerged));
 
   return (
     <div 
@@ -67,24 +70,6 @@ export function Hero({
         />
       )}
 
-      {/* Bioluminescent Lanternfish Halo when carrying 1-3 Lanternfish in murky waters */}
-      {lanternfishLightCount > 0 && level.mechanics.hasMurkyWater && !isDrowning && (
-        <div
-          data-testid="hero-lantern-glow"
-          data-light-stacks={lanternfishLightCount}
-          aria-hidden="true"
-          className="absolute rounded-full border border-cyan-200/20 pointer-events-none transition-all duration-500 -z-10"
-          style={{
-            width: `${24 + lanternfishLightCount * 12}cqw`,
-            height: `${24 + lanternfishLightCount * 12}cqw`,
-            opacity: heroGlowOpacity,
-            background:
-              'radial-gradient(circle, rgba(254,240,138,0.46) 0%, rgba(103,232,249,0.26) 48%, rgba(34,211,238,0.08) 78%, rgba(34,211,238,0) 100%)',
-            boxShadow: `0 0 ${14 + lanternfishLightCount * 8}px rgba(103,232,249,0.4)`
-          }}
-        />
-      )}
-
       {/* Cartoon Thought Bubble when Inventory is Full */}
       {isInventoryFullAlert && (
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-[220] pointer-events-none animate-bounce flex flex-col items-center">
@@ -96,79 +81,116 @@ export function Hero({
         </div>
       )}
 
-      <div 
-        style={isHeavy && level.mechanics.heroBobs && !isDrowning && !isTransformed ? { animationDuration: '5.5s' } : undefined}
-        className={`text-white w-[10cqw] h-[10cqw] rounded-full flex items-center justify-center shadow-[0_1cqw_2cqw_rgba(0,0,0,0.8)] text-[6cqw] relative ${
-          isDrowning
-            ? 'bg-indigo-950 border-2 border-rose-400 shadow-[0_0_24px_rgba(244,63,94,0.95)] animate-drown-limp'
-            : isTransformed 
-              ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' 
-              : isSubmerged 
-                ? `bg-teal-700 border-2 border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.9)] ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
-                : level.mechanics.hasAir 
-                  ? `bg-amber-600 border-2 border-amber-200 ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
-                  : 'bg-blue-600 border-2 border-white'
-        } ${level.mechanics.heroBobs && !isDrowning && (level.id !== 'shipwreck' || isSubmerged) ? 'animate-bob' : ''}`}
+      <div
+        data-testid="hero-bob-wrapper"
+        style={isHeavy && shouldBob && !isTransformed ? { animationDuration: '5.5s' } : undefined}
+        className={`relative flex items-center justify-center ${shouldBob ? 'animate-bob' : ''}`}
       >
-        {heroFace}
-        {isDrowning && (
+        {/* Bioluminescent Lanternfish Halo centered on Hero so it bobs in lockstep */}
+        {lanternfishLightCount > 0 && level.mechanics.hasMurkyWater && !isDrowning && (
           <div
+            data-testid="hero-lantern-glow"
+            data-light-stacks={lanternfishLightCount}
             aria-hidden="true"
-            className="absolute inset-0 pointer-events-none z-50"
-            style={{ transform: `rotate(${-playerRotation}deg)` }}
-          >
-            {[0, 1, 2, 3].map(i => (
-              <div
-                key={`drown-bub-${i}`}
-                className="absolute text-sm sm:text-base animate-hero-air-bubble select-none"
-                style={{
-                  left: '50%',
-                  top: '10%',
-                  '--start-dx': `${(i - 1.5) * 9}px`,
-                  '--end-dx': `${(i - 1.5) * 18}px`,
-                  animationDelay: `${i * 180}ms`,
-                  animationIterationCount: 'infinite',
-                  animationDuration: '1.4s',
-                } as CSSCustomProperties}
-              >
-                🫧
-              </div>
-            ))}
-          </div>
+            className="absolute rounded-full border border-cyan-200/20 pointer-events-none transition-all duration-500 -z-10"
+            style={{
+              width: `${24 + lanternfishLightCount * 12}cqw`,
+              height: `${24 + lanternfishLightCount * 12}cqw`,
+              opacity: heroGlowOpacity,
+              background:
+                'radial-gradient(circle, rgba(254,240,138,0.46) 0%, rgba(103,232,249,0.26) 48%, rgba(34,211,238,0.08) 78%, rgba(34,211,238,0) 100%)',
+              boxShadow: `0 0 ${14 + lanternfishLightCount * 8}px rgba(103,232,249,0.4)`
+            }}
+          />
         )}
-        {isHeavy && isSubmerged && !isDrowning && !isTransformed && (
-          <span
-            data-testid="hero-heavy-badge"
-            className="absolute -left-2 -bottom-1 text-xs drop-shadow-md select-none"
-          >
-            🎒
-          </span>
+
+        {/* Brief grab-reach ring shown when clicking an out-of-range fish */}
+        {fishReachCue && (
+          <div
+            key={fishReachCue.id}
+            data-testid="hero-reach-cue"
+            aria-hidden="true"
+            className="absolute rounded-full border-2 border-dashed border-amber-300/85 bg-amber-300/10 pointer-events-none -z-10 animate-reach-flash"
+            style={{
+              width: `${fishReachCue.radiusCqw * 2}cqw`,
+              height: `${fishReachCue.radiusCqw * 2}cqw`
+            }}
+          />
         )}
-        {(level.id === 'underwater' || (level.id === 'shipwreck' && isSubmerged)) && !isTransformed && isAnimatingLoot && (
-          <div className="absolute inset-0 pointer-events-none z-50">
-            {[0, 1, 2].map(i => (
-              <div
-                key={i}
-                className="absolute text-sm sm:text-base animate-hero-air-bubble select-none"
-                style={{
-                  left: '50%',
-                  top: '0%',
-                  '--start-dx': `${(i - 1) * 8}px`,
-                  '--end-dx': `${(i - 1) * 16}px`,
-                  animationDelay: `${i * 150}ms`,
-                  animationDuration: '1.0s',
-                } as CSSCustomProperties}
-              >
-                🫧
-              </div>
-            ))}
-          </div>
-        )}
-        {level.mechanics.darknessType === 'radial' && level.id !== 'shipwreck' && (
-          <div className="absolute -right-3 -bottom-2 text-xl z-50 drop-shadow-[0_0_10px_rgba(251,191,36,1)]">
-            🕯️
-          </div>
-        )}
+
+        <div 
+          className={`text-white w-[10cqw] h-[10cqw] rounded-full flex items-center justify-center shadow-[0_1cqw_2cqw_rgba(0,0,0,0.8)] text-[6cqw] relative z-10 ${
+            isDrowning
+              ? 'bg-indigo-950 border-2 border-rose-400 shadow-[0_0_24px_rgba(244,63,94,0.95)] animate-drown-limp'
+              : isTransformed 
+                ? 'bg-cyan-400 border-2 border-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.8)]' 
+                : isSubmerged 
+                  ? `bg-teal-700 border-2 border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.9)] ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
+                  : level.mechanics.hasAir 
+                    ? `bg-amber-600 border-2 border-amber-200 ${isHeavy ? 'ring-2 ring-amber-400/90' : ''}` 
+                    : 'bg-blue-600 border-2 border-white'
+          }`}
+        >
+          {heroFace}
+          {isDrowning && (
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 pointer-events-none z-50"
+              style={{ transform: `rotate(${-playerRotation}deg)` }}
+            >
+              {[0, 1, 2, 3].map(i => (
+                <div
+                  key={`drown-bub-${i}`}
+                  className="absolute text-sm sm:text-base animate-hero-air-bubble select-none"
+                  style={{
+                    left: '50%',
+                    top: '10%',
+                    '--start-dx': `${(i - 1.5) * 9}px`,
+                    '--end-dx': `${(i - 1.5) * 18}px`,
+                    animationDelay: `${i * 180}ms`,
+                    animationIterationCount: 'infinite',
+                    animationDuration: '1.4s',
+                  } as CSSCustomProperties}
+                >
+                  🫧
+                </div>
+              ))}
+            </div>
+          )}
+          {isHeavy && isSubmerged && !isDrowning && !isTransformed && (
+            <span
+              data-testid="hero-heavy-badge"
+              className="absolute -left-2 -bottom-1 text-xs drop-shadow-md select-none"
+            >
+              🎒
+            </span>
+          )}
+          {(level.id === 'underwater' || (level.id === 'shipwreck' && isSubmerged)) && !isTransformed && isAnimatingLoot && (
+            <div className="absolute inset-0 pointer-events-none z-50">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className="absolute text-sm sm:text-base animate-hero-air-bubble select-none"
+                  style={{
+                    left: '50%',
+                    top: '0%',
+                    '--start-dx': `${(i - 1) * 8}px`,
+                    '--end-dx': `${(i - 1) * 16}px`,
+                    animationDelay: `${i * 150}ms`,
+                    animationDuration: '1.0s',
+                  } as CSSCustomProperties}
+                >
+                  🫧
+                </div>
+              ))}
+            </div>
+          )}
+          {level.mechanics.darknessType === 'radial' && level.id !== 'shipwreck' && (
+            <div className="absolute -right-3 -bottom-2 text-xl z-50 drop-shadow-[0_0_10px_rgba(251,191,36,1)]">
+              🕯️
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
