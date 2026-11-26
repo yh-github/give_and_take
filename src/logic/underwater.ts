@@ -19,6 +19,7 @@ import {
   UNDERWATER_FISH_ITEM_IDS,
   UNDERWATER_FULL_BAG_SPEED_MULTIPLIER,
   UNDERWATER_INSPECT_RADIUS,
+  UNDERWATER_LIGHT_Y_ASPECT,
   UNDERWATER_SURFACE_Y
 } from '../constants.ts';
 import {
@@ -258,6 +259,30 @@ export function getUnderwaterInspectRadius(inventory: readonly string[] = []): n
   return UNDERWATER_INSPECT_RADIUS + getHeldLanternfishLightCount(inventory) * LANTERNFISH_HELD_RADIUS_STEP;
 }
 
+function getLightYScale(
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined
+): number {
+  if (level?.mechanics?.yScaleOverride != null) {
+    return level.mechanics.yScaleOverride;
+  }
+  return (level?.mechanics?.screens || 1) * UNDERWATER_LIGHT_Y_ASPECT;
+}
+
+export function isPointIlluminatedByWildLight(
+  level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
+  pos: Point2D,
+  wildLightSources: readonly Point2D[] = []
+): boolean {
+  if (!wildLightSources.length) return false;
+  const yScale = getLightYScale(level);
+  for (const lightPos of wildLightSources) {
+    if (Math.hypot(pos.x - lightPos.x, (pos.y - lightPos.y) * yScale) <= LANTERNFISH_WILD_LIGHT_RADIUS) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function isEntityMurkyFar(
   level: Pick<LevelDefinition, 'mechanics'> | null | undefined,
   ent: Pick<PuzzleEntity, 'id' | 'isPreset' | 'isGatekeeper'>,
@@ -277,12 +302,8 @@ export function isEntityMurkyFar(
   if (Math.hypot(visualPos.x - heroPos.x, visualPos.y - heroPos.y) <= inspectRadius) {
     return false;
   }
-  if (options?.wildLightSources?.length) {
-    for (const lightPos of options.wildLightSources) {
-      if (Math.hypot(visualPos.x - lightPos.x, visualPos.y - lightPos.y) <= LANTERNFISH_WILD_LIGHT_RADIUS) {
-        return false;
-      }
-    }
+  if (isPointIlluminatedByWildLight(level, visualPos, options?.wildLightSources)) {
+    return false;
   }
   return true;
 }
@@ -358,7 +379,7 @@ export function getSchoolFishPosition(fish: SchoolFishState, nowMs: number): Poi
   const p = clamp((nowMs - spawnTime) / durationMs, 0, 1);
   const cfg = getFishChaseConfig(fish.type);
 
-  const maxSwimY = fish.type === 'blowfish' ? 94 : 66;
+  const maxSwimY = fish.type === 'blowfish' ? 96 : 66;
 
   if (fish.isSpooked) {
     const spookStart = fish.spookedAt ?? spawnTime;
@@ -426,7 +447,7 @@ export function createSpookedFishState(fish: SchoolFishState, nowMs: number): Sc
 
   const prevCount = fish.spookCount || 0;
   let dodgeDir = prevCount % 2 === 0 ? -1 : 1;
-  const maxSpookY = fish.type === 'blowfish' ? 92 : 62;
+  const maxSpookY = fish.type === 'blowfish' ? 95 : 62;
   if (curPos.y < 24) dodgeDir = 1;
   else if (curPos.y > maxSpookY - 6) dodgeDir = -1;
   const nextY = Number(clamp(curPos.y + dodgeDir * cfg.fleeDodgeY, 18, maxSpookY).toFixed(2));

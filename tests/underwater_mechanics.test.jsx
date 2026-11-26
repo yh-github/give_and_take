@@ -200,11 +200,26 @@ describe('Underwater Level Mechanics, Overhaul & Solvability Suite', () => {
         })
       ).toBe(false);
 
-      // A wild passing Lanternfish illuminates a nearby seabed entity even when the hero is far away
+      // A wild passing Lanternfish illuminates a nearby seabed entity inside its circular sphere,
+      // but NOT an entity far below it vertically on the stretched 3.5-screen map
       expect(
         isEntityMurkyFar(underwaterLevel, { id: 'octopus_1' }, { x: 68, y: 82 }, heroPos, {
           inventory: [],
           wildLightSources: [{ x: 60, y: 80 }]
+        })
+      ).toBe(false);
+
+      expect(
+        isEntityMurkyFar(underwaterLevel, { id: 'sunken_vault' }, { x: 50, y: 95 }, heroPos, {
+          inventory: [],
+          wildLightSources: [{ x: 50, y: 80 }]
+        })
+      ).toBe(true);
+
+      expect(
+        isEntityMurkyFar(underwaterLevel, { id: 'sunken_vault' }, { x: 50, y: 95 }, heroPos, {
+          inventory: [],
+          wildLightSources: [{ x: 50, y: 93 }]
         })
       ).toBe(false);
     });

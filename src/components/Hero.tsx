@@ -70,13 +70,13 @@ export function Hero({
           data-testid="hero-lantern-glow"
           data-light-stacks={lanternfishLightCount}
           aria-hidden="true"
-          className="absolute rounded-full pointer-events-none transition-all duration-500 -z-10"
+          className="absolute rounded-full border border-cyan-200/20 pointer-events-none transition-all duration-500 -z-10"
           style={{
-            width: `${18 + lanternfishLightCount * 10}cqw`,
-            height: `${18 + lanternfishLightCount * 10}cqw`,
+            width: `${24 + lanternfishLightCount * 12}cqw`,
+            height: `${24 + lanternfishLightCount * 12}cqw`,
             background:
-              'radial-gradient(circle, rgba(254,240,138,0.42) 0%, rgba(34,211,238,0.22) 48%, rgba(34,211,238,0) 75%)',
-            boxShadow: `0 0 ${12 + lanternfishLightCount * 8}px rgba(103,232,249,0.45)`
+              'radial-gradient(circle, rgba(254,240,138,0.46) 0%, rgba(103,232,249,0.26) 48%, rgba(34,211,238,0.08) 78%, rgba(34,211,238,0) 100%)',
+            boxShadow: `0 0 ${14 + lanternfishLightCount * 8}px rgba(103,232,249,0.4)`
           }}
         />
       )}

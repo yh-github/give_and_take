@@ -14,7 +14,7 @@ import {
   UNDERWATER_FISHING_MODE,
   UNDERWATER_INSPECT_RADIUS,
   UNDERWATER_INSPECT_MOVES_HERO,
-  LANTERNFISH_WILD_LIGHT_RADIUS,
+  LANTERNFISH_LIGHT_SYNC_MS,
   CANONICAL_SCREEN_HEIGHT,
   DEEP_CAVE_HERO_RADIUS
 } from '../constants.ts';
@@ -53,6 +53,7 @@ import {
   isDivingLevel,
   isHeavyDivingLoad,
   isHeroSubmerged,
+  isPointIlluminatedByWildLight,
   isUnderwaterBackpackFull,
   resolveOutOfAirDrop,
   resolveShipwreckDrowningTarget,
@@ -823,7 +824,9 @@ export function GameInstance({
             ? 18 + Math.random() * 16
             : type === 'gold_fish'
               ? 30 + Math.random() * 22
-              : 46 + Math.random() * 44;
+              : Math.random() < 0.65
+                ? 76 + Math.random() * 19
+                : 54 + Math.random() * 22;
       const speed =
         type === 'fish'
           ? 10 + Math.random() * 5
@@ -866,8 +869,8 @@ export function GameInstance({
       spawnFish('fish');
       spawnFish('fish');
       spawnFish('gold_fish');
-      spawnFish('blowfish');
-      spawnFish('blowfish', 80);
+      spawnFish('blowfish', 62);
+      spawnFish('blowfish', 88);
     }
     const intervalId = setInterval(() => {
       spawnFish();
@@ -892,7 +895,7 @@ export function GameInstance({
       setWildLightSources((prev) => {
         if (
           prev.length === next.length &&
-          prev.every((p, idx) => Math.hypot(p.x - next[idx].x, p.y - next[idx].y) < 1.5)
+          prev.every((p, idx) => Math.hypot(p.x - next[idx].x, p.y - next[idx].y) < 0.6)
         ) {
           return prev;
         }
@@ -900,7 +903,7 @@ export function GameInstance({
       });
     };
     updateLights();
-    const timer = setInterval(updateLights, 400);
+    const timer = setInterval(updateLights, LANTERNFISH_LIGHT_SYNC_MS);
     return () => clearInterval(timer);
   }, [hasActiveLanternfish]);
 
@@ -1632,7 +1635,7 @@ export function GameInstance({
     const isRight = habitat.x < 50;
     const startX = habitat.x;
     const endX = isRight ? 115 : -15;
-    const yPos = Math.max(18, Math.min(habitat.fishType === 'blowfish' ? 92 : 62, habitat.y));
+    const yPos = Math.max(18, Math.min(habitat.fishType === 'blowfish' ? 95 : 62, habitat.y));
 
     const flushedFish: SchoolFishState = {
       id,
@@ -1755,7 +1758,7 @@ export function GameInstance({
       ? ((e.clientX - rect.left) / rect.width) * 100
       : liveFishPos.x;
     const targetX = Math.max(10, Math.min(90, Number.isFinite(rawTargetX) ? rawTargetX : 50));
-    const maxFishY = fishObj.type === 'blowfish' ? 94 : 66;
+    const maxFishY = fishObj.type === 'blowfish' ? 96 : 66;
     const targetY = Math.max(14, Math.min(maxFishY, liveFishPos.y));
 
     const dist = Math.hypot(targetX - startPos.x, targetY - startPos.y);
@@ -2283,9 +2286,7 @@ export function GameInstance({
       entity.requires.length > 0;
 
     const effectiveInspectRadius = getUnderwaterInspectRadius(inventoryRef.current);
-    const isWildLit = wildLightSources.some(
-      (lp) => Math.hypot(entity.x - lp.x, entity.y - lp.y) <= LANTERNFISH_WILD_LIGHT_RADIUS
-    );
+    const isWildLit = isPointIlluminatedByWildLight(level, entity, wildLightSources);
 
     const shouldAllowFreeInspect =
       selectedEntityId === entity.id ||

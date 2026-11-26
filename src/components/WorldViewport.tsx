@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, type MouseEvent, type RefObject } from 'react';
-import { DROWNING_RETURN_DELAY_MS } from '../constants.ts';
+import { DROWNING_RETURN_DELAY_MS, LANTERNFISH_WILD_LIGHT_RADIUS } from '../constants.ts';
 import { getSchoolFishPosition, isCampItemFloating } from '../logic/underwater.ts';
 import { BoatSVG, BoatWakeEffect, InteractiveKelpSVG, UnderwaterWaterOverlay } from '../levels/underwater/components.tsx';
 import { ShipwreckWaterOverlay } from '../levels/shipwreck/components.tsx';
@@ -168,10 +168,13 @@ function SchoolFishSprite({ fish, emoji, onClick }: SchoolFishSpriteProps) {
           <div
             data-testid="lanternfish-glow"
             aria-hidden="true"
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full pointer-events-none -z-10"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/20 pointer-events-none -z-10"
             style={{
+              width: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
+              height: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
               background:
-                'radial-gradient(circle, rgba(254,240,138,0.48) 0%, rgba(103,232,249,0.22) 45%, rgba(34,211,238,0) 75%)'
+                'radial-gradient(circle, rgba(254,240,138,0.52) 0%, rgba(103,232,249,0.28) 48%, rgba(34,211,238,0.10) 78%, rgba(34,211,238,0) 100%)',
+              boxShadow: '0 0 18px rgba(103,232,249,0.25)'
             }}
           />
         )}
