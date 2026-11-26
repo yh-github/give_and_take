@@ -291,6 +291,12 @@
   100% { transform: rotate(360deg); }
 }
 .animate-spin-slow { animation: spinSlow 4s linear infinite; }
+.animate-fish-reticle-spin {
+  animation: spinSlow 6s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
 
 /* === Underwater: Mermaid === */
 @keyframes mermaidSwim {

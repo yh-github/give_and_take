@@ -100,6 +100,7 @@ export interface WorldViewportProps {
   wildLightSources?: readonly Point2D[];
   lanternfishLightCount?: number;
   fishReachCue?: FishReachCueState | null;
+  showFishGrabHint?: boolean;
   isMagicAnimating?: boolean;
   getCustomEntityMovement?: ((ent: PuzzleEntity) => CustomEntityMovement | null) | null;
   handleInteract: (ent: PuzzleEntity, e: MouseEvent) => void;
@@ -129,6 +130,7 @@ interface SchoolFishSpriteProps {
   level: LevelDefinition;
   heroPos: Point2D;
   isTransformed: boolean;
+  showFishGrabHint?: boolean;
   emoji: string;
   onClick: (e: MouseEvent, fish: SchoolFishState) => void;
 }
@@ -138,6 +140,7 @@ function SchoolFishSprite({
   level,
   heroPos,
   isTransformed,
+  showFishGrabHint = true,
   emoji,
   onClick
 }: SchoolFishSpriteProps) {
@@ -153,7 +156,8 @@ function SchoolFishSprite({
   const initPos = getSchoolFishPosition(fish, initNow);
   const initGlowOpacity = getLanternfishGlowOpacity(level, initPos);
   const initHidden = isSchoolFishExpired(fish, initNow, 0);
-  const initGrabbable = !fish.isSpooked && canDirectGrabFish(fish, heroPos, initNow, isTransformed);
+  const initGrabbable =
+    showFishGrabHint && !fish.isSpooked && canDirectGrabFish(fish, heroPos, initNow, isTransformed);
 
   useEffect(() => {
     if (typeof requestAnimationFrame !== 'function') return;
@@ -176,6 +180,7 @@ function SchoolFishSprite({
         }
         if (grabRingRef.current) {
           const canGrabNow =
+            showFishGrabHint &&
             !fish.isSpooked &&
             canDirectGrabFish(fish, heroPosRef.current, now, isTransformedRef.current);
           grabRingRef.current.style.opacity = canGrabNow ? '1' : '0';
@@ -190,7 +195,7 @@ function SchoolFishSprite({
         cancelAnimationFrame(rafId);
       }
     };
-  }, [fish, level]);
+  }, [fish, level, showFishGrabHint]);
 
   return (
     <div
@@ -209,29 +214,6 @@ function SchoolFishSprite({
     >
       <div className="-translate-x-1/2 relative flex items-center hover:scale-125 transition-transform">
         <div
-          ref={grabRingRef}
-          data-testid="fish-grabbable-ring"
-          aria-hidden="true"
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full border-2 border-amber-300/75 shadow-[0_0_12px_rgba(251,191,36,0.5)] pointer-events-none transition-opacity duration-200"
-          style={{ opacity: initGrabbable ? 1 : 0 }}
-        />
-        {fish.type === 'blowfish' && (
-          <div
-            ref={glowRef}
-            data-testid="lanternfish-glow"
-            aria-hidden="true"
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/20 pointer-events-none -z-10"
-            style={{
-              width: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
-              height: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
-              opacity: initGlowOpacity,
-              background:
-                'radial-gradient(circle, rgba(254,240,138,0.52) 0%, rgba(103,232,249,0.28) 48%, rgba(34,211,238,0.10) 78%, rgba(34,211,238,0) 100%)',
-              boxShadow: '0 0 18px rgba(103,232,249,0.25)'
-            }}
-          />
-        )}
-        <div
           aria-hidden="true"
           className={`flex items-center gap-1 opacity-60 pointer-events-none ${
             fish.isRight ? 'order-first mr-1' : 'order-last ml-1'
@@ -241,9 +223,57 @@ function SchoolFishSprite({
           <span className="w-1 h-1 rounded-full bg-white/70" />
         </div>
 
-        <span className={`text-4xl inline-flex items-center justify-center ${fish.isRight ? 'scale-x-[-1]' : ''}`}>
-          <SpriteIcon id={fish.type} emoji={emoji} />
-        </span>
+        {/* Dedicated wrapper around fish body so reticle & light sphere center dead-on the fish */}
+        <div className="relative inline-flex items-center justify-center">
+          {showFishGrabHint && (
+            <div
+              ref={grabRingRef}
+              data-testid="fish-grabbable-ring"
+              aria-hidden="true"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 pointer-events-none transition-opacity duration-200"
+              style={{ opacity: initGrabbable ? 1 : 0 }}
+            >
+              <svg
+                viewBox="0 0 56 56"
+                className="w-full h-full animate-fish-reticle-spin drop-shadow-[0_0_6px_rgba(251,191,36,0.75)]"
+              >
+                <circle
+                  cx="28"
+                  cy="28"
+                  r="22"
+                  fill="none"
+                  stroke="#fcd34d"
+                  strokeWidth="2.2"
+                  strokeDasharray="11 10.5"
+                  strokeLinecap="round"
+                />
+                <line x1="28" y1="2" x2="28" y2="7" stroke="#fef08a" strokeWidth="2" strokeLinecap="round" />
+                <line x1="28" y1="49" x2="28" y2="54" stroke="#fef08a" strokeWidth="2" strokeLinecap="round" />
+                <line x1="2" y1="28" x2="7" y2="28" stroke="#fef08a" strokeWidth="2" strokeLinecap="round" />
+                <line x1="49" y1="28" x2="54" y2="28" stroke="#fef08a" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+          )}
+          {fish.type === 'blowfish' && (
+            <div
+              ref={glowRef}
+              data-testid="lanternfish-glow"
+              aria-hidden="true"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/20 pointer-events-none -z-10"
+              style={{
+                width: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
+                height: `${LANTERNFISH_WILD_LIGHT_RADIUS * 2}cqw`,
+                opacity: initGlowOpacity,
+                background:
+                  'radial-gradient(circle, rgba(254,240,138,0.52) 0%, rgba(103,232,249,0.28) 48%, rgba(34,211,238,0.10) 78%, rgba(34,211,238,0) 100%)',
+                boxShadow: '0 0 18px rgba(103,232,249,0.25)'
+              }}
+            />
+          )}
+          <span className={`text-4xl inline-flex items-center justify-center ${fish.isRight ? 'scale-x-[-1]' : ''}`}>
+            <SpriteIcon id={fish.type} emoji={emoji} />
+          </span>
+        </div>
 
         {fish.isSpooked && (
           <div className=" -top-5 left-1/2 -translate-x-1/2 absolute flex items-center gap-0.5 text-sm font-black pointer-events-none animate-bounce whitespace-nowrap drop-shadow-md">
@@ -316,6 +346,7 @@ export function WorldViewport({
   wildLightSources = [],
   lanternfishLightCount = 0,
   fishReachCue = null,
+  showFishGrabHint = true,
   isMagicAnimating = false,
   getCustomEntityMovement,
   handleInteract,
@@ -502,6 +533,7 @@ export function WorldViewport({
           level={level}
           heroPos={displayPlayerPos}
           isTransformed={isTransformed}
+          showFishGrabHint={showFishGrabHint}
           emoji={level.items.find(i => i.id === f.type)?.emoji || '🐟'}
           onClick={handleCatchSchoolFish}
         />

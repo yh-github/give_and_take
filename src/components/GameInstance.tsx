@@ -23,6 +23,7 @@ import LEVEL_REGISTRY from '../levels/index.ts';
 import { generateLevelPuzzle } from '../logic/generator.ts';
 import { generateDeepCaveAsync } from '../levels/deep_cave/workerClient.ts';
 import { DEFAULT_DEEP_CAVE_SETTINGS, normalizeDeepCaveSettings } from '../levels/deep_cave/presets.ts';
+import { SEA_PRESETS } from '../levels/sea_shared/presets.ts';
 import { computeNavigationPath, computeWaypoints, inferTargetZone } from '../logic/navigation.ts';
 import {
   computeVisibleEntitiesSet,
@@ -1790,17 +1791,20 @@ export function GameInstance({
     const targetPos = { x: targetX, y: targetY };
     const isMerman = isTransformedRef.current;
     const canGrab = canDirectGrabFish(fishObj, startPos, now, isMerman);
+    const showFishGrabHint = targetSteps < SEA_PRESETS.expert.targetSteps;
 
     if (!canGrab) {
       spookFishById(fishObj.id);
-      const cueId = now;
-      setFishReachCue({
-        id: cueId,
-        radiusCqw: getDirectGrabRadius(fishObj.type, isMerman)
-      });
-      scheduleTimeout(() => {
-        setFishReachCue(prev => (prev?.id === cueId ? null : prev));
-      }, 650);
+      if (showFishGrabHint) {
+        const cueId = now;
+        setFishReachCue({
+          id: cueId,
+          radiusCqw: getDirectGrabRadius(fishObj.type, isMerman)
+        });
+        scheduleTimeout(() => {
+          setFishReachCue(prev => (prev?.id === cueId ? null : prev));
+        }, 650);
+      }
     }
 
     saveHistory();
@@ -2912,6 +2916,7 @@ export function GameInstance({
               wildLightSources={wildLightSources}
               lanternfishLightCount={getHeldLanternfishLightCount(inventory)}
               fishReachCue={fishReachCue}
+              showFishGrabHint={targetSteps < SEA_PRESETS.expert.targetSteps}
               isMagicAnimating={isMagicAnimating}
               getCustomEntityMovement={getCustomEntityMovement}
               handleInteract={handleInteract}
