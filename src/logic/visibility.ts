@@ -3,6 +3,7 @@ import {
   isPointInPolygon,
   normalizeWallPolyline
 } from './geometry.ts';
+import { isEntityCracked } from './rules.ts';
 import type {
   CaveWallVertices,
   MapNode,
@@ -106,7 +107,9 @@ export function getObstacleSegments(
           maxX = 69;
         }
         const gateType = (node as PuzzleEntity).gateType;
-        const isBlockingSight = gateType !== 'chasm' && gateType !== 'guardian';
+        const isPeekable = Boolean((node as PuzzleEntity).peekable);
+        const isCracked = isEntityCracked(node as PuzzleEntity, defeated);
+        const isBlockingSight = gateType !== 'chasm' && gateType !== 'guardian' && !isPeekable && !isCracked;
         pushBoxSegments(segments, minX, maxX, yTop, yBottom, {
           isRock: true,
           blocksSight: isBlockingSight,
@@ -200,8 +203,10 @@ export function getProceduralObstacleSegments(
       const yTop = cb ? cb.yTop : (node.y - 3);
       const yBottom = cb ? cb.yBottom : (node.y + 3);
       const gateType = (node as PuzzleEntity).gateType;
-      // Chasms and creature guardians block walking, not torchlight like solid rocks
-      const isBlockingSight = gateType !== 'chasm' && gateType !== 'guardian';
+      const isPeekable = Boolean((node as PuzzleEntity).peekable);
+      const isCracked = isEntityCracked(node as PuzzleEntity, defeated);
+      // Chasms, creature guardians, peekable barricades, and cracked rocks block walking, not torchlight
+      const isBlockingSight = gateType !== 'chasm' && gateType !== 'guardian' && !isPeekable && !isCracked;
 
       pushBoxSegments(segments, minX, maxX, yTop, yBottom, {
         isRock: true,

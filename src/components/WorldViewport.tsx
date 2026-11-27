@@ -95,6 +95,7 @@ export interface WorldViewportProps {
   visibleEntitiesSet: Set<string> | null;
   wallSegments: readonly ObstacleSegment[];
   breakingRockIds: Record<string, boolean>;
+  crackingRockIds?: Record<string, boolean>;
   bridgingChasmIds?: Record<string, boolean>;
   inventory?: readonly string[];
   wildLightSources?: readonly Point2D[];
@@ -341,6 +342,7 @@ export function WorldViewport({
   visibleEntitiesSet,
   wallSegments,
   breakingRockIds,
+  crackingRockIds = {},
   bridgingChasmIds,
   inventory = [],
   wildLightSources = [],
@@ -696,6 +698,7 @@ export function WorldViewport({
           wallSegments={wallSegments}
           displayPlayerPos={displayPlayerPos}
           breakingRockIds={breakingRockIds}
+          crackingRockIds={crackingRockIds}
           bridgingChasmIds={bridgingChasmIds}
           inventory={inventory}
           wildLightSources={wildLightSources}

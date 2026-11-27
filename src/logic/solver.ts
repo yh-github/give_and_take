@@ -1,6 +1,6 @@
 import { DEEP_CAVE_SLOT_HEIGHT, MAX_UNIQUE_ITEMS, SOLVER_MAX_ITERS } from '../constants.ts';
 import { uniqueCount } from './navigation.ts';
-import { canFitInInventory, consumeRequiredItems, evaluateEntityTrade } from './rules.ts';
+import { canFitInInventory, consumeRequiredItems, evaluateEntityTrade, getNextPhaseDefeatToken } from './rules.ts';
 import type {
   AbstractPuzzleEntity,
   AssessDifficultyOptions,
@@ -177,7 +177,7 @@ export function solvePuzzle(
       if (entity.isPreset && entity.reqType === 'AND' && (!entity.requires || entity.requires.length === 0)) {
         if (!entity.reward && !entity.isGoal) continue;
         if (entity.reward && !entity.isGoal && !allRequiredItems.has(entity.reward)) continue;
-        const { fits, nextInventory } = canFitInInventory(curr.inv, [], entity.reward ?? null);
+        const { fits, nextInventory } = canFitInInventory(curr.inv, [], entity.reward ?? null, undefined, entity.rewardCount ?? 1);
         if (fits) {
           const nextState: SolverResult = {
             inv: nextInventory.sort(),
@@ -247,13 +247,22 @@ export function solvePuzzle(
           const nextInv = [...tempInv];
           let nextTransformed = curr.transformed;
           let nextHasTreasure = curr.hasTreasure;
-          const nextDef = [...curr.def, entity.id];
+          const nextToken = getNextPhaseDefeatToken(entity, curr.def);
+          const isFinalPhase = nextToken === entity.id;
+          const nextDef = [...curr.def, nextToken];
 
-          if (entity.id === 'sea_witch') {
-            nextTransformed = !startsTransformed;
+          if (isFinalPhase) {
+            if (entity.id === 'sea_witch') {
+              nextTransformed = !startsTransformed;
+            }
+            if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
+            if (entity.reward) {
+              const rCount = Math.max(1, Math.floor(Number(entity.rewardCount) || 1));
+              for (let rc = 0; rc < rCount; rc++) {
+                nextInv.push(entity.reward);
+              }
+            }
           }
-          if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
-          if (entity.reward) nextInv.push(entity.reward);
 
           if (uniqueCount(nextInv) <= MAX_UNIQUE_ITEMS) {
             const step: SolutionStep = {
@@ -262,11 +271,12 @@ export function solvePuzzle(
               reqType: 'AND',
               isReturnTrip: entity.id === 'sea_witch' && startsTransformed
             };
+            const effectiveStepDelta = isFinalPhase ? stepDelta : 0;
             queue.push({
               inv: nextInv.sort(),
               def: nextDef,
               path: [...curr.path, step],
-              steps: curr.steps + stepDelta,
+              steps: curr.steps + effectiveStepDelta,
               transformed: nextTransformed,
               hasTreasure: nextHasTreasure
             });
@@ -307,20 +317,30 @@ export function solvePuzzle(
             newInv.splice(newInv.indexOf(itemId), 1);
             let nextTransformed = curr.transformed;
             let nextHasTreasure = curr.hasTreasure;
-            const nextDef = [...curr.def, entity.id];
+            const nextToken = getNextPhaseDefeatToken(entity, curr.def);
+            const isFinalPhase = nextToken === entity.id;
+            const nextDef = [...curr.def, nextToken];
 
-            if (entity.id === 'sea_witch') {
-              nextTransformed = !startsTransformed;
+            if (isFinalPhase) {
+              if (entity.id === 'sea_witch') {
+                nextTransformed = !startsTransformed;
+              }
+              if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
+              if (entity.reward) {
+                const rCount = Math.max(1, Math.floor(Number(entity.rewardCount) || 1));
+                for (let rc = 0; rc < rCount; rc++) {
+                  newInv.push(entity.reward);
+                }
+              }
             }
-            if ((entity.isGoal || entity.id === goalEntityId) && hasTransformation) nextHasTreasure = true;
-            if (entity.reward) newInv.push(entity.reward);
 
             if (uniqueCount(newInv) <= MAX_UNIQUE_ITEMS) {
+              const effectiveStepDelta = isFinalPhase ? stepDelta : 0;
               queue.push({
                 inv: newInv.sort(),
                 def: nextDef,
                 path: [...curr.path, { entityId: entity.id, itemId, reqType: 'OR' }],
-                steps: curr.steps + stepDelta,
+                steps: curr.steps + effectiveStepDelta,
                 transformed: nextTransformed,
                 hasTreasure: nextHasTreasure
               });
@@ -416,6 +436,7 @@ function simulateGreedyPlay(
     } else if (
       goalEnt &&
       !def.includes(goalEnt.id) &&
+      getNextPhaseDefeatToken(goalEnt, def) === goalEnt.id &&
       isEntityAccessibleInSim(goalEnt, unlockedZones, false, witchZone, false) &&
       evaluateEntityTrade(inv, goalEnt, null, evalState).canDefeat
     ) {
@@ -429,13 +450,20 @@ function simulateGreedyPlay(
     }> = [];
 
     for (const ent of puzzleEntities) {
-      if (ent.id === goalEntityId && !hasTransformation) continue;
+      const nextToken = getNextPhaseDefeatToken(ent, def);
+      const isFinalPhase = nextToken === ent.id;
+      if (ent.id === goalEntityId && !hasTransformation && isFinalPhase) continue;
       if (!ent.reward && !ent.isGatekeeper && !ent.isGoal && ent.id !== 'sea_witch') continue;
       const isWitchReturn = hasTransformation && ent.id === 'sea_witch' && transformed && hasTreasure;
       if (def.includes(ent.id) && !isWitchReturn) continue;
       if (!isEntityAccessibleInSim(ent, unlockedZones, hasTransformation, witchZone, transformed)) continue;
 
-      const trade = evaluateEntityTrade(inv, ent, null, evalState);
+      const trade = evaluateEntityTrade(
+        inv,
+        isFinalPhase ? ent : { ...ent, reward: null, rewardCount: 1 },
+        null,
+        evalState
+      );
       if (!trade.canDefeat) continue;
 
       const ex = typeof ent.x === 'number' ? ent.x : curX;
@@ -465,18 +493,20 @@ function simulateGreedyPlay(
 
     const chosen = candidates[0];
     const ent = chosen.ent;
+    const chosenToken = getNextPhaseDefeatToken(ent, def);
+    const chosenIsFinal = chosenToken === ent.id;
     inv = chosen.nextInv;
-    if (ent.id === 'sea_witch' && hasTransformation) {
+    if (chosenIsFinal && ent.id === 'sea_witch' && hasTransformation) {
       if (transformed && hasTreasure) {
         transformed = false;
         return true;
       }
       transformed = true;
     }
-    if ((ent.isGoal || ent.id === goalEntityId) && hasTransformation) {
+    if (chosenIsFinal && (ent.isGoal || ent.id === goalEntityId) && hasTransformation) {
       hasTreasure = true;
     }
-    if (!def.includes(ent.id)) def.push(ent.id);
+    if (!def.includes(chosenToken)) def.push(chosenToken);
     if (typeof ent.x === 'number') curX = ent.x;
     if (typeof ent.y === 'number') curY = ent.y;
   }
@@ -551,10 +581,14 @@ export function assessPuzzleDifficulty(
   }
 
   // Remaining optimal steps from step i onward
+  const simPhaseDef: string[] = [];
   const stepDeltas = sol.path.map(step => {
     if (step.isEnvironmentAction || !step.entityId) return 0;
     const e = entityById.get(step.entityId);
-    return e ? getActionStepDelta(e, goalEntityId, level) : 1;
+    if (!e) return 1;
+    const tok = getNextPhaseDefeatToken(e, simPhaseDef);
+    if (!simPhaseDef.includes(tok)) simPhaseDef.push(tok);
+    return tok === e.id ? getActionStepDelta(e, goalEntityId, level) : 0;
   });
   const remainingStepsFrom = new Array<number>(sol.path.length + 1).fill(0);
   for (let i = sol.path.length - 1; i >= 0; i--) {
@@ -608,14 +642,21 @@ export function assessPuzzleDifficulty(
       if (!options.skipTrapProbes) {
         const altCandidates = affordableAlts.filter(c => c.id !== ent.id).slice(0, 4);
         for (const alt of altCandidates) {
-          const altTrade = evaluateEntityTrade(inv, alt, null, evalState);
+          const altToken = getNextPhaseDefeatToken(alt, def);
+          const altIsFinal = altToken === alt.id;
+          const altTrade = evaluateEntityTrade(
+            inv,
+            altIsFinal ? alt : { ...alt, reward: null, rewardCount: 1 },
+            null,
+            evalState
+          );
           if (!altTrade.canDefeat) continue;
 
-          const altDef = def.includes(alt.id) ? [...def] : [...def, alt.id];
-          const altTransformed = alt.id === 'sea_witch' && hasTransformation
+          const altDef = def.includes(altToken) ? [...def] : [...def, altToken];
+          const altTransformed = altIsFinal && alt.id === 'sea_witch' && hasTransformation
             ? !(transformed && hasTreasure)
             : transformed;
-          const altHasTreasure = ((alt.isGoal || alt.id === goalEntityId) && hasTransformation)
+          const altHasTreasure = (altIsFinal && (alt.isGoal || alt.id === goalEntityId) && hasTransformation)
             ? true
             : hasTreasure;
 
@@ -630,7 +671,7 @@ export function assessPuzzleDifficulty(
           if (!probe) {
             fatalTrapCount++;
           } else {
-            const altStepDelta = getActionStepDelta(alt, goalEntityId, level);
+            const altStepDelta = altIsFinal ? getActionStepDelta(alt, goalEntityId, level) : 0;
             if (altStepDelta + probe.steps > remainingStepsFrom[i]) {
               suboptimalTrapCount++;
             }
@@ -640,8 +681,15 @@ export function assessPuzzleDifficulty(
     }
 
     // Apply the actual solution step
+    const stepNextToken = getNextPhaseDefeatToken(ent, def);
+    const stepIsFinal = stepNextToken === ent.id;
     const selectedForStep = step.itemId ? [step.itemId] : null;
-    const trade = evaluateEntityTrade(inv, ent, selectedForStep, evalState);
+    const trade = evaluateEntityTrade(
+      inv,
+      stepIsFinal ? ent : { ...ent, reward: null, rewardCount: 1 },
+      selectedForStep,
+      evalState
+    );
     const consumedItems = trade.canDefeat ? trade.itemsToConsume : (step.usedItems || (step.itemId ? [step.itemId] : []));
 
     const entY = typeof ent.y === 'number' ? ent.y : ent.zone * rowHeight * 0.5;
@@ -657,27 +705,36 @@ export function assessPuzzleDifficulty(
       }
     }
 
-    if (ent.reward) {
+    if (stepIsFinal && ent.reward) {
+      const rCount = Math.max(1, Math.floor(Number(ent.rewardCount) || 1));
       const arr = itemSources.get(ent.reward) || [];
-      arr.push({ zone: ent.zone, y: entY });
+      for (let rc = 0; rc < rCount; rc++) {
+        arr.push({ zone: ent.zone, y: entY });
+      }
       itemSources.set(ent.reward, arr);
     }
 
     if (trade.canDefeat) {
       inv = trade.nextInventory;
     } else {
-      const fallback = canFitInInventory(inv, consumedItems, ent.reward ?? null);
+      const fallback = canFitInInventory(
+        inv,
+        consumedItems,
+        stepIsFinal ? (ent.reward ?? null) : null,
+        undefined,
+        stepIsFinal ? (ent.rewardCount ?? 1) : 1
+      );
       inv = fallback.nextInventory;
     }
     peakInventory = Math.max(peakInventory, uniqueCount(inv));
 
-    if (ent.id === 'sea_witch' && hasTransformation) {
+    if (stepIsFinal && ent.id === 'sea_witch' && hasTransformation) {
       transformed = !(transformed && hasTreasure);
     }
-    if ((ent.isGoal || ent.id === goalEntityId) && hasTransformation) {
+    if (stepIsFinal && (ent.isGoal || ent.id === goalEntityId) && hasTransformation) {
       hasTreasure = true;
     }
-    if (!def.includes(ent.id)) def.push(ent.id);
+    if (!def.includes(stepNextToken)) def.push(stepNextToken);
 
     // Measure physical & zone backtracking
     if (ent.id !== goalEntityId) {
@@ -698,7 +755,7 @@ export function assessPuzzleDifficulty(
   }
 
   const multiReqGateCount = puzzleEntities.filter(
-    e => e.isGatekeeper && (e.requires?.length || 0) >= 2
+    e => e.isGatekeeper && ((e.requires?.length || 0) >= 2 || (e.maxPhases || 1) >= 2)
   ).length;
 
   const policies: GreedyPolicy[] = ['nearest', 'shallow', 'traders_first'];

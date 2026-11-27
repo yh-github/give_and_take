@@ -74,14 +74,72 @@ export function pickValidReplacementReq(
 }
 
 /**
- * Computes resulting inventory after consuming `consumedItems` and adding `rewardItem`,
- * and checks whether it respects the maximum unique item slot constraint.
+ * Returns the number of pickaxe/action phases required to fully clear an entity.
+ */
+export function getEntityMaxPhases(
+  entity?: Pick<AbstractPuzzleEntity, 'maxPhases'> | null
+): number {
+  return Math.max(1, Math.floor(Number(entity?.maxPhases) || 1));
+}
+
+/**
+ * Returns how many phases of `entity` have already been completed according to `defeated`.
+ */
+export function getEntityPhaseProgress(
+  entity: Pick<AbstractPuzzleEntity, 'id' | 'maxPhases'> | null | undefined,
+  defeated: readonly string[]
+): number {
+  if (!entity) return 0;
+  const maxPhases = getEntityMaxPhases(entity);
+  if (defeated.includes(entity.id)) return maxPhases;
+  let progress = 0;
+  for (let k = 1; k < maxPhases; k++) {
+    if (defeated.includes(`${entity.id}#p${k}`)) {
+      progress = k;
+    } else {
+      break;
+    }
+  }
+  return progress;
+}
+
+/**
+ * Returns the next `defeated` token to record when `entity` takes a hit (`id#p1`, ..., or `id` on final break).
+ */
+export function getNextPhaseDefeatToken(
+  entity: Pick<AbstractPuzzleEntity, 'id' | 'maxPhases'>,
+  defeated: readonly string[]
+): string {
+  const maxPhases = getEntityMaxPhases(entity);
+  const progress = getEntityPhaseProgress(entity, defeated);
+  if (progress + 1 < maxPhases) {
+    return `${entity.id}#p${progress + 1}`;
+  }
+  return entity.id;
+}
+
+/**
+ * Returns true if `entity` has been partially cracked (`phaseProgress >= 1`) but not yet fully cleared.
+ */
+export function isEntityCracked(
+  entity: Pick<AbstractPuzzleEntity, 'id' | 'maxPhases'> | null | undefined,
+  defeated: readonly string[]
+): boolean {
+  if (!entity) return false;
+  const progress = getEntityPhaseProgress(entity, defeated);
+  return progress >= 1 && !defeated.includes(entity.id);
+}
+
+/**
+ * Computes resulting inventory after consuming `consumedItems` and adding `rewardItem`
+ * (`rewardCount` copies), and checks whether it respects the maximum unique item slot constraint.
  */
 export function canFitInInventory(
   inventory: readonly string[],
   consumedItems: readonly string[] = [],
   rewardItem: string | null = null,
-  maxUnique = MAX_UNIQUE_ITEMS
+  maxUnique = MAX_UNIQUE_ITEMS,
+  rewardCount = 1
 ): InventoryFitResult {
   const nextInventory = [...inventory];
   for (const item of consumedItems) {
@@ -89,7 +147,10 @@ export function canFitInInventory(
     if (idx > -1) nextInventory.splice(idx, 1);
   }
   if (rewardItem) {
-    nextInventory.push(rewardItem);
+    const count = Math.max(1, Math.floor(Number(rewardCount) || 1));
+    for (let i = 0; i < count; i++) {
+      nextInventory.push(rewardItem);
+    }
   }
   return {
     fits: uniqueCount(nextInventory) <= maxUnique,
@@ -102,10 +163,11 @@ export function canFitInInventory(
  */
 export function evaluateEntityTrade(
   inventory: readonly string[],
-  entity: Pick<PuzzleEntity, 'id' | 'requires' | 'reqType' | 'reward' | 'returnRequires'>,
+  entity: Pick<PuzzleEntity, 'id' | 'requires' | 'reqType' | 'reward' | 'rewardCount' | 'returnRequires'>,
   selectedItemTypes: readonly string[] | null = null,
   state: TradeEvaluationState = {}
 ): TradeEvaluationResult {
+  const rewardCount = entity.rewardCount ?? 1;
   const isSeaWitchTransformed = Boolean(
     state.levelId === 'underwater' &&
     entity.id === 'sea_witch' &&
@@ -125,7 +187,7 @@ export function evaluateEntityTrade(
 
     const retReqs = entity.returnRequires;
     if (!Array.isArray(retReqs) || retReqs.length === 0) {
-      const { fits, nextInventory } = canFitInInventory(inventory, [], entity.reward ?? null);
+      const { fits, nextInventory } = canFitInInventory(inventory, [], entity.reward ?? null, undefined, rewardCount);
       return {
         canDefeat: fits,
         itemsToConsume: [],
@@ -160,7 +222,7 @@ export function evaluateEntityTrade(
       };
     }
 
-    const { fits, nextInventory } = canFitInInventory(inventory, retConsumed.consumed, entity.reward ?? null);
+    const { fits, nextInventory } = canFitInInventory(inventory, retConsumed.consumed, entity.reward ?? null, undefined, rewardCount);
     return {
       canDefeat: Boolean(fits),
       itemsToConsume: retConsumed.consumed,
@@ -209,7 +271,7 @@ export function evaluateEntityTrade(
     };
   }
 
-  const { fits, nextInventory } = canFitInInventory(inventory, itemsToConsume, entity.reward ?? null);
+  const { fits, nextInventory } = canFitInInventory(inventory, itemsToConsume, entity.reward ?? null, undefined, rewardCount);
   return {
     canDefeat: Boolean(fits),
     itemsToConsume,

@@ -138,8 +138,8 @@ describe('Underground Level Movement Suite', () => {
     // Find interactive entity inside the inner map (excluding inventory dock)
     const entityContainers = innerMap.querySelectorAll('[class*="cursor-pointer"]');
     const targetEntity = Array.from(entityContainers).find(el => {
-      // Must be an entity inside the map, not the map container itself
-      return el !== innerMap && el.textContent && (el.textContent.includes('🍄') || el.textContent.includes('🧌') || el.textContent.includes('🦴'));
+      // Must be an entity inside the map, not a gatekeeper rock or map container itself
+      return el !== innerMap && el.getAttribute('data-testid')?.startsWith('entity-') && !el.innerHTML.includes('polygon') && el.textContent && (el.textContent.includes('⛏️') || el.textContent.includes('🦴') || el.textContent.includes('🍄') || el.textContent.includes('🏺') || el.textContent.includes('💎'));
     });
 
     expect(targetEntity).toBeDefined();

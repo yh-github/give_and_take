@@ -44,7 +44,7 @@ import {
   isPointInVisibilityPolygon
 } from '../logic/visibility.ts';
 import { findGlobalPath } from '../logic/pathfinding.ts';
-import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones } from '../logic/rules.ts';
+import { canFitInInventory, evaluateEntityTrade, computeUnlockedZones, getNextPhaseDefeatToken } from '../logic/rules.ts';
 import {
   canDirectGrabFish,
   createSpookedFishState,
@@ -289,6 +289,7 @@ export function GameInstance({
   const [dolphinState, setDolphinState] = useState<string>(() => savedState?.dolphinState || 'idle_surface');
   const [dolphinYPos, setDolphinYPos] = useState<number>(() => typeof savedState?.dolphinYPos === 'number' ? savedState.dolphinYPos : 22);
   const [breakingRockIds, setBreakingRockIds] = useState<Record<string, boolean>>({});
+  const [crackingRockIds, setCrackingRockIds] = useState<Record<string, boolean>>({});
   const [bridgingChasmIds, setBridgingChasmIds] = useState<Record<string, boolean>>({});
   const dolphinStateRef = useRef('idle_surface');
   const dolphinYPosRef = useRef(22);
@@ -1113,6 +1114,7 @@ export function GameInstance({
     setInventory(puzzle.startItems || []);
     setPathHistory([{ ...effectiveCampPos, zone: 1 }]);
     setBreakingRockIds({});
+    setCrackingRockIds({});
     setBridgingChasmIds({});
     setDolphinState('idle_surface');
     setDolphinYPos(22);
@@ -1455,39 +1457,47 @@ export function GameInstance({
       setInventory([...currentInv]);
       setSelectedItemTypes([]);
 
-      if (entity.id === 'sea_witch') {
-        transformedSim = level.id === 'shipwreck' ? false : !transformedSim;
-        setIsTransformed(transformedSim);
-      }
-      if (entity.isGoal && level.mechanics.hasTransformation) {
-        hasTreasureSim = true;
-        setHasDeepTreasure(true);
-      }
+      const nextPhaseToken = getNextPhaseDefeatToken(entity, currentDefeated);
+      const isFinalPhaseDefeat = nextPhaseToken === entity.id;
 
-      if (entity.reward) {
-        const entityX = entity.roamClass ? 50 : entity.x;
-        const rewardDef = level.items.find(i => i.id === entity.reward);
-        setFlyingItem({ itemId: rewardDef?.spriteId || entity.reward, spriteSrc: rewardDef?.spriteSrc, emoji: rewardDef?.emoji || '', x: entityX, y: entity.y });
-        await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
-        if (!demoRef.current) break;
-        setFlyingItem(null);
-        currentInv.push(entity.reward);
-        setInventory([...currentInv]);
+      if (isFinalPhaseDefeat) {
+        if (entity.id === 'sea_witch') {
+          transformedSim = level.id === 'shipwreck' ? false : !transformedSim;
+          setIsTransformed(transformedSim);
+        }
+        if (entity.isGoal && level.mechanics.hasTransformation) {
+          hasTreasureSim = true;
+          setHasDeepTreasure(true);
+        }
+
+        if (entity.reward) {
+          const entityX = entity.roamClass ? 50 : entity.x;
+          const rewardDef = level.items.find(i => i.id === entity.reward);
+          const rCount = Math.max(1, Number(entity.rewardCount) || 1);
+          setFlyingItem({ itemId: rewardDef?.spriteId || entity.reward, spriteSrc: rewardDef?.spriteSrc, emoji: rewardDef?.emoji || '', x: entityX, y: entity.y });
+          await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          if (!demoRef.current) break;
+          setFlyingItem(null);
+          for (let rc = 0; rc < rCount; rc++) {
+            currentInv.push(entity.reward);
+          }
+          setInventory([...currentInv]);
+        }
       }
 
       if (entity.id !== 'sea_witch') {
-        currentDefeated.push(entity.id);
+        currentDefeated.push(nextPhaseToken);
         setDefeated([...currentDefeated]);
       }
       setSelectedEntityId(null);
 
-      if (entity.isGatekeeper && entity.unlocksZones) {
+      if (isFinalPhaseDefeat && entity.isGatekeeper && entity.unlocksZones) {
         entity.unlocksZones.forEach(z => unlockedZonesSim.add(z));
         unlockedZonesSim.add(entity.zone);
         setUnlockedZones(Array.from(unlockedZonesSim));
       }
 
-      if (entity.id === puzzle.goalEntityId && (!level.mechanics.hasTransformation || level.mechanics.startsTransformed)) {
+      if (isFinalPhaseDefeat && entity.id === puzzle.goalEntityId && (!level.mechanics.hasTransformation || level.mechanics.startsTransformed)) {
         if (level.mechanics.isCaveType) {
           const exitEnt = puzzle.puzzleEntities.find(e => e.isExit);
           if (exitEnt) {
@@ -2406,11 +2416,18 @@ export function GameInstance({
     const lastPos = pathHistory[pathHistory.length - 1];
     const distToEntity = lastPos ? Math.hypot(targetX - lastPos.x, targetY - lastPos.y) : Infinity;
 
-    const tradeResult = evaluateEntityTrade(inventoryRef.current, entity, selectedItemTypes, {
-      levelId: level.id,
-      isTransformed: isTransformedRef.current,
-      hasDeepTreasure
-    });
+    const nextPhaseToken = getNextPhaseDefeatToken(entity, defeated);
+    const isFinalPhaseHit = nextPhaseToken === entity.id;
+    const tradeResult = evaluateEntityTrade(
+      inventoryRef.current,
+      isFinalPhaseHit ? entity : { ...entity, reward: null, rewardCount: 1 },
+      selectedItemTypes,
+      {
+        levelId: level.id,
+        isTransformed: isTransformedRef.current,
+        hasDeepTreasure
+      }
+    );
 
     // If tapping an entity with no item selected to inspect its requirement bubble, toggle/walk-up to show requirement (no auto-use)
     const isInspectOnly =
@@ -2499,7 +2516,8 @@ export function GameInstance({
     }
 
     if (entity.isPreset && !entity.isGatekeeper) {
-      const { fits } = canFitInInventory(inventoryRef.current, [], entity.reward);
+      const rewardCount = Math.max(1, Number(entity.rewardCount) || 1);
+      const { fits } = canFitInInventory(inventoryRef.current, [], entity.reward, undefined, rewardCount);
       if (entity.reward && !fits) {
         triggerInventoryFullAlert(entity.id);
         return;
@@ -2544,12 +2562,16 @@ export function GameInstance({
 
       if (entity.reward) {
         const rewardId = entity.reward;
+        const rewardCount = Math.max(1, Number(entity.rewardCount) || 1);
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
         const rewardDef = level.items.find(i => i.id === rewardId);
         const rewardEmoji = entity.emoji || rewardDef?.emoji || '';
         setFlyingItem({ itemId: rewardDef?.spriteId || rewardId, spriteSrc: rewardDef?.spriteSrc, emoji: rewardEmoji, x: entityX, y: targetY, zIndex: 60 });
         scheduleTimeout(() => {
-          const nextInv = [...inventoryRef.current, rewardId];
+          const nextInv = [...inventoryRef.current];
+          for (let rc = 0; rc < rewardCount; rc++) {
+            nextInv.push(rewardId);
+          }
           inventoryRef.current = nextInv;
           setInventory(nextInv);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
@@ -2646,6 +2668,31 @@ export function GameInstance({
       inventoryRef.current = postConsumeInv;
       setInventory(postConsumeInv);
 
+      const liveNextToken = getNextPhaseDefeatToken(entity, stateRefs.current.defeated);
+      const isFinalDefeat = liveNextToken === entity.id;
+
+      if (!isFinalDefeat) {
+        if (isRock) {
+          setCrackingRockIds(prev => ({ ...prev, [entity.id]: true }));
+          scheduleTimeout(() => {
+            setCrackingRockIds(prev => {
+              const copy = { ...prev };
+              delete copy[entity.id];
+              return copy;
+            });
+          }, 700);
+        }
+        setDefeated(prev => (prev.includes(liveNextToken) ? prev : [...prev, liveNextToken]));
+        setSelectedItemTypes([]);
+        setSelectedEntityId(null);
+        scheduleTimeout(() => {
+          setIsAnimatingLoot(false);
+          setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
+        }, 450);
+        handlePostActionAir(targetY, false, { nextInventory: postConsumeInv, wasFullBeforeMove, dropPos: finalPos });
+        return;
+      }
+
       if (isRock) {
         setBreakingRockIds(prev => ({ ...prev, [entity.id]: true }));
         scheduleTimeout(() => {
@@ -2694,11 +2741,15 @@ export function GameInstance({
 
       if (entity.reward) {
         const rewardId = entity.reward;
+        const rewardCount = Math.max(1, Number(entity.rewardCount) || 1);
         const entityX = (entity.roamClass && !entity.roamClass.includes('elevator')) ? 50 : entity.x;
         const rewardDef = level.items.find(i => i.id === rewardId);
         setFlyingItem({ itemId: rewardDef?.spriteId || rewardId, spriteSrc: rewardDef?.spriteSrc, emoji: rewardDef?.emoji || '', x: entityX, y: targetY, zIndex: 60 });
         scheduleTimeout(() => {
-          const nextInv = [...inventoryRef.current, rewardId];
+          const nextInv = [...inventoryRef.current];
+          for (let rc = 0; rc < rewardCount; rc++) {
+            nextInv.push(rewardId);
+          }
           inventoryRef.current = nextInv;
           setInventory(nextInv);
           setFlyingItem(null); setIsAnimatingLoot(false); setAnimatingEntities(prev => prev.filter(id => id !== entity.id));
@@ -3030,6 +3081,7 @@ export function GameInstance({
               visibleEntitiesSet={visibleEntitiesSet}
               wallSegments={wallSegments}
               breakingRockIds={breakingRockIds}
+              crackingRockIds={crackingRockIds}
               bridgingChasmIds={bridgingChasmIds}
               inventory={inventory}
               wildLightSources={wildLightSources}

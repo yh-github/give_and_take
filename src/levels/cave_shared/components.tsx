@@ -116,6 +116,30 @@ export function renderCaveLandmarkSVG(lm: CaveLandmark, idPrefix = 'cave') {
           <circle cx="0" cy="0" r="7.8" fill="none" stroke="#6366f1" strokeWidth="0.45" opacity="0.6" />
         </g>
       );
+    case 'mine_timbers':
+      return (
+        <g key={lm.id} transform={tf} opacity="0.88">
+          {/* Cross-beam & support posts framing a mine gallery */}
+          <rect x="-8.5" y="-1.4" width="17" height="2.4" rx="0.4" fill="#5c3d28" stroke="#26170d" strokeWidth="0.35" />
+          <rect x="-8.2" y="-3.2" width="2.1" height="5.6" rx="0.35" fill="#4a301f" stroke="#26170d" strokeWidth="0.35" />
+          <rect x="6.1" y="-3.2" width="2.1" height="5.6" rx="0.35" fill="#4a301f" stroke="#26170d" strokeWidth="0.35" />
+          <line x1="-6.1" y1="-0.8" x2="-3.6" y2="-2.8" stroke="#785136" strokeWidth="0.8" strokeLinecap="round" />
+          <line x1="6.1" y1="-0.8" x2="3.6" y2="-2.8" stroke="#785136" strokeWidth="0.8" strokeLinecap="round" />
+          <circle cx="-7.1" cy="-0.2" r="0.38" fill="#78716c" />
+          <circle cx="7.1" cy="-0.2" r="0.38" fill="#78716c" />
+        </g>
+      );
+    case 'rubble_pile':
+      return (
+        <g key={lm.id} transform={tf} opacity="0.82">
+          <ellipse cx="0" cy="0.6" rx="6.5" ry="2.8" fill="#2a2019" opacity="0.6" />
+          <polygon points="-4.8,1.2 -2.6,-1.6 0.2,-0.8 -0.6,2.0" fill="#524034" stroke="#1c1510" strokeWidth="0.3" />
+          <polygon points="-0.4,1.6 1.8,-2.0 4.6,-0.2 3.2,2.2" fill="#634e3f" stroke="#1c1510" strokeWidth="0.3" />
+          <polygon points="-2.2,2.2 0.1,-0.2 2.2,1.8" fill="#43342a" stroke="#1c1510" strokeWidth="0.3" />
+          <circle cx="-5.5" cy="1.8" r="0.55" fill="#574336" />
+          <circle cx="5.2" cy="1.4" r="0.6" fill="#4a392e" />
+        </g>
+      );
     default:
       return null;
   }
@@ -876,6 +900,12 @@ export interface CaveRockSVGProps {
   isDefeated?: boolean;
   isAlerting?: boolean;
   isBreaking?: boolean;
+  isCracking?: boolean;
+  maxPhases?: number;
+  phaseProgress?: number;
+  peekable?: boolean;
+  isVaultBoulder?: boolean;
+  embeddedRewardEmoji?: string | null;
   seed?: string | number;
   size?: string;
   heroPos?: Point2D | null;
@@ -890,12 +920,18 @@ export interface CaveRockSVGProps {
 /**
  * Unified Contextual Cave-In Boulder Barricade shared by `underground` and `deep_cave`.
  * Anchors wedged faceted boulders into corridor walls, with hero torchlight normal shading,
- * pickaxe break animation, and floor scree on defeat.
+ * multi-phase cracking, embedded ore glints, pickaxe break animation, and floor scree on defeat.
  */
 export const CaveRockSVG = memo(({
   isDefeated = false,
   isAlerting = false,
   isBreaking = false,
+  isCracking = false,
+  maxPhases = 1,
+  phaseProgress = 0,
+  peekable = false,
+  isVaultBoulder = false,
+  embeddedRewardEmoji = null,
   seed = 'rock',
   heroPos = null,
   yNode = 50,
@@ -931,6 +967,14 @@ export const CaveRockSVG = memo(({
     () => buildCaveRockMesh(wallCtx.cb, wallCtx, Boolean(isVerticalCollar), seed),
     [wallCtx, isVerticalCollar, seed]
   );
+
+  const clampedMaxPhases = Math.max(1, maxPhases || 1);
+  const clampedProgress = Math.min(clampedMaxPhases, Math.max(0, phaseProgress || 0));
+  const remainingPhases = Math.max(0, clampedMaxPhases - clampedProgress);
+  const activeBoulders = useMemo(() => {
+    if (clampedProgress === 0) return boulders;
+    return boulders.filter((_, idx) => !(idx === 2 || (clampedProgress >= 2 && idx === 3)));
+  }, [boulders, clampedProgress]);
 
   if (isDefeated && !isBreaking) {
     return (
@@ -1031,35 +1075,140 @@ export const CaveRockSVG = memo(({
   }
 
   return (
-    <div className={`w-full relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`}>
+    <div
+      data-phases-remaining={remainingPhases}
+      data-max-phases={clampedMaxPhases}
+      className={`w-full relative transition-all duration-500 ${isAlerting ? 'animate-troll-mad' : ''}`}
+    >
+      {isCracking && (
+        <>
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 animate-pickaxe-hit pointer-events-none">
+            <span className="text-3xl sm:text-4xl drop-shadow-[0_0_10px_rgba(251,191,36,1)]">⛏️</span>
+          </div>
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 z-40 animate-hit-spark pointer-events-none">
+            <span className="text-2xl">✨</span>
+          </div>
+        </>
+      )}
       <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 70'} className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)] overflow-visible">
         <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
           <ellipse cx="75" cy="40" rx="74" ry="22" fill="#0d0907" opacity="0.65" />
-          {boulders.map(boulder => (
-            <g key={boulder.id}>
-              <polygon
-                points={boulder.vertices.map(v => `${v.x},${v.y}`).join(' ')}
-                fill="#14110e"
-                stroke="#0a0806"
-                strokeWidth="2"
+
+          {/* Giant Vault Boulder abyssal glow seeping behind cracked stone */}
+          {(isVaultBoulder || clampedMaxPhases >= 2) && (
+            <ellipse
+              cx="75"
+              cy="36"
+              rx="42"
+              ry="16"
+              fill={isVaultBoulder ? '#0891b2' : '#d97706'}
+              opacity={clampedProgress >= 2 ? 0.42 : clampedProgress >= 1 ? 0.28 : 0.14}
+            />
+          )}
+
+          <g transform={peekable && clampedProgress === 0 ? 'translate(0 7) scale(1 0.84)' : undefined}>
+            {activeBoulders.map(boulder => (
+              <g key={boulder.id}>
+                <polygon
+                  points={boulder.vertices.map(v => `${v.x},${v.y}`).join(' ')}
+                  fill={isVaultBoulder ? '#111218' : '#14110e'}
+                  stroke={isVaultBoulder ? '#27272a' : '#0a0806'}
+                  strokeWidth="2"
+                  vectorEffect="non-scaling-stroke"
+                />
+                {boulder.facets.map((facet, idx) => {
+                  const lighting = calculateFacetLighting(facet, heroPos, yScale);
+                  const p = facet.pts;
+                  return (
+                    <polygon
+                      key={facet.id || idx}
+                      points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
+                      fill={lighting.color}
+                      stroke={isVaultBoulder ? '#18181b' : '#14110e'}
+                      strokeWidth="1.5"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  );
+                })}
+              </g>
+            ))}
+          </g>
+
+          {/* Peekable barricade torch-slit indicator */}
+          {peekable && clampedProgress === 0 && (
+            <path
+              d="M 52 14 Q 75 18 98 14"
+              stroke="#fde68a"
+              strokeWidth="1.6"
+              strokeDasharray="4 4"
+              strokeOpacity="0.45"
+              fill="none"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
+
+          {/* Progressive jagged fractures after Phase 1+ or during active cracking */}
+          {(clampedProgress >= 1 || isCracking) && (
+            <g>
+              <path
+                d="M 74 12 L 69 27 L 78 39 L 71 54 M 69 27 L 54 34 M 78 39 L 94 31"
+                stroke={isVaultBoulder ? '#67e8f9' : '#fbbf24'}
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                opacity="0.88"
+                className={isCracking ? 'animate-crack-branch' : undefined}
                 vectorEffect="non-scaling-stroke"
               />
-              {boulder.facets.map((facet, idx) => {
-                const lighting = calculateFacetLighting(facet, heroPos, yScale);
-                const p = facet.pts;
+              <path
+                d="M 60 19 L 65 31 M 89 19 L 83 34"
+                stroke="#0a0806"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+              />
+            </g>
+          )}
+
+          {/* Embedded mineral pocket for treasure-bearing boulders */}
+          {embeddedRewardEmoji && (
+            <g>
+              <circle cx="75" cy="34" r="14" fill="#fbbf24" opacity="0.22" />
+              <circle cx="75" cy="34" r="10.5" fill="#1c1917" stroke="#f59e0b" strokeWidth="1.6" />
+              <text
+                x="75"
+                y="35.5"
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize="15"
+              >
+                {embeddedRewardEmoji}
+              </text>
+            </g>
+          )}
+
+          {/* Multi-phase diamond pips centered at top lip (pure SVG, zero text leakage) */}
+          {clampedMaxPhases > 1 && (
+            <g>
+              {Array.from({ length: clampedMaxPhases }, (_, idx) => {
+                const spacing = 13;
+                const px = 75 + (idx - (clampedMaxPhases - 1) / 2) * spacing;
+                const py = 7;
+                const isIntactHit = idx < remainingPhases;
                 return (
                   <polygon
-                    key={facet.id || idx}
-                    points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
-                    fill={lighting.color}
-                    stroke="#14110e"
-                    strokeWidth="1.5"
-                    vectorEffect="non-scaling-stroke"
+                    key={`pip-${idx}`}
+                    points={`${px},${py - 5} ${px + 4.5},${py} ${px},${py + 5} ${px - 4.5},${py}`}
+                    fill={isIntactHit ? (isVaultBoulder ? '#22d3ee' : '#fbbf24') : '#1c1917'}
+                    stroke={isIntactHit ? '#0c0a09' : '#78716c'}
+                    strokeWidth="1.3"
                   />
                 );
               })}
             </g>
-          ))}
+          )}
         </g>
       </svg>
     </div>

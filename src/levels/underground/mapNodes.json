@@ -2,8 +2,7 @@
   {
     "x": 62,
     "y": 6,
-    "zone": 1,
-    "isPreset": "mushroom"
+    "zone": 1
   },
   {
     "x": 50,
@@ -19,7 +18,8 @@
     "x": 34,
     "y": 15,
     "zone": 1,
-    "isPreset": "pickaxe"
+    "isPreset": "pickaxe",
+    "containerType": "crate"
   },
   {
     "x": 36,
@@ -110,7 +110,8 @@
     "x": 64,
     "y": 42,
     "zone": 3,
-    "isPreset": "pickaxe"
+    "isPreset": "pickaxe",
+    "containerType": "crate"
   },
   {
     "x": 76,
@@ -148,7 +149,8 @@
     "x": 28,
     "y": 72,
     "zone": 6,
-    "isPreset": "pickaxe"
+    "isPreset": "pickaxe",
+    "containerType": "crate"
   },
   {
     "x": 42,

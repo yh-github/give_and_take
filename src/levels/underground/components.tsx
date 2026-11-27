@@ -9,6 +9,7 @@ import {
   type CaveRockSVGProps,
   type ChasmSVGProps
 } from '../cave_shared/components.tsx';
+import { SpriteIcon } from '../../components/sprites/SpriteIcon.tsx';
 import { hashSeed } from '../../logic/geometry.ts';
 import type {
   CaveBrazier,
@@ -66,19 +67,17 @@ export function getUndergroundObstaclePolygons(screens = 2.5): Point2D[][] {
   return polys;
 }
 
-export const UNDERGROUND_BRAZIERS: CaveBrazier[] = [
-  { id: 'brazier_left', x: 35, y: 30, zone: 2, radius: 44 },
-  { id: 'brazier_right', x: 74, y: 41, zone: 3, radius: 44 },
-  { id: 'brazier_junction', x: 52, y: 74, zone: 6, radius: 48 }
-];
+export const UNDERGROUND_BRAZIERS: CaveBrazier[] = [];
 
-// Coordinates in SVG viewBox space (0..100 x 0..250, i.e. y * 2.5)
+// Sparse upper-mine landmarks in SVG viewBox space (0..100 x 0..250, i.e. y * 2.5)
+// Bioluminescent mushrooms, ruins, and braziers are reserved exclusively for `deep_cave`.
 export const UNDERGROUND_LANDMARKS: CaveLandmark[] = [
-  { id: 'ug_lm_mush_z1', kind: 'mushroom_grove', x: 62, y: 15, scale: 0.72 },
-  { id: 'ug_lm_arch_z1', kind: 'ruined_arch', x: 50, y: 31, scale: 0.88, rotation: -6 },
-  { id: 'ug_lm_mush_z4', kind: 'mushroom_grove', x: 38, y: 145, scale: 0.76 },
-  { id: 'ug_lm_mush_z6', kind: 'mushroom_grove', x: 75, y: 190, scale: 0.74 },
-  { id: 'ug_lm_arch_z6', kind: 'ruined_arch', x: 49, y: 185, scale: 0.84, rotation: 8 },
+  { id: 'ug_lm_timber_z1l', kind: 'mine_timbers', x: 35, y: 48, scale: 0.92, rotation: -3 },
+  { id: 'ug_lm_timber_z1r', kind: 'mine_timbers', x: 74, y: 49, scale: 0.92, rotation: 3 },
+  { id: 'ug_lm_rubble_z2', kind: 'rubble_pile', x: 25, y: 84, scale: 0.95 },
+  { id: 'ug_lm_rubble_z3', kind: 'rubble_pile', x: 76, y: 98, scale: 0.9 },
+  { id: 'ug_lm_timber_z6', kind: 'mine_timbers', x: 52, y: 174, scale: 1.05 },
+  { id: 'ug_lm_rubble_z7', kind: 'rubble_pile', x: 59, y: 218, scale: 0.85 },
   { id: 'ug_lm_exit_z9', kind: 'abyss_exit_sanctum', x: 68, y: 243.75, scale: 1 }
 ];
 
@@ -137,11 +136,11 @@ const EDGE_PATHS = [LEFT_WALL_PATH, RIGHT_WALL_PATH, PILLAR_PATH];
 const UNDERGROUND_FLOOR_DECOR = buildUndergroundFloorDecor(2.5);
 
 export const CaveBackground = memo(() => (
-  <div className="absolute inset-0 bg-[#2b221d] pointer-events-none z-0 overflow-hidden">
+  <div className="absolute inset-0 bg-[#352820] pointer-events-none z-0 overflow-hidden">
     <div
       className="absolute inset-0 opacity-20"
       style={{
-        backgroundImage: 'radial-gradient(#1a1512 2px, transparent 2px)',
+        backgroundImage: 'radial-gradient(#1f1712 2px, transparent 2px)',
         backgroundSize: '36px 36px'
       }}
     />
@@ -150,13 +149,25 @@ export const CaveBackground = memo(() => (
       preserveAspectRatio="none"
       viewBox="0 0 100 250"
     >
+      <defs>
+        <radialGradient id="ugMineDaylight" cx="50%" cy="0%" r="48%">
+          <stop offset="0%" stopColor="#fde68a" stopOpacity="0.32" />
+          <stop offset="45%" stopColor="#d97706" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="#352820" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="ugMineDepthWash" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#6b4f39" stopOpacity="0.24" />
+          <stop offset="45%" stopColor="#32251d" stopOpacity="0.34" />
+          <stop offset="100%" stopColor="#141016" stopOpacity="0.68" />
+        </linearGradient>
+      </defs>
       <CaveSvgDefs idPrefix="ug" />
 
-      {/* Depth wash deepening toward the abyssal exit */}
-      <rect x="0" y="0" width="100" height="250" fill="url(#ugDepthWash)" />
+      {/* Warm upper-mine sandstone wash darkening only toward Zone 9 abyssal shaft */}
+      <rect x="0" y="0" width="100" height="250" fill="url(#ugMineDepthWash)" />
 
-      {/* Surface entrance glow around camp */}
-      <circle cx="50" cy="5" r="28" fill="url(#ugCampGlow)" />
+      {/* Sunlit surface shaft glow around camp */}
+      <circle cx="50" cy="4" r="32" fill="url(#ugMineDaylight)" />
 
       {/* Cavern landmarks */}
       <g>{UNDERGROUND_LANDMARKS.map(lm => renderCaveLandmarkSVG(lm, 'ug'))}</g>
@@ -254,4 +265,158 @@ export const RockSVG = memo((props: CaveRockSVGProps) => (
 
 export const ChasmSVG = memo((props: ChasmSVGProps) => (
   <SharedChasmSVG {...props} fallbackWallVertices={props.fallbackWallVertices ?? CAVE_WALL_VERTICES} />
+));
+
+export interface ContainerPropSVGProps {
+  rewardId?: string;
+  rewardEmoji?: string;
+  rewardSpriteSrc?: string;
+  isAlerting?: boolean;
+  isSelected?: boolean;
+  isAnimating?: boolean;
+  isDefeated?: boolean;
+}
+
+/**
+ * Searchable weathered wooden mining supply crate with item peek badge.
+ */
+export const MineCrateSVG = memo(({
+  rewardId,
+  rewardEmoji,
+  rewardSpriteSrc,
+  isAlerting = false,
+  isAnimating = false
+}: ContainerPropSVGProps) => (
+  <div
+    data-testid="mine-crate"
+    className={`relative w-[10cqw] h-[10cqw] flex items-center justify-center select-none ${
+      isAlerting ? 'animate-troll-mad' : ''
+    } ${isAnimating ? 'animate-dog-dig' : ''}`}
+  >
+    <svg viewBox="0 0 64 64" className="w-full h-full overflow-visible drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">
+      <ellipse cx="32" cy="54" rx="22" ry="6" fill="#140f0b" opacity="0.65" />
+      <rect x="12" y="18" width="40" height="34" rx="3" fill="#6b4423" stroke="#291709" strokeWidth="2.4" />
+      <rect x="14" y="14" width="36" height="9" rx="2" fill="#855830" stroke="#291709" strokeWidth="2.2" />
+      <line x1="14" y1="30" x2="50" y2="30" stroke="#3b2210" strokeWidth="2" />
+      <line x1="14" y1="41" x2="50" y2="41" stroke="#3b2210" strokeWidth="2" />
+      <path d="M 16 20 L 48 50 M 48 20 L 16 50" stroke="#4a2e16" strokeWidth="2.5" opacity="0.7" />
+      <rect x="12" y="18" width="5" height="34" fill="#57534e" opacity="0.85" />
+      <rect x="47" y="18" width="5" height="34" fill="#57534e" opacity="0.85" />
+      <circle cx="14.5" cy="24" r="1.2" fill="#d6d3d1" />
+      <circle cx="49.5" cy="24" r="1.2" fill="#d6d3d1" />
+      <circle cx="14.5" cy="46" r="1.2" fill="#d6d3d1" />
+      <circle cx="49.5" cy="46" r="1.2" fill="#d6d3d1" />
+    </svg>
+    {(rewardEmoji || rewardId) && (
+      <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-stone-900/95 border border-amber-400/80 flex items-center justify-center text-sm shadow-md">
+        <SpriteIcon id={rewardId} spriteSrc={rewardSpriteSrc} emoji={rewardEmoji} />
+      </div>
+    )}
+  </div>
+));
+
+/**
+ * Diggable loose earth & gravel mound concealing a buried cave item.
+ */
+export const DirtMoundSVG = memo(({
+  rewardId,
+  rewardEmoji,
+  rewardSpriteSrc,
+  isAlerting = false,
+  isAnimating = false
+}: ContainerPropSVGProps) => (
+  <div
+    data-testid="dirt-mound"
+    className={`relative w-[10.5cqw] h-[9.5cqw] flex items-center justify-center select-none ${
+      isAlerting ? 'animate-troll-mad' : ''
+    } ${isAnimating ? 'animate-dog-dig' : ''}`}
+  >
+    <svg viewBox="0 0 68 56" className="w-full h-full overflow-visible drop-shadow-[0_4px_8px_rgba(0,0,0,0.75)]">
+      <ellipse cx="34" cy="46" rx="26" ry="7" fill="#140f0b" opacity="0.7" />
+      <path d="M 8 44 Q 18 16 34 14 Q 50 16 60 44 Z" fill="#5c432d" stroke="#291c12" strokeWidth="2.4" />
+      <path d="M 16 44 Q 25 22 36 22 Q 48 24 54 44 Z" fill="#463221" opacity="0.8" />
+      <circle cx="21" cy="36" r="2.2" fill="#78716c" />
+      <circle cx="46" cy="38" r="2.5" fill="#78716c" />
+      <circle cx="30" cy="41" r="1.8" fill="#a8a29e" />
+      <path d="M 28 20 L 38 18" stroke="#92400e" strokeWidth="1.8" strokeLinecap="round" opacity="0.65" />
+    </svg>
+    {(rewardEmoji || rewardId) && (
+      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-amber-950/90 border border-amber-300/75 flex items-center justify-center text-sm shadow-md">
+        <SpriteIcon id={rewardId} spriteSrc={rewardSpriteSrc} emoji={rewardEmoji} />
+      </div>
+    )}
+  </div>
+));
+
+/**
+ * Pickaxe-minable mineral seam / ore vein embedded in cave stone.
+ */
+export const OreVeinSVG = memo(({
+  rewardId,
+  rewardEmoji,
+  rewardSpriteSrc,
+  isAlerting = false,
+  isAnimating = false,
+  isDefeated = false
+}: ContainerPropSVGProps) => {
+  if (isDefeated) {
+    return (
+      <div data-testid="ore-vein-depleted" className="relative w-[9cqw] h-[7cqw] flex items-center justify-center opacity-55">
+        <svg viewBox="0 0 64 48" className="w-full h-full overflow-visible">
+          <ellipse cx="32" cy="36" rx="22" ry="7" fill="#14100d" opacity="0.7" />
+          <polygon points="14,36 24,26 38,28 48,36" fill="#44403c" stroke="#1c1917" strokeWidth="2" />
+          <polygon points="22,38 30,30 42,35" fill="#57534e" stroke="#1c1917" strokeWidth="1.6" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div
+      data-testid="ore-vein"
+      className={`relative w-[11cqw] h-[10.5cqw] flex items-center justify-center select-none ${
+        isAlerting ? 'animate-troll-mad' : ''
+      } ${isAnimating ? 'animate-hit-spark' : ''}`}
+    >
+      <svg viewBox="0 0 68 62" className="w-full h-full overflow-visible drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)]">
+        <ellipse cx="34" cy="52" rx="24" ry="7" fill="#0d0907" opacity="0.75" />
+        <polygon points="10,48 16,22 33,10 52,20 58,48" fill="#3f3a36" stroke="#14110e" strokeWidth="2.4" />
+        <polygon points="16,22 33,10 38,34 18,44" fill="#57514c" stroke="#1c1917" strokeWidth="1.6" />
+        <polygon points="33,10 52,20 50,45 38,34" fill="#292524" stroke="#1c1917" strokeWidth="1.6" />
+        {/* Sparkling mineral vein seam */}
+        <path d="M 22 40 L 31 24 L 44 26" stroke="#fbbf24" strokeWidth="3.2" strokeLinecap="round" fill="none" opacity="0.9" />
+        <path d="M 31 24 L 36 14" stroke="#fde68a" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <circle cx="24" cy="36" r="1.8" fill="#fef08a" />
+        <circle cx="44" cy="27" r="1.8" fill="#38bdf8" />
+      </svg>
+      {(rewardEmoji || rewardId) && (
+        <div className="absolute top-0 right-0 w-7 h-7 rounded-full bg-stone-950/90 border-2 border-amber-400 flex items-center justify-center text-base shadow-[0_0_10px_rgba(251,191,36,0.65)]">
+          <SpriteIcon id={rewardId} spriteSrc={rewardSpriteSrc} emoji={rewardEmoji} />
+        </div>
+      )}
+    </div>
+  );
+});
+
+/**
+ * Delicate SVG cobweb accent rendered behind Giant Spider traders in the upper mine.
+ */
+export const SpiderWebAccentSVG = memo(() => (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 60 60"
+    className="absolute -inset-3 w-[calc(100%+1.5rem)] h-[calc(100%+1.5rem)] pointer-events-none opacity-45 -z-10"
+  >
+    <path
+      d="M 30 30 L 6 8 M 30 30 L 54 8 M 30 30 L 56 32 M 30 30 L 4 34 M 30 30 L 14 54 M 30 30 L 48 54"
+      stroke="#e7e5e4"
+      strokeWidth="0.9"
+      fill="none"
+    />
+    <path
+      d="M 18 19 Q 30 15 42 19 Q 45 31 40 42 Q 30 46 19 42 Q 14 31 18 19 Z"
+      stroke="#d6d3d1"
+      strokeWidth="0.8"
+      fill="none"
+    />
+  </svg>
 ));

@@ -79,7 +79,9 @@ export type CaveLandmarkKind =
   | 'mushroom_grove'
   | 'ruined_arch'
   | 'vault_sanctum'
-  | 'abyss_exit_sanctum';
+  | 'abyss_exit_sanctum'
+  | 'mine_timbers'
+  | 'rubble_pile';
 
 export interface CaveLandmark {
   id: string;

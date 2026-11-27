@@ -13,7 +13,15 @@ import {
   CaptainsTreasureSVG
 } from '../levels/shipwreck/components.tsx';
 import { getCorridorBounds } from '../logic/geometry.ts';
-import { AbyssalExitSVG, CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
+import { getEntityMaxPhases, getEntityPhaseProgress } from '../logic/rules.ts';
+import {
+  AbyssalExitSVG,
+  CAVE_WALL_VERTICES,
+  DirtMoundSVG,
+  MineCrateSVG,
+  OreVeinSVG,
+  SpiderWebAccentSVG
+} from '../levels/underground/components.tsx';
 import type {
   AlertReason,
   CSSCustomProperties,
@@ -44,6 +52,7 @@ export interface GameEntityProps {
   wallSegments: readonly ObstacleSegment[];
   displayPlayerPos: Point2D | null;
   breakingRockIds: Record<string, boolean>;
+  crackingRockIds?: Record<string, boolean>;
   bridgingChasmIds?: Record<string, boolean>;
   inventory?: readonly string[];
   wildLightSources?: readonly Point2D[];
@@ -74,6 +83,7 @@ export function GameEntity({
   wallSegments: _wallSegments,
   displayPlayerPos,
   breakingRockIds,
+  crackingRockIds = {},
   bridgingChasmIds = {},
   inventory = [],
   wildLightSources = [],
@@ -102,6 +112,10 @@ export function GameEntity({
   const isChasm = Boolean(ent.isGatekeeper && ent.gateType === 'chasm');
   const isGuardian = Boolean(ent.isGatekeeper && ent.gateType === 'guardian');
   const isRock = (ent.isGatekeeper && level.mechanics.hasPickaxe && ent.id !== 'final_gate' && !isChasm && !isGuardian) || ent.isExtraRock;
+  const maxPhases = getEntityMaxPhases(ent);
+  const phaseProgress = getEntityPhaseProgress(ent, defeated);
+  const remainingPhases = Math.max(1, maxPhases - phaseProgress);
+  const rewardCount = Math.max(1, Number(ent.rewardCount) || 1);
   const isCurrent = ent.id === 'current' || (ent.isGatekeeper && ent.id?.startsWith('current_'));
   const effectiveYScale = yScale ?? (level.mechanics.useIsotropicCoords ? 1 : (level.mechanics.screens || 2.5));
 
@@ -245,7 +259,17 @@ export function GameEntity({
               ) : isRock ? (
                 <>
                   <SpriteIcon id="pickaxe" emoji="⛏️" className="emoji-shadow" />
-                  <span className="text-sm font-black text-amber-600 shadow-none ml-1">x1</span>
+                  <span className="text-sm font-black text-amber-600 shadow-none ml-1">x{remainingPhases}</span>
+                  {rewardItem && (
+                    <span className="flex items-center gap-1 ml-1 text-sm font-black text-stone-700" style={{ textShadow: 'none' }}>
+                      <span>➔</span>
+                      <SpriteIcon
+                        id={rewardItem.spriteId || rewardItem.id}
+                        spriteSrc={rewardItem.spriteSrc}
+                        emoji={rewardItem.emoji}
+                      />
+                    </span>
+                  )}
                 </>
               ) : isChasm ? (
                 <>
@@ -294,7 +318,7 @@ export function GameEntity({
                       <span className="text-base">{visualY > 40 ? '⬆️' : '⬇️'}</span>
                     </span>
                   )}
-                  {isAquaticLevel && !isGoal && !isWitch && rewardItem && (
+                  {(isAquaticLevel || rewardCount > 1 || ent.containerType === 'ore_vein') && !isGoal && !isWitch && rewardItem && (
                     <span className="flex items-center gap-1 ml-1 text-sm font-black text-sky-900" style={{ textShadow: 'none' }}>
                       <span>➔</span>
                       <span className="emoji-shadow text-lg flex items-center">
@@ -307,6 +331,7 @@ export function GameEntity({
                           />
                         )}
                       </span>
+                      {rewardCount > 1 && <span className="text-sm font-black text-amber-600">x{rewardCount}</span>}
                     </span>
                   )}
                 </>
@@ -337,7 +362,7 @@ export function GameEntity({
                 : ''
           }`}>
 
-            {!isAquaticLevel && !isGoal && !ent.isRepeatable && !ent.isPreset && (
+            {!isAquaticLevel && !isGoal && !ent.isRepeatable && !ent.isPreset && !isRock && ent.containerType !== 'ore_vein' && (
               isClam ? (
                 (!isDefeated && rewardItem && isBuried && isSelected) ? (
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[7cqw] drop-shadow-md pointer-events-none z-20 animate-bounce">❓</div>
@@ -354,13 +379,21 @@ export function GameEntity({
                       ❓
                     </div>
                   ) : (
-                    <span className="text-[8.5cqw] flex items-center justify-center">
+                    <span className="relative text-[8.5cqw] flex items-center justify-center">
                       <SpriteIcon
                         id={rewardItem.spriteId || rewardItem.id}
                         spriteSrc={rewardItem.spriteSrc}
                         emoji={rewardItem.emoji}
                         alt={dict.items?.[rewardItem.id] || rewardItem.name}
                       />
+                      {rewardCount > 1 && (
+                        <span
+                          data-testid="reward-count-badge"
+                          className="absolute -bottom-1 -right-3 bg-amber-500 text-stone-950 border border-stone-900 rounded-full px-1.5 py-0 text-[10px] sm:text-xs font-black leading-tight shadow"
+                        >
+                          x{rewardCount}
+                        </span>
+                      )}
                     </span>
                   )}
                 </div>
@@ -404,6 +437,12 @@ export function GameEntity({
                       isDefeated={isDefeated} 
                       isAlerting={isAlerting} 
                       isBreaking={Boolean(breakingRockIds[ent.id])} 
+                      isCracking={Boolean(crackingRockIds[ent.id])}
+                      maxPhases={maxPhases}
+                      phaseProgress={phaseProgress}
+                      peekable={Boolean(ent.peekable)}
+                      isVaultBoulder={ent.id === 'vault_rock'}
+                      embeddedRewardEmoji={isRock && rewardItem ? rewardItem.emoji : null}
                       seed={ent.id} 
                       size={ent.size || (ent.isGatekeeper ? 'large' : 'small')} 
                       heroPos={displayPlayerPos}
@@ -559,12 +598,43 @@ export function GameEntity({
                       isAlerting={isAlerting}
                       isDefeated={isDefeated}
                     />
-                  ) : (
-                    <SpriteIcon
-                      id={entitySpriteId}
-                      spriteSrc={entitySpriteSrc}
-                      emoji={ent.emoji || rewardItem?.emoji}
+                  ) : ent.containerType === 'crate' ? (
+                    <MineCrateSVG
+                      rewardId={rewardItem?.spriteId || rewardItem?.id || (typeof ent.isPreset === 'string' ? ent.isPreset : undefined)}
+                      rewardEmoji={rewardItem?.emoji || ent.emoji}
+                      rewardSpriteSrc={rewardItem?.spriteSrc || entitySpriteSrc}
+                      isAlerting={isAlerting}
+                      isSelected={isSelected}
+                      isAnimating={isAnimating}
                     />
+                  ) : ent.containerType === 'mound' ? (
+                    <DirtMoundSVG
+                      rewardId={rewardItem?.spriteId || rewardItem?.id || (typeof ent.isPreset === 'string' ? ent.isPreset : undefined)}
+                      rewardEmoji={rewardItem?.emoji || ent.emoji}
+                      rewardSpriteSrc={rewardItem?.spriteSrc || entitySpriteSrc}
+                      isAlerting={isAlerting}
+                      isSelected={isSelected}
+                      isAnimating={isAnimating}
+                    />
+                  ) : ent.containerType === 'ore_vein' ? (
+                    <OreVeinSVG
+                      rewardId={rewardItem?.spriteId || rewardItem?.id}
+                      rewardEmoji={rewardItem?.emoji || ent.emoji}
+                      rewardSpriteSrc={rewardItem?.spriteSrc || entitySpriteSrc}
+                      isDefeated={isDefeated}
+                      isAlerting={isAlerting}
+                      isSelected={isSelected}
+                      isAnimating={isAnimating}
+                    />
+                  ) : (
+                    <div className="relative inline-flex items-center justify-center">
+                      {level.id === 'underground' && ent.id?.startsWith('spider') && <SpiderWebAccentSVG />}
+                      <SpriteIcon
+                        id={entitySpriteId}
+                        spriteSrc={entitySpriteSrc}
+                        emoji={ent.emoji || rewardItem?.emoji}
+                      />
+                    </div>
                   )}
                 </div>
               )}

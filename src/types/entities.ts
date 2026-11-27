@@ -11,6 +11,7 @@ import type {
 export type RequirementType = 'AND' | 'OR';
 export type GateType = 'rock' | 'chasm' | 'guardian' | (string & {});
 export type PresetType = 'pickaxe' | 'mushroom' | 'bubble_vent' | 'treasure' | 'kelp' | 'starfish' | 'doubloon' | 'spyglass' | 'cave_exit';
+export type ContainerType = 'crate' | 'mound' | 'ore_vein';
 
 export interface OrbitConfig {
   rx: number;
@@ -55,6 +56,9 @@ export interface MapNode {
   isClamNode?: boolean;
   isVent?: boolean;
   isPreset?: PresetType | boolean | (string & {});
+  containerType?: ContainerType | (string & {});
+  peekable?: boolean;
+  maxPhases?: number;
   requiresHuman?: boolean;
   gkIdx?: number;
   unlocksZone?: number;
@@ -87,6 +91,10 @@ export interface AbstractPuzzleEntity {
   requires?: string[];
   reqType?: RequirementType;
   reward?: string | null;
+  rewardCount?: number;
+  maxPhases?: number;
+  peekable?: boolean;
+  containerType?: ContainerType | (string & {});
   allowedReqs?: string[];
   isGatekeeper?: boolean;
   isExtraRock?: boolean;
