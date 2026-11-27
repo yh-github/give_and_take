@@ -202,12 +202,12 @@ export const computeNavigationPath = ({
 
   if (isCaveType && lastPos) {
     const isCompact2DWorld = !useIsotropic && worldHeight <= 120;
-    const res = useIsotropic ? 2.5 : (isCompact2DWorld ? 1.5 : 3);
+    const res = useIsotropic ? 2.5 : (isCompact2DWorld ? 1.5 : 2.5);
     const pathOpts: PathfindingOptions = useIsotropic
       ? { radius: DEEP_CAVE_HERO_RADIUS, maxIters: 25000, cornerClearance: 1.5 }
       : isCompact2DWorld
         ? { radius: 1.4, maxIters: 20000, cornerClearance: 0.9 }
-        : {};
+        : { radius: 2.2, maxIters: 25000, cornerClearance: 1.4 };
     const pathBounds = { width: worldWidth, height: worldHeight };
     const startPt: Point2D = { x: lastPos.x, y: lastPos.y * yScale };
     let finalTargetX = targetX;
@@ -230,17 +230,20 @@ export const computeNavigationPath = ({
         } else {
           finalTargetX = Math.max(collarBounds.xLeft + 3, Math.min(collarBounds.xRight - 3, lastPos.x));
           const isAbove = lastPos.y <= targetY;
-          finalTargetY = isAbove ? collarBounds.yTop - 4.0 : collarBounds.yBottom + 4.0;
+          const yStandoff = 4.0 / yScale;
+          finalTargetY = isAbove ? collarBounds.yTop - yStandoff : collarBounds.yBottom + yStandoff;
           altTargetX = finalTargetX;
-          altTargetY = isAbove ? collarBounds.yBottom + 4.0 : collarBounds.yTop - 4.0;
+          altTargetY = isAbove ? collarBounds.yBottom + yStandoff : collarBounds.yTop - yStandoff;
           const xDist = Math.max(0, Math.max(collarBounds.xLeft - lastPos.x, lastPos.x - collarBounds.xRight));
-          isAlreadyInRange = xDist <= 2 && Math.abs(lastPos.y - targetY) <= 7.0;
+          isAlreadyInRange = xDist <= 2 && Math.abs(lastPos.y - targetY) <= (7.0 / yScale);
         }
       } else {
         const bounds = getCorridorBounds(targetY, caveWallVertices ?? undefined, targetX >= 50);
         finalTargetX = Math.max(bounds.xLeft + 3, Math.min(bounds.xRight - 3, lastPos.x));
         const isAbove = lastPos.y <= targetY;
         finalTargetY = isAbove ? targetY - 1.5 - 1.2 : targetY + 1.5 + 1.2;
+        altTargetX = finalTargetX;
+        altTargetY = isAbove ? targetY + 1.5 + 1.2 : targetY - 1.5 - 1.2;
 
         const xDist = Math.max(0, Math.max(bounds.xLeft - lastPos.x, lastPos.x - bounds.xRight));
         const yDist = Math.abs(lastPos.y - targetY);

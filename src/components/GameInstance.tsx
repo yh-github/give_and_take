@@ -22,7 +22,18 @@ import STRINGS from '../strings.ts';
 import LEVEL_REGISTRY from '../levels/index.ts';
 import { generateLevelPuzzle } from '../logic/generator.ts';
 import { generateDeepCaveAsync } from '../levels/deep_cave/workerClient.ts';
-import { DEFAULT_DEEP_CAVE_SETTINGS, normalizeDeepCaveSettings } from '../levels/deep_cave/presets.ts';
+import {
+  DEEP_CAVE_PRESETS,
+  DEFAULT_DEEP_CAVE_SETTINGS,
+  normalizeDeepCaveSettings
+} from '../levels/deep_cave/presets.ts';
+import {
+  DEFAULT_UNDERGROUND_SETTINGS,
+  deriveUndergroundSettingsFromSteps,
+  detectUndergroundPresetId,
+  normalizeUndergroundSettings,
+  type UndergroundSettings
+} from '../levels/cave_shared/presets.ts';
 import { SEA_PRESETS } from '../levels/sea_shared/presets.ts';
 import { computeNavigationPath, computeWaypoints, inferTargetZone } from '../logic/navigation.ts';
 import {
@@ -228,13 +239,20 @@ export function GameInstance({
     return normalizeDeepCaveSettings(DEFAULT_DEEP_CAVE_SETTINGS, { targetSteps, numDiggers });
   }, [level.id, savedState?.settings, deepCaveSettings, targetSteps, numDiggers]);
 
+  const resolvedUndergroundSettings: UndergroundSettings = useMemo(() => {
+    if (level.id !== 'underground') return DEFAULT_UNDERGROUND_SETTINGS;
+    if (savedState?.settings) return normalizeUndergroundSettings(savedState.settings);
+    if (deepCaveSettings) return normalizeUndergroundSettings(deepCaveSettings);
+    return deriveUndergroundSettingsFromSteps(targetSteps, numDiggers);
+  }, [level.id, savedState?.settings, deepCaveSettings, targetSteps, numDiggers]);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<MenuView>('main');
   const [menuSettings, setMenuSettings] = useState<ActiveGameSettings>({
     levelId: level.id,
     steps: targetSteps,
     diggers: numDiggers,
-    deepCaveSettings: resolvedDeepCaveSettings
+    deepCaveSettings: level.id === 'underground' ? resolvedUndergroundSettings : resolvedDeepCaveSettings
   });
 
   const [animatingEntities, setAnimatingEntities] = useState<string[]>([]);
@@ -355,6 +373,9 @@ export function GameInstance({
     if (useIsotropic && !debugMode && customTorchRadius) {
       return customTorchRadius;
     }
+    if (level.id === 'underground' && !debugMode && customTorchRadius && lightingSettings.radius === DEFAULT_LIGHTING.radius) {
+      return customTorchRadius;
+    }
     if (level.id === 'shipwreck' && !debugMode) {
       return 44;
     }
@@ -374,8 +395,9 @@ export function GameInstance({
   }, [puzzle?.puzzleEntities, puzzle?.geometry, unlockedZones, defeated, screens, level, useIsotropic, isTransformed]);
 
   const obstaclePolygons = useMemo(() => {
+    if (level.getObstaclePolygons) return level.getObstaclePolygons(screens, puzzle?.geometry);
     return (useIsotropic && puzzle?.geometry?.obstaclePolygons) ? puzzle.geometry.obstaclePolygons : [];
-  }, [useIsotropic, puzzle?.geometry]);
+  }, [level, screens, useIsotropic, puzzle?.geometry]);
 
   const polyPoints = useMemo(() => {
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return null;
@@ -387,12 +409,12 @@ export function GameInstance({
   const extraLightSources = useMemo(() => {
     if (!puzzle || !level.mechanics.hasDarkness || level.mechanics.darknessType !== 'radial') return [];
     const sources: Array<{ id: string; x: number; y: number; radius: number; ambientColor?: string }> = [];
-    if (level.id === 'deep_cave') {
+    if (level.mechanics.isCaveType) {
       sources.push({
         id: 'camp_fire',
         x: effectiveCampPos.x,
         y: effectiveCampPos.y,
-        radius: 28,
+        radius: level.id === 'deep_cave' ? 28 : 22,
         ambientColor: '#fde68a'
       });
     }
@@ -607,13 +629,15 @@ export function GameInstance({
       };
     }
 
-    const p = generateLevelPuzzle(level, targetSteps, numDiggers);
+    const p = level.id === 'underground'
+      ? generateLevelPuzzle(level, targetSteps, numDiggers, null, resolvedUndergroundSettings)
+      : generateLevelPuzzle(level, targetSteps, numDiggers);
     if (!p) {
       setGenerationFailed(true);
       return;
     }
     applyFreshPuzzle(p);
-  }, [level, targetSteps, numDiggers, savedState, resolvedDeepCaveSettings, dict.deepCaveTimeoutHint]);
+  }, [level, targetSteps, numDiggers, savedState, resolvedDeepCaveSettings, resolvedUndergroundSettings, dict.deepCaveTimeoutHint]);
 
   const mapRef = useRef<HTMLDivElement | null>(null);
   const innerMapRef = useRef<HTMLDivElement | null>(null);
@@ -1150,7 +1174,11 @@ export function GameInstance({
       numDiggers,
       puzzle,
       seed: puzzle?.seed ?? savedState?.seed ?? null,
-      settings: level.id === 'deep_cave' ? (puzzle?.settings || resolvedDeepCaveSettings) : (puzzle?.settings || null),
+      settings: level.id === 'deep_cave'
+        ? (puzzle?.settings || resolvedDeepCaveSettings)
+        : level.id === 'underground'
+          ? (puzzle?.settings || resolvedUndergroundSettings)
+          : (puzzle?.settings || null),
       generatorVersion: puzzle?.generatorVersion ?? savedState?.generatorVersion ?? null,
       compact,
       inventory,
@@ -1461,12 +1489,21 @@ export function GameInstance({
 
       if (entity.id === puzzle.goalEntityId && (!level.mechanics.hasTransformation || level.mechanics.startsTransformed)) {
         if (level.mechanics.isCaveType) {
-          const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
-          setMassFlyingTreasures(allTreasures.map((t, idx) => ({ itemId: t.reward || t.id, spriteSrc: t.spriteSrc, emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
-          currentDefeated.push(...allTreasures.map(t => t.id));
-          setDefeated([...currentDefeated]);
-          await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
-          setMassFlyingTreasures([]);
+          const exitEnt = puzzle.puzzleEntities.find(e => e.isExit);
+          if (exitEnt) {
+            currentPath.push({ x: exitEnt.x, y: exitEnt.y, depth: 3, zone: exitEnt.zone });
+            setPathHistory([...currentPath]);
+            currentDefeated.push(exitEnt.id);
+            setDefeated([...currentDefeated]);
+            await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
+          } else {
+            const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
+            setMassFlyingTreasures(allTreasures.map((t, idx) => ({ itemId: t.reward || t.id, spriteSrc: t.spriteSrc, emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
+            currentDefeated.push(...allTreasures.map(t => t.id));
+            setDefeated([...currentDefeated]);
+            await new Promise<void>(r => scheduleTimeout(r, ACTION_ANIM_MS));
+            setMassFlyingTreasures([]);
+          }
         }
         triggerVictory();
       } else if (level.mechanics.hasTransformation && !level.mechanics.startsTransformed && hasTreasureSim && !transformedSim && step.isReturnTrip) {
@@ -2470,6 +2507,16 @@ export function GameInstance({
 
       setIsAnimatingLoot(true); saveHistory(historyPathOverride);
 
+      if (entity.isExit) {
+        setDefeated(prev => (prev.includes(entity.id) ? prev : [...prev, entity.id]));
+        scheduleTimeout(() => {
+          triggerVictory();
+          setIsAnimatingLoot(false);
+          handlePostActionAir(targetY, false, { wasFullBeforeMove, dropPos: finalPos });
+        }, ACTION_ANIM_MS);
+        return;
+      }
+
       if (level.mechanics.isCaveType && entity.isTreasure) {
         const allTreasures = puzzle.puzzleEntities.filter(t => t.isTreasure);
         setMassFlyingTreasures(allTreasures.map((t, idx) => ({ emoji: t.emoji || '💎', x: t.x, y: t.y, delay: idx * 150 })));
@@ -3034,7 +3081,38 @@ export function GameInstance({
             onOpenLighting={() => { setMenuView('lighting'); setIsMenuOpen(true); }}
           />
 
-          <VictoryCelebration showVictoryMsg={showVictoryMsg} dict={dict} />
+          <VictoryCelebration
+            showVictoryMsg={showVictoryMsg}
+            dict={dict}
+            nextLevelLabel={level.mechanics.nextLevelId ? dict.descendDeeper : null}
+            onNextLevel={
+              level.mechanics.nextLevelId && onGenerateNew
+                ? () => {
+                    const nextId = level.mechanics.nextLevelId!;
+                    if (nextId === 'deep_cave') {
+                      const rawPreset = detectUndergroundPresetId(
+                        (puzzle?.settings as Record<string, any>) || resolvedUndergroundSettings
+                      );
+                      const mappedPreset = rawPreset === 'custom' ? 'normal' : rawPreset;
+                      const nextDeep = DEEP_CAVE_PRESETS[mappedPreset] || DEFAULT_DEEP_CAVE_SETTINGS;
+                      onGenerateNew({
+                        levelId: 'deep_cave',
+                        steps: nextDeep.targetSteps,
+                        diggers: nextDeep.numDiggers,
+                        deepCaveSettings: nextDeep
+                      });
+                    } else {
+                      onGenerateNew({
+                        levelId: nextId,
+                        steps: targetSteps,
+                        diggers: numDiggers,
+                        deepCaveSettings: null
+                      });
+                    }
+                  }
+                : null
+            }
+          />
 
           <DrowningVignetteOverlay
             isDrowning={isDrowning && (level.id === 'underwater' || level.id === 'shipwreck')}

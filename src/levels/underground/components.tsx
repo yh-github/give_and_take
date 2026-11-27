@@ -1,11 +1,24 @@
-import React, { useMemo, memo } from 'react';
-import { getCorridorBounds, generateProceduralOrganicRock, calculateFacetLighting } from '../../logic/geometry.ts';
+import React, { memo } from 'react';
+import {
+  AbyssalExitSVG,
+  CampIcon,
+  CaveRockSVG,
+  CaveSvgDefs,
+  ChasmSVG as SharedChasmSVG,
+  renderCaveLandmarkSVG,
+  type CaveRockSVGProps,
+  type ChasmSVGProps
+} from '../cave_shared/components.tsx';
+import { hashSeed } from '../../logic/geometry.ts';
 import type {
+  CaveBrazier,
+  CaveLandmark,
   CaveWallVertices,
-  CollarBounds,
-  Point2D,
-  ProceduralGeometry
+  Point2D
 } from '../../types/index.ts';
+
+export { AbyssalExitSVG, CampIcon };
+export type { CaveRockSVGProps as RockSVGProps };
 
 export const CAVE_WALL_VERTICES: CaveWallVertices = {
   leftWall: [
@@ -35,230 +48,210 @@ export const CAVE_WALL_VERTICES: CaveWallVertices = {
   ]
 };
 
-export const CaveBackground = () => (
-  <div className="absolute inset-0 bg-[#2b221d] pointer-events-none z-0 overflow-hidden">
-    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#1a1512 2px, transparent 2px)', backgroundSize: '40px 40px' }} />
-    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 drop-shadow-2xl" preserveAspectRatio="none" viewBox="0 0 100 100">
-      {/* Dynamic Cave Walls that meet the rocks */}
-      <path d="
-        M 0 0 L 20 0 
-        L 18 4 L 20 8 L 18 12 L 14 16 L 16 20 
-        L 20 22 L 17 25 
-        L 20 30 L 18 36 L 21 42 
-        L 20 46 L 18 52 
-        L 22 60 L 19 65 
-        L 20 68 L 18 71 L 20 74 L 26 77 L 36 79.5 L 48 81 L 48 85 L 52 87 L 55 90 L 52 93 L 50 96 L 52 98 L 50 100 L 0 100 Z" 
-        fill="#181310" stroke="#0a0806" strokeWidth="0.5" vectorEffect="non-scaling-stroke" 
-      />
-      <path d="
-        M 100 0 L 80 0 
-        L 82 4 L 80 8 L 82 12 L 86 16 L 84 20 
-        L 80 25 L 83 28 
-        L 80 32 L 82 38 L 79 41 
-        L 80 43 L 82 50 
-        L 78 60 L 81 65 
-        L 80 71 L 85 74 L 87 77 L 88 81 L 88 85 L 85 88 L 88 91 L 86 94 L 88 97 L 86 100 L 100 100 Z" 
-        fill="#181310" stroke="#0a0806" strokeWidth="0.5" vectorEffect="non-scaling-stroke" 
-      />
-      {/* Central Pillar - Asymmetric to match paths */}
-      <path d="
-        M 50 20 
-        L 52 22 L 53 25 L 50 30 L 47 38 L 52 46 L 49 52 
-        L 53 60 L 51 65 L 55 68 L 52 70 
-        L 48 70 L 47 67 L 49 66 L 47 61 
-        L 51 51 L 48 43 L 53 36 L 50 31 L 47 25 L 48 22 Z" 
-        fill="#181310" stroke="#0a0806" strokeWidth="0.5" vectorEffect="non-scaling-stroke" 
-      />
-    </svg>
-  </div>
-);
-
-export interface RockSVGProps {
-  isDefeated?: boolean;
-  isAlerting?: boolean;
-  isBreaking?: boolean;
-  seed?: string | number;
-  size?: string;
-  heroPos?: Point2D | null;
-  yNode?: number;
-  nodeX?: number;
-  boundsOverride?: CollarBounds | null;
-  geometry?: ProceduralGeometry | null;
-  yScale?: number;
+/**
+ * Closed solid wall polygons (scaled to `screens * 100` height) used by A* pathfinding
+ * so hero clicks and paths never penetrate solid rock walls or the central pillar.
+ */
+export function getUndergroundObstaclePolygons(screens = 2.5): Point2D[][] {
+  const polys: Point2D[][] = [];
+  if (CAVE_WALL_VERTICES.leftWall) {
+    polys.push(CAVE_WALL_VERTICES.leftWall.map(p => ({ x: p.x, y: p.y * screens })));
+  }
+  if (CAVE_WALL_VERTICES.rightWall) {
+    polys.push(CAVE_WALL_VERTICES.rightWall.map(p => ({ x: p.x, y: p.y * screens })));
+  }
+  if (CAVE_WALL_VERTICES.centralPillar) {
+    polys.push(CAVE_WALL_VERTICES.centralPillar.map(p => ({ x: p.x, y: p.y * screens })));
+  }
+  return polys;
 }
 
-export const RockSVG = memo(({
-  isDefeated = false,
-  isAlerting = false,
-  isBreaking = false,
-  seed = 0,
-  size = 'large',
-  heroPos = null,
-  yNode = 50,
-  nodeX = 50,
-  boundsOverride = null,
-  yScale = 2.5
-}: RockSVGProps) => {
-  const isRightChannel = nodeX >= 50;
-  const isVerticalCollar = boundsOverride?.orientation === 'vertical';
-  const bounds = useMemo(
-    () => boundsOverride || getCorridorBounds(yNode, CAVE_WALL_VERTICES, isRightChannel),
-    [boundsOverride, yNode, isRightChannel]
-  );
-  const mesh = useMemo(
-    () => generateProceduralOrganicRock(bounds.xLeft, bounds.xRight, yNode, size === 'small' ? 2.5 : size === 'medium' ? 3.2 : 4.2, seed),
-    [bounds.xLeft, bounds.xRight, yNode, size, seed]
-  );
+export const UNDERGROUND_BRAZIERS: CaveBrazier[] = [
+  { id: 'brazier_left', x: 35, y: 30, zone: 2, radius: 44 },
+  { id: 'brazier_right', x: 74, y: 41, zone: 3, radius: 44 },
+  { id: 'brazier_junction', x: 52, y: 74, zone: 6, radius: 48 }
+];
 
-  // 1. DEBRIS STATE (Illuminated procedural ground rubble)
-  if (isDefeated && !isBreaking) {
-    return (
-      <div className="w-full relative pointer-events-none translate-y-1 flex justify-center">
-        <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 45'} className="w-full h-auto drop-shadow-md overflow-visible">
-          <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
-            <ellipse cx="75" cy="38" rx="68" ry="6" fill="#14100d" opacity="0.65" />
-            <g>
-              {mesh.boulders.map(boulder => (
-                <g key={boulder.id}>
-                  {boulder.facets.map((facet, idx) => {
-                    const lighting = calculateFacetLighting(facet, heroPos, yScale);
-                    const p = facet.pts;
-                    const pointsStr = `${p[0].x},${p[0].y * 0.35 + 20} ${p[1].x},${p[1].y * 0.35 + 20} ${p[2].x},${p[2].y * 0.35 + 20} ${p[3].x},${p[3].y * 0.35 + 20}`;
-                    return (
-                      <polygon
-                        key={facet.id || idx}
-                        points={pointsStr}
-                        fill={lighting.color}
-                        stroke="#14110e"
-                        strokeWidth="1.5"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    );
-                  })}
-                </g>
-              ))}
-            </g>
-          </g>
-        </svg>
-      </div>
-    );
+// Coordinates in SVG viewBox space (0..100 x 0..250, i.e. y * 2.5)
+export const UNDERGROUND_LANDMARKS: CaveLandmark[] = [
+  { id: 'ug_lm_mush_z1', kind: 'mushroom_grove', x: 62, y: 15, scale: 0.72 },
+  { id: 'ug_lm_arch_z1', kind: 'ruined_arch', x: 50, y: 31, scale: 0.88, rotation: -6 },
+  { id: 'ug_lm_mush_z4', kind: 'mushroom_grove', x: 38, y: 145, scale: 0.76 },
+  { id: 'ug_lm_mush_z6', kind: 'mushroom_grove', x: 75, y: 190, scale: 0.74 },
+  { id: 'ug_lm_arch_z6', kind: 'ruined_arch', x: 49, y: 185, scale: 0.84, rotation: 8 },
+  { id: 'ug_lm_exit_z9', kind: 'abyss_exit_sanctum', x: 68, y: 243.75, scale: 1 }
+];
+
+function verticesToSvgPath(pts: readonly Point2D[], yScale = 2.5): string {
+  if (!pts || pts.length === 0) return '';
+  let d = `M ${pts[0].x} ${(pts[0].y * yScale).toFixed(2)}`;
+  for (let i = 1; i < pts.length; i++) {
+    d += ` L ${pts[i].x} ${(pts[i].y * yScale).toFixed(2)}`;
+  }
+  return `${d} Z`;
+}
+
+function buildUndergroundFloorDecor(yScale = 2.5) {
+  const pebbles: Array<{ x: string; y: string; rx: string; ry: string; rot: number }> = [];
+  const strataLines: string[] = [];
+
+  const innerRuns: Array<{ pts: readonly Point2D[]; inwardSign: number }> = [
+    { pts: (CAVE_WALL_VERTICES.leftWall || []).slice(1, -1), inwardSign: 1 },
+    { pts: (CAVE_WALL_VERTICES.rightWall || []).slice(1, -1), inwardSign: -1 }
+  ];
+
+  for (const run of innerRuns) {
+    for (let i = 0; i < run.pts.length - 1; i += 2) {
+      const a = run.pts[i];
+      const b = run.pts[i + 1];
+      const h = hashSeed(`ug_floor_${a.x}_${a.y}`);
+      const px = a.x + run.inwardSign * (2.4 + (h % 3));
+      const py = a.y * yScale + (h % 5) - 2;
+      if (px < 10 || px > 90 || py < 6 || py > 246) continue;
+
+      if (h % 2 === 0) {
+        pebbles.push({
+          x: px.toFixed(2),
+          y: py.toFixed(2),
+          rx: (0.42 + (h % 4) * 0.12).toFixed(2),
+          ry: (0.3 + (h % 3) * 0.1).toFixed(2),
+          rot: h % 180
+        });
+      } else {
+        const p2x = b.x + run.inwardSign * (2.8 + (h % 3));
+        const p2y = b.y * yScale;
+        strataLines.push(
+          `M ${px.toFixed(1)} ${py.toFixed(1)} Q ${((px + p2x) * 0.5 + run.inwardSign * 0.8).toFixed(1)} ${((py + p2y) * 0.5).toFixed(1)} ${p2x.toFixed(1)} ${p2y.toFixed(1)}`
+        );
+      }
+    }
   }
 
-  // 2. BREAKING ANIMATION STATE
-  if (isBreaking) {
-    return (
-      <div className="w-full relative pointer-events-none flex justify-center">
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-50 animate-pickaxe-hit">
-          <span className="text-3xl sm:text-4xl drop-shadow-[0_0_10px_rgba(251,191,36,1)]">⛏️</span>
-        </div>
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-40 animate-hit-spark">
-          <span className="text-2xl">✨</span>
-        </div>
+  return { pebbles, strataLines };
+}
 
-        <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 70'} className="w-full h-auto overflow-visible">
-          <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
-            <g opacity="0.95" className="z-30">
-              <path 
-                d="M 75 12 L 75 42 M 75 12 L 45 35 M 75 12 L 105 35"
-                stroke="#fef08a" 
-                strokeWidth="3" 
-                fill="none" 
-                strokeDasharray="120"
-                className="animate-crack-branch"
-                style={{ filter: 'drop-shadow(0 0 6px #f59e0b)' }}
-                vectorEffect="non-scaling-stroke"
-              />
-            </g>
+const LEFT_WALL_PATH = verticesToSvgPath(CAVE_WALL_VERTICES.leftWall || [], 2.5);
+const RIGHT_WALL_PATH = verticesToSvgPath(CAVE_WALL_VERTICES.rightWall || [], 2.5);
+const PILLAR_PATH = verticesToSvgPath(CAVE_WALL_VERTICES.centralPillar || [], 2.5);
+const EDGE_PATHS = [LEFT_WALL_PATH, RIGHT_WALL_PATH, PILLAR_PATH];
+const UNDERGROUND_FLOOR_DECOR = buildUndergroundFloorDecor(2.5);
 
-            <g>
-              <g className="animate-rock-split-left">
-                {mesh.boulders.filter(b => b.localX < 75).map(boulder => (
-                  <g key={boulder.id}>
-                    {boulder.facets.map((facet, idx) => {
-                      const lighting = calculateFacetLighting(facet, heroPos, yScale);
-                      const p = facet.pts;
-                      return (
-                        <polygon
-                          key={facet.id || idx}
-                          points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
-                          fill={lighting.color}
-                          stroke="#14110e"
-                          strokeWidth="1.5"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      );
-                    })}
-                  </g>
-                ))}
-              </g>
+export const CaveBackground = memo(() => (
+  <div className="absolute inset-0 bg-[#2b221d] pointer-events-none z-0 overflow-hidden">
+    <div
+      className="absolute inset-0 opacity-20"
+      style={{
+        backgroundImage: 'radial-gradient(#1a1512 2px, transparent 2px)',
+        backgroundSize: '36px 36px'
+      }}
+    />
+    <svg
+      className="absolute inset-0 w-full h-full pointer-events-none z-0 drop-shadow-2xl"
+      preserveAspectRatio="none"
+      viewBox="0 0 100 250"
+    >
+      <CaveSvgDefs idPrefix="ug" />
 
-              <g className="animate-rock-split-right">
-                {mesh.boulders.filter(b => b.localX >= 75).map(boulder => (
-                  <g key={boulder.id}>
-                    {boulder.facets.map((facet, idx) => {
-                      const lighting = calculateFacetLighting(facet, heroPos, yScale);
-                      const p = facet.pts;
-                      return (
-                        <polygon
-                          key={facet.id || idx}
-                          points={`${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`}
-                          fill={lighting.color}
-                          stroke="#14110e"
-                          strokeWidth="1.5"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      );
-                    })}
-                  </g>
-                ))}
-              </g>
-            </g>
-          </g>
-        </svg>
-      </div>
-    );
-  }
+      {/* Depth wash deepening toward the abyssal exit */}
+      <rect x="0" y="0" width="100" height="250" fill="url(#ugDepthWash)" />
 
-  // 3. INTACT PROCEDURAL ORGANIC 3D BOULDER PILE WITH DYNAMIC NORMAL LIGHTING
-  return (
-    <div className={`w-full relative transition-all duration-700 ${isAlerting ? 'animate-troll-mad' : ''}`}>
-      <svg viewBox={isVerticalCollar ? '0 0 70 150' : '0 0 150 70'} className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
-        <g transform={isVerticalCollar ? 'translate(70, 0) rotate(90)' : undefined}>
-          {mesh.boulders.map(boulder => (
-            <g key={boulder.id}>
-              {/* Dark outline contour per boulder */}
-              <polygon
-                points={boulder.vertices.map(v => `${v.x},${v.y}`).join(' ')}
-                fill="#14110e"
-                stroke="#0a0806"
-                strokeWidth="2"
-                vectorEffect="non-scaling-stroke"
-              />
-              {/* Facet polygons with dynamic hero-relative lighting */}
-              {boulder.facets.map((facet, idx) => {
-                const lighting = calculateFacetLighting(facet, heroPos, yScale);
-                const p = facet.pts;
-                const pointsStr = `${p[0].x},${p[0].y} ${p[1].x},${p[1].y} ${p[2].x},${p[2].y} ${p[3].x},${p[3].y}`;
-                return (
-                  <polygon
-                    key={facet.id || idx}
-                    points={pointsStr}
-                    fill={lighting.color}
-                    stroke="#14110e"
-                    strokeWidth="1.5"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                );
-              })}
-            </g>
-          ))}
-        </g>
-      </svg>
-    </div>
-  );
-});
+      {/* Surface entrance glow around camp */}
+      <circle cx="50" cy="5" r="28" fill="url(#ugCampGlow)" />
 
-export const CampIcon = () => (
-  <div className="text-6xl drop-shadow-lg -translate-y-4">⛺</div>
-);
+      {/* Cavern landmarks */}
+      <g>{UNDERGROUND_LANDMARKS.map(lm => renderCaveLandmarkSVG(lm, 'ug'))}</g>
 
+      {/* Subtle subterranean floor shelves & pebbles */}
+      <g opacity="0.48">
+        {UNDERGROUND_FLOOR_DECOR.strataLines.map((d, i) => (
+          <path
+            key={`ug-strata-${i}`}
+            d={d}
+            fill="none"
+            stroke="#1b1410"
+            strokeWidth="0.9"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {UNDERGROUND_FLOOR_DECOR.pebbles.map((p, i) => (
+          <ellipse
+            key={`ug-peb-${i}`}
+            cx={p.x}
+            cy={p.y}
+            rx={p.rx}
+            ry={p.ry}
+            fill="#3d2f27"
+            stroke="#15100d"
+            strokeWidth="0.35"
+            transform={`rotate(${p.rot} ${p.x} ${p.y})`}
+          />
+        ))}
+      </g>
+
+      {/* Layered rock drop-off cliff talus & stepped rock shelf (covered outside cavern by rock fill) */}
+      {EDGE_PATHS.map((d, idx) => (
+        <path
+          key={`ug-apron-${idx}`}
+          d={d}
+          fill="none"
+          stroke="#1a1310"
+          strokeWidth="12"
+          strokeOpacity="0.45"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+      {EDGE_PATHS.map((d, idx) => (
+        <path
+          key={`ug-shelf-${idx}`}
+          d={d}
+          fill="none"
+          stroke="#3f3027"
+          strokeWidth="5.2"
+          strokeOpacity="0.82"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+      {EDGE_PATHS.map((d, idx) => (
+        <path
+          key={`ug-lip-${idx}`}
+          d={d}
+          fill="none"
+          stroke="#594538"
+          strokeWidth="2.1"
+          strokeOpacity="0.58"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+
+      {/* Sedimentary rock walls & central pillar */}
+      <path d={LEFT_WALL_PATH} fill="url(#ugRockStrata)" />
+      <path d={RIGHT_WALL_PATH} fill="url(#ugRockStrata)" />
+      <path d={PILLAR_PATH} fill="url(#ugRockStrata)" />
+
+      {/* Crisp inner cliff bevel borders */}
+      {EDGE_PATHS.map((d, idx) => (
+        <path
+          key={`ug-edge-${idx}`}
+          d={d}
+          fill="none"
+          stroke="#080605"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </svg>
+  </div>
+));
+
+export const RockSVG = memo((props: CaveRockSVGProps) => (
+  <CaveRockSVG {...props} fallbackWallVertices={props.fallbackWallVertices ?? CAVE_WALL_VERTICES} />
+));
+
+export const ChasmSVG = memo((props: ChasmSVGProps) => (
+  <SharedChasmSVG {...props} fallbackWallVertices={props.fallbackWallVertices ?? CAVE_WALL_VERTICES} />
+));

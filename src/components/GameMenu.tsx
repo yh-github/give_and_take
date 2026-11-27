@@ -7,6 +7,15 @@ import {
   normalizeDeepCaveSettings
 } from '../levels/deep_cave/presets.ts';
 import {
+  UNDERGROUND_PRESETS,
+  UNDERGROUND_KNOB_DEFS,
+  DEFAULT_UNDERGROUND_SETTINGS,
+  detectUndergroundPresetId,
+  normalizeUndergroundSettings,
+  type UndergroundKnobKey,
+  type UndergroundSettings
+} from '../levels/cave_shared/presets.ts';
+import {
   SEA_PRESETS,
   SEA_KNOB_DEFS,
   detectSeaPresetId,
@@ -142,6 +151,7 @@ export function GameMenu({
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [showAdvancedDeepCave, setShowAdvancedDeepCave] = useState(false);
+  const [showAdvancedUnderground, setShowAdvancedUnderground] = useState(false);
   const [showAdvancedSea, setShowAdvancedSea] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -149,6 +159,12 @@ export function GameMenu({
     menuSettings.deepCaveSettings || DEFAULT_DEEP_CAVE_SETTINGS
   );
   const activePresetId = detectDeepCavePresetId(resolvedDeepCaveSettings);
+  const resolvedUndergroundSettings: UndergroundSettings = normalizeUndergroundSettings(
+    menuSettings.levelId === 'underground'
+      ? (menuSettings.deepCaveSettings || { targetSteps: menuSettings.steps, numDiggers: menuSettings.diggers })
+      : DEFAULT_UNDERGROUND_SETTINGS
+  );
+  const activeUndergroundPresetId = detectUndergroundPresetId(resolvedUndergroundSettings);
   const resolvedSeaSettings = normalizeSeaSettings({
     targetSteps: menuSettings.steps,
     numDiggers: menuSettings.diggers
@@ -166,6 +182,15 @@ export function GameMenu({
         steps: nextDeep.targetSteps,
         diggers: nextDeep.numDiggers,
         deepCaveSettings: nextDeep
+      });
+    } else if (newLevelId === 'underground') {
+      const nextUg = normalizeUndergroundSettings(DEFAULT_UNDERGROUND_SETTINGS);
+      setMenuSettings({
+        ...menuSettings,
+        levelId: newLevelId,
+        steps: nextUg.targetSteps,
+        diggers: nextUg.numDiggers,
+        deepCaveSettings: nextUg
       });
     } else if (newLevelId === 'underwater' || newLevelId === 'shipwreck') {
       const nextSea = normalizeSeaSettings({
@@ -186,6 +211,33 @@ export function GameMenu({
         steps: clampedSteps
       });
     }
+  };
+
+  const handleSelectUndergroundPreset = (presetId: string) => {
+    const preset = UNDERGROUND_PRESETS[presetId as Exclude<DeepCavePresetId, 'custom'>];
+    if (!preset) return;
+    const normalized = normalizeUndergroundSettings(preset);
+    setMenuSettings({
+      ...menuSettings,
+      steps: normalized.targetSteps,
+      diggers: normalized.numDiggers,
+      deepCaveSettings: normalized
+    });
+  };
+
+  const handleUpdateUndergroundKnob = (key: UndergroundKnobKey, rawValue: number | string) => {
+    const nextUg = normalizeUndergroundSettings({
+      ...resolvedUndergroundSettings,
+      preset: undefined,
+      id: undefined,
+      [key]: Number(rawValue)
+    });
+    setMenuSettings({
+      ...menuSettings,
+      steps: nextUg.targetSteps,
+      diggers: nextUg.numDiggers,
+      deepCaveSettings: nextUg
+    });
   };
 
   const handleSelectDeepCavePreset = (presetId: string) => {
@@ -433,6 +485,114 @@ export function GameMenu({
                     )}
                   </div>
                 </div>
+              ) : menuSettings.levelId === 'underground' ? (
+                <div className="space-y-4 pt-1">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between font-bold text-base">
+                      <span>{dict.difficultyPreset || 'Difficulty Preset:'}</span>
+                      {activeUndergroundPresetId === 'custom' && (
+                        <span
+                          data-testid="underground-custom-badge"
+                          className="text-xs font-sans font-bold px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500 text-amber-300"
+                        >
+                          {dict.presets?.custom || 'Custom'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {Object.keys(UNDERGROUND_PRESETS).map((presetId) => {
+                        const isSelected = activeUndergroundPresetId === presetId;
+                        const label = dict.presets?.[presetId] || presetId;
+                        return (
+                          <button
+                            key={presetId}
+                            type="button"
+                            data-testid={`underground-preset-${presetId}`}
+                            onClick={() => handleSelectUndergroundPreset(presetId)}
+                            className={`py-2 px-2 rounded-lg font-bold text-sm border-2 transition-all ${
+                              isSelected
+                                ? 'bg-amber-600 border-amber-400 text-white shadow-md'
+                                : 'bg-stone-900 border-stone-600 text-stone-300 hover:border-stone-400'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <label className="flex flex-col gap-2 font-bold text-lg pt-1">
+                    <span className="flex justify-between">
+                      <span>{dict.minQuestChain}</span>
+                      <span className="text-amber-400">{resolvedUndergroundSettings.targetSteps}</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={UNDERGROUND_KNOB_DEFS.targetSteps.min}
+                      max={UNDERGROUND_KNOB_DEFS.targetSteps.max}
+                      step={UNDERGROUND_KNOB_DEFS.targetSteps.step}
+                      data-testid="underground-knob-targetSteps"
+                      value={resolvedUndergroundSettings.targetSteps}
+                      onChange={(e) => handleUpdateUndergroundKnob('targetSteps', e.target.value)}
+                      className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 font-bold text-lg">
+                    <span className="flex justify-between">
+                      <span>{dict.diggersMemory}</span>
+                      <span className="text-amber-400">{resolvedUndergroundSettings.numDiggers}</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={UNDERGROUND_KNOB_DEFS.numDiggers.min}
+                      max={UNDERGROUND_KNOB_DEFS.numDiggers.max}
+                      step={UNDERGROUND_KNOB_DEFS.numDiggers.step}
+                      data-testid="underground-knob-numDiggers"
+                      value={resolvedUndergroundSettings.numDiggers}
+                      onChange={(e) => handleUpdateUndergroundKnob('numDiggers', e.target.value)}
+                      className="w-full accent-amber-500 h-2 bg-stone-900 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </label>
+
+                  <div className="border-t border-stone-700 pt-2">
+                    <button
+                      type="button"
+                      data-testid="toggle-underground-advanced-settings"
+                      onClick={() => setShowAdvancedUnderground(prev => !prev)}
+                      className="w-full flex items-center justify-between text-sm font-bold text-amber-300 hover:text-amber-200 py-1.5"
+                    >
+                      <span>{dict.advancedSettings || 'Advanced Settings'}</span>
+                      <span className="font-mono">{showAdvancedUnderground ? '▾' : '▸'}</span>
+                    </button>
+
+                    {showAdvancedUnderground && (
+                      <div className="mt-2 space-y-3 bg-stone-900/70 border border-stone-700 rounded-xl p-3">
+                        {(['decoyCount', 'pickaxeSurplus', 'torchRadius'] as UndergroundKnobKey[]).map((knobKey) => {
+                          const def = UNDERGROUND_KNOB_DEFS[knobKey];
+                          return (
+                            <label key={knobKey} className="flex flex-col gap-1 text-sm font-bold">
+                              <span className="flex justify-between text-stone-300">
+                                <span>{dict.knobs?.[knobKey] || knobKey}</span>
+                                <span className="text-amber-400 font-mono">{resolvedUndergroundSettings[knobKey]}</span>
+                              </span>
+                              <input
+                                type="range"
+                                min={def.min}
+                                max={def.max}
+                                step={def.step}
+                                data-testid={`underground-knob-${knobKey}`}
+                                value={resolvedUndergroundSettings[knobKey]}
+                                onChange={(e) => handleUpdateUndergroundKnob(knobKey, e.target.value)}
+                                className="w-full accent-amber-500 h-2 bg-stone-800 rounded-lg appearance-none cursor-pointer"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (menuSettings.levelId === 'underwater' || menuSettings.levelId === 'shipwreck') ? (
                 <div className="space-y-4 pt-1">
                   <div className="flex flex-col gap-2">
@@ -551,7 +711,14 @@ export function GameMenu({
                         diggers: resolvedDeepCaveSettings.numDiggers,
                         deepCaveSettings: resolvedDeepCaveSettings
                       }
-                    : menuSettings
+                    : menuSettings.levelId === 'underground'
+                      ? {
+                          ...menuSettings,
+                          steps: resolvedUndergroundSettings.targetSteps,
+                          diggers: resolvedUndergroundSettings.numDiggers,
+                          deepCaveSettings: resolvedUndergroundSettings
+                        }
+                      : menuSettings
                 )} 
                 className="w-full bg-amber-600 py-4 mt-2 rounded-xl font-bold text-xl hover:bg-amber-500 shadow-lg border-b-4 border-amber-800 active:border-b-0 active:translate-y-1"
               >

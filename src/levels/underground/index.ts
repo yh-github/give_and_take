@@ -1,5 +1,14 @@
 import { items, entities, mapNodes, sceneryNodes } from './data.ts';
-import { CaveBackground, CampIcon, RockSVG, CAVE_WALL_VERTICES } from './components.tsx';
+import {
+  CaveBackground,
+  CampIcon,
+  ChasmSVG,
+  RockSVG,
+  CAVE_WALL_VERTICES,
+  getUndergroundObstaclePolygons
+} from './components.tsx';
+import { generateUndergroundPuzzle } from './generator.ts';
+import { UNDERGROUND_PRESETS, DEFAULT_UNDERGROUND_SETTINGS } from '../cave_shared/presets.ts';
 import { getObstacleSegments } from '../../logic/visibility.ts';
 import type { LevelDefinition, MapNode, PuzzleEntity } from '../../types/index.ts';
 
@@ -11,20 +20,26 @@ const underground: LevelDefinition = {
   mapNodes,
   sceneryNodes,
   campPos: { x: 50, y: 2 },
+  presets: UNDERGROUND_PRESETS,
+  defaultSettings: DEFAULT_UNDERGROUND_SETTINGS,
   mechanics: {
     isCaveType: true,
     hasPickaxe: true,
     hasDarkness: true,
     darknessType: 'radial',
-    hasFog: true,
+    hasFog: false,
     isVertical: true,
     screens: 2.5,
+    nextLevelId: 'deep_cave',
   },
   specialEntityTemplate: 'mole',
   BackgroundComponent: CaveBackground,
   RockComponent: RockSVG,
+  ChasmComponent: ChasmSVG,
   GatekeeperPropComponent: () => null,
   CampIcon,
+  generatePuzzle: generateUndergroundPuzzle,
+  getObstaclePolygons: (screens = 2.5) => getUndergroundObstaclePolygons(screens),
   getObstacleSegments: (
     puzzleEntities: ReadonlyArray<MapNode | PuzzleEntity>,
     unlockedZones: readonly number[] | null | undefined,

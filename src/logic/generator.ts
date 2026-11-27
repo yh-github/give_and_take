@@ -478,12 +478,13 @@ function applyDefaultFirstStep(
 
 export function generateLevelPuzzle(
   level: LevelDefinition,
-  targetSteps = 5,
-  numDiggers = 1,
-  seed: SeedInput = null
+  targetSteps: any = 5,
+  numDiggers: any = 1,
+  seed: SeedInput = null,
+  explicitSettings: Record<string, any> | null = null
 ): PuzzleData | null {
   if (level.generatePuzzle) {
-    const customPuzzle = level.generatePuzzle(level, targetSteps, numDiggers, seed);
+    const customPuzzle = level.generatePuzzle(level, targetSteps, numDiggers, seed, explicitSettings);
     if (customPuzzle && customPuzzle.puzzleEntities) {
       const sanitized: PuzzleEntityArray = sanitizePuzzleEntities(customPuzzle.puzzleEntities, level.items);
       if (customPuzzle.boatOfferedItem) sanitized.boatOfferedItem = customPuzzle.boatOfferedItem;

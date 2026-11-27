@@ -1,37 +1,9 @@
+import { CAVE_ENTITIES, CAVE_ITEMS } from '../cave_shared/data.ts';
 import type { EntityTemplate, ItemDefinition } from '../../types/index.ts';
 
 /**
  * Items and Entity Templates for `deep_cave` ("The Abyssal Descent").
- * Shares Underground art while keeping module imports JSON-free for Web Workers & Node fuzzers.
+ * Re-exported from `cave_shared` so both cave realms share art & item definitions.
  */
-
-export const items: ItemDefinition[] = [
-  { id: 'crystal', name: 'Crystal', emoji: '🔮' },
-  { id: 'gold_nugget', name: 'Gold Nugget', emoji: '🪙' },
-  { id: 'mushroom', name: 'Mushroom', emoji: '🍄' },
-  { id: 'emerald', name: 'Emerald', emoji: '🟩' },
-  { id: 'relic', name: 'Relic', emoji: '🏺' },
-  { id: 'rope', name: 'Rope', emoji: '🪢' },
-  { id: 'bone', name: 'Bone', emoji: '🦴' },
-  { id: 'gem', name: 'Gem', emoji: '💎' },
-  { id: 'lantern', name: 'Lantern', emoji: '🏮' },
-  { id: 'compass', name: 'Compass', emoji: '🧭' },
-  { id: 'scroll', name: 'Scroll', emoji: '📜' },
-  { id: 'ring', name: 'Ring', emoji: '💍' },
-  { id: 'chalice', name: 'Chalice', emoji: '🏆' },
-  { id: 'pickaxe', name: 'Pickaxe', emoji: '⛏️' }
-];
-
-// Reserved special creatures (not spawned as standard barter traders):
-// - bat (`🦇`): reserved for upcoming special moving creature mechanics.
-export const entities: EntityTemplate[] = [
-  { id: 'troll', name: 'Cave Troll', emoji: '🧌', allowedReqs: ['crystal', 'gold_nugget', 'mushroom', 'emerald', 'relic', 'bone', 'gem'] },
-  { id: 'miner', name: 'Miner', emoji: '👷', allowedReqs: ['rope', 'mushroom', 'gold_nugget', 'crystal', 'gem', 'bone'] },
-  { id: 'scorpion', name: 'Scorpion', emoji: '🦂', allowedReqs: ['bone', 'crystal', 'gold_nugget', 'emerald', 'gem', 'rope'] },
-  { id: 'spider', name: 'Giant Spider', emoji: '🕷️', allowedReqs: ['rope', 'bone', 'emerald', 'relic', 'mushroom'] },
-  { id: 'snail', name: 'Giant Snail', emoji: '🐌', allowedReqs: ['relic', 'mushroom', 'bone', 'crystal', 'rope', 'gold_nugget'] },
-  { id: 'slime', name: 'Acid Slime', emoji: '🦠', allowedReqs: ['crystal', 'bone', 'mushroom', 'gem', 'relic'] },
-  { id: 'ghost', name: 'Miner Ghost', emoji: '👻', allowedReqs: ['gold_nugget', 'bone', 'emerald', 'rope', 'crystal'] },
-  { id: 'mole', name: 'Giant Mole', emoji: '🐭', allowedReqs: ['mushroom', 'relic', 'crystal', 'gold_nugget', 'bone', 'emerald'] },
-  { id: 'goblin', name: 'Cave Goblin', emoji: '👺', allowedReqs: ['gold_nugget', 'gem', 'mushroom', 'emerald', 'rope'] }
-];
+export const items: ItemDefinition[] = CAVE_ITEMS;
+export const entities: EntityTemplate[] = CAVE_ENTITIES;

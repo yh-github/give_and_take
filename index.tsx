@@ -3,6 +3,7 @@ import LEVEL_REGISTRY from './src/levels/index.ts';
 import ErrorBoundary from './src/components/ErrorBoundary.tsx';
 import GameInstance from './src/components/GameInstance.tsx';
 import { getAutoSaveWithStatus, clearAutoSave } from './src/logic/saveState.ts';
+import { DEFAULT_UNDERGROUND_SETTINGS } from './src/levels/cave_shared/presets.ts';
 import STRINGS from './src/strings.ts';
 import type {
   ActiveGameSettings,
@@ -36,9 +37,9 @@ const App = ({ autoResumePrompt = (process.env.NODE_ENV !== 'test') }: AppProps)
   const [showResumePrompt, setShowResumePrompt] = useState(() => Boolean(initialAutoSave.state));
   const [activeSettings, setActiveSettings] = useState<ActiveGameSettings>(() => ({
     levelId: pendingResumeState?.levelId || 'underground',
-    steps: pendingResumeState?.targetSteps || 5,
-    diggers: pendingResumeState?.numDiggers ?? 1,
-    deepCaveSettings: pendingResumeState?.settings || null
+    steps: pendingResumeState?.targetSteps || DEFAULT_UNDERGROUND_SETTINGS.targetSteps,
+    diggers: pendingResumeState?.numDiggers ?? DEFAULT_UNDERGROUND_SETTINGS.numDiggers,
+    deepCaveSettings: pendingResumeState?.settings || DEFAULT_UNDERGROUND_SETTINGS
   }));
   const [gameKey, setGameKey] = useState(0);
   const [lang, setLang] = useState<LanguageCode>('he');

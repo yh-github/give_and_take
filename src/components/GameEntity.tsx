@@ -13,7 +13,7 @@ import {
   CaptainsTreasureSVG
 } from '../levels/shipwreck/components.tsx';
 import { getCorridorBounds } from '../logic/geometry.ts';
-import { CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
+import { AbyssalExitSVG, CAVE_WALL_VERTICES } from '../levels/underground/components.tsx';
 import type {
   AlertReason,
   CSSCustomProperties,
@@ -88,7 +88,7 @@ export function GameEntity({
   yScale = null
 }: GameEntityProps) {
   const isDefeated = defeated.includes(ent.id);
-  if (ent.isPreset && !ent.isVent && isDefeated) return null;
+  if (ent.isPreset && !ent.isVent && !ent.isExit && isDefeated) return null;
 
   const isGoal = ent.id === puzzle.goalEntityId;
   const rewardItem = ent.reward ? level.items.find(i => i.id === ent.reward) : null;
@@ -125,7 +125,9 @@ export function GameEntity({
           : (isRock || isChasm) ? 'cursor-pointer' : 'hover:scale-110 cursor-pointer';
 
   const hasCustomCollar = Boolean((isRock || isChasm || ent.isExtraRock) && ent.collarBounds);
-  const isGatekeeperRock = hasCustomCollar || ((isRock || ent.isExtraRock) && level.id === 'underground' && CAVE_WALL_VERTICES);
+  const isGatekeeperRock =
+    (hasCustomCollar && !isGuardian) ||
+    ((isRock || ent.isExtraRock) && !isGuardian && level.id === 'underground' && CAVE_WALL_VERTICES);
   let rockBounds: (CorridorBounds & Partial<CollarBounds>) | null | undefined = null;
   if (hasCustomCollar) {
     rockBounds = ent.collarBounds;
@@ -551,6 +553,12 @@ export function GameEntity({
                     ) : (
                       <SpriteIcon id={entitySpriteId} spriteSrc={entitySpriteSrc} emoji={ent.emoji} />
                     )
+                  ) : ent.isExit ? (
+                    <AbyssalExitSVG
+                      label={dict.deeperCaveExit || dict.exit}
+                      isAlerting={isAlerting}
+                      isDefeated={isDefeated}
+                    />
                   ) : (
                     <SpriteIcon
                       id={entitySpriteId}
@@ -568,7 +576,7 @@ export function GameEntity({
             {dict.blocked}
           </div>
         )}
-        {isGoal && !isDefeated && !isAlerting && level.id !== 'river_crossing' && !isAquaticLevel && (
+        {isGoal && !ent.isExit && !isDefeated && !isAlerting && level.id !== 'river_crossing' && !isAquaticLevel && (
           <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-purple-950 font-black tracking-widest text-lg drop-shadow-md z-30 bg-amber-100/80 px-2 rounded">
             {dict.exit}
           </div>

@@ -78,7 +78,8 @@ export interface NormalizedWallPolyline {
 export type CaveLandmarkKind =
   | 'mushroom_grove'
   | 'ruined_arch'
-  | 'vault_sanctum';
+  | 'vault_sanctum'
+  | 'abyss_exit_sanctum';
 
 export interface CaveLandmark {
   id: string;

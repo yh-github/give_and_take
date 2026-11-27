@@ -84,6 +84,8 @@ export interface TranslationDictionary {
   dropItem: string;
   blocked: string;
   exit: string;
+  deeperCaveExit: string;
+  descendDeeper: string;
   questComplete: string;
   entities: Record<string, string>;
   items: Record<string, string>;

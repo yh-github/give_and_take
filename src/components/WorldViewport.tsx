@@ -469,7 +469,7 @@ export function WorldViewport({
         />
       )}
 
-      {!isLevelEditor && level.id === 'deep_cave' && puzzle?.geometry?.braziers?.map((brazier) => (
+      {!isLevelEditor && level.mechanics.isCaveType && puzzle?.geometry?.braziers?.map((brazier) => (
         <CaveBrazierProp
           key={brazier.id}
           brazier={brazier}

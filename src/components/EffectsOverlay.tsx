@@ -239,17 +239,24 @@ export function MagicTransformationOverlay({
 export interface VictoryCelebrationProps {
   showVictoryMsg: boolean;
   dict: TranslationDictionary;
+  nextLevelLabel?: string | null;
+  onNextLevel?: (() => void) | null;
 }
 
-export function VictoryCelebration({ showVictoryMsg, dict }: VictoryCelebrationProps) {
+export function VictoryCelebration({
+  showVictoryMsg,
+  dict,
+  nextLevelLabel = null,
+  onNextLevel = null
+}: VictoryCelebrationProps) {
   if (!showVictoryMsg) return null;
 
   return (
-    <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden">
+    <div className={`absolute inset-0 z-[220] overflow-hidden ${onNextLevel ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       {[...Array(30)].map((_, i) => (
         <div 
           key={i} 
-          className="absolute text-3xl animate-star-burst-infinite" 
+          className="absolute text-3xl animate-star-burst-infinite pointer-events-none" 
           style={{ 
             left: `${10 + Math.random() * 80}%`, 
             top: `${10 + Math.random() * 80}%`, 
@@ -261,12 +268,26 @@ export function VictoryCelebration({ showVictoryMsg, dict }: VictoryCelebrationP
           {['⭐', '🌟', '✨'][Math.floor(Math.random() * 3)]}
         </div>
       ))}
-      <div className="absolute top-1/2 left-1/2 z-50 pointer-events-none animate-fade-out-up">
+      <div
+        className={`absolute top-1/2 left-1/2 z-50 flex flex-col items-center gap-4 ${
+          onNextLevel ? '-translate-x-1/2 -translate-y-1/2 pointer-events-auto' : 'pointer-events-none animate-fade-out-up'
+        }`}
+      >
         <div className="bg-amber-100 p-6 rounded-3xl border-8 border-amber-600 text-center shadow-[0_0_80px_rgba(251,191,36,0.6)] whitespace-nowrap">
           <h2 className="text-3xl sm:text-4xl text-amber-900 font-black uppercase tracking-wider">
             {dict.questComplete}
           </h2>
         </div>
+        {onNextLevel && nextLevelLabel && (
+          <button
+            type="button"
+            data-testid="next-level-btn"
+            onClick={onNextLevel}
+            className="bg-cyan-700 hover:bg-cyan-600 text-white font-black text-lg px-6 py-3 rounded-2xl border-4 border-cyan-300 shadow-[0_0_30px_rgba(34,211,238,0.5)] active:translate-y-0.5 transition-all cursor-pointer"
+          >
+            {nextLevelLabel}
+          </button>
+        )}
       </div>
     </div>
   );

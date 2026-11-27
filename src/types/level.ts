@@ -38,6 +38,7 @@ export interface LevelMechanics {
   isVertical?: boolean;
   useIsotropicCoords?: boolean;
   supportsProceduralWorker?: boolean;
+  nextLevelId?: LevelId;
   hasTransformation?: boolean;
   startsTransformed?: boolean;
   hasAir?: boolean;
@@ -161,15 +162,17 @@ export interface LevelDefinition {
   campPos: Point2D & { depth?: number };
   mechanics: LevelMechanics;
   specialEntityTemplate?: string;
-  presets?: Record<string, DeepCaveSettings>;
-  defaultSettings?: DeepCaveSettings;
+  presets?: Record<string, Record<string, any>>;
+  defaultSettings?: Record<string, any>;
   generatePuzzle?: (
     level: LevelDefinition,
     targetSteps?: any,
     numDiggers?: any,
-    seed?: any
+    seed?: any,
+    explicitSettings?: any
   ) => PuzzleData | null;
   getObstacleSegments?: (...args: any[]) => ObstacleSegment[];
+  getObstaclePolygons?: (screens?: number, geometry?: ProceduralGeometry | null) => Point2D[][];
   BackgroundComponent?: any;
   RockComponent?: any;
   ChasmComponent?: any;

@@ -215,39 +215,12 @@
     ]
   },
   {
-    "x": 58,
-    "y": 98,
-    "zone": 9,
-    "isPreset": "treasure",
-    "isTreasure": true
-  },
-  {
-    "x": 63,
-    "y": 98,
-    "zone": 9,
-    "isPreset": "treasure",
-    "isTreasure": true
-  },
-  {
     "x": 68,
-    "y": 98,
+    "y": 97.5,
     "zone": 9,
     "isGoal": true,
-    "isPreset": "treasure",
-    "isTreasure": true
-  },
-  {
-    "x": 73,
-    "y": 98,
-    "zone": 9,
-    "isPreset": "treasure",
-    "isTreasure": true
-  },
-  {
-    "x": 78,
-    "y": 98,
-    "zone": 9,
-    "isPreset": "treasure",
-    "isTreasure": true
+    "isPreset": "cave_exit",
+    "isExit": true,
+    "id": "deep_cave_exit"
   }
 ]

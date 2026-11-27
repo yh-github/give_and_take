@@ -105,8 +105,12 @@ export function getObstacleSegments(
           minX = 31;
           maxX = 69;
         }
+        const gateType = (node as PuzzleEntity).gateType;
+        const isBlockingSight = gateType !== 'chasm' && gateType !== 'guardian';
         pushBoxSegments(segments, minX, maxX, yTop, yBottom, {
           isRock: true,
+          blocksSight: isBlockingSight,
+          gateType: gateType || 'rock',
           rockId: node.id,
           yNode: node.y,
           minX,
@@ -501,12 +505,12 @@ export function computeVisibleEntitiesSet({
             const rockY = Math.max(cb.yTop + 2, Math.min(cb.yBottom - 2, src.y));
             const facingX = src.x < e.x ? cb.xLeft : cb.xRight;
             targetPoint = { x: facingX, y: rockY * yScale };
-            dist = Math.hypot(facingX - src.x, rockY - src.y);
+            dist = Math.hypot(facingX - src.x, (rockY - src.y) * yScale);
           } else {
             const rockX = Math.max(cb.xLeft + 2, Math.min(cb.xRight - 2, src.x));
             const facingY = src.y < e.y ? cb.yTop : cb.yBottom;
             targetPoint = { x: rockX, y: facingY * yScale };
-            dist = Math.hypot(rockX - src.x, facingY - src.y);
+            dist = Math.hypot(rockX - src.x, (facingY - src.y) * yScale);
           }
         } else {
           let rockX = e.x;
@@ -516,11 +520,11 @@ export function computeVisibleEntitiesSet({
           }
           const facingY = src.y < e.y ? e.y - 1.5 : e.y + 1.5;
           targetPoint = { x: rockX, y: facingY * yScale };
-          dist = Math.hypot(rockX - src.x, facingY - src.y);
+          dist = Math.hypot(rockX - src.x, (facingY - src.y) * yScale);
         }
       } else {
         targetPoint = { x: e.x, y: e.y * yScale };
-        dist = Math.hypot(e.x - src.x, e.y - src.y);
+        dist = Math.hypot(e.x - src.x, (e.y - src.y) * yScale);
       }
 
       if (dist > src.radius) continue;

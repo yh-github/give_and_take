@@ -10,7 +10,7 @@ import type {
 
 export type RequirementType = 'AND' | 'OR';
 export type GateType = 'rock' | 'chasm' | 'guardian' | (string & {});
-export type PresetType = 'pickaxe' | 'mushroom' | 'bubble_vent' | 'treasure' | 'kelp' | 'starfish' | 'doubloon' | 'spyglass';
+export type PresetType = 'pickaxe' | 'mushroom' | 'bubble_vent' | 'treasure' | 'kelp' | 'starfish' | 'doubloon' | 'spyglass' | 'cave_exit';
 
 export interface OrbitConfig {
   rx: number;
@@ -51,6 +51,7 @@ export interface MapNode {
   isExtraRock?: boolean;
   isGoal?: boolean;
   isGoalNode?: boolean;
+  isExit?: boolean;
   isClamNode?: boolean;
   isVent?: boolean;
   isPreset?: PresetType | boolean | (string & {});
@@ -90,6 +91,7 @@ export interface AbstractPuzzleEntity {
   isGatekeeper?: boolean;
   isExtraRock?: boolean;
   isGoal?: boolean;
+  isExit?: boolean;
   isPreset?: PresetType | boolean | (string & {});
   isRepeatable?: boolean;
   isVent?: boolean;
